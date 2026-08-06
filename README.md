@@ -1,9 +1,19 @@
-# discord.go
+<p align="center">
+  <img src="docs/public/logo.svg" alt="discord.go" width="180">
+</p>
 
-`discord.go` is a typed Go library for building Discord applications. It
-provides both a low-level Discord API foundation and a high-level bot facade.
+<h1 align="center">discord.go</h1>
 
-**Current release:** `v0.9.0-beta.5`
+<p align="center">
+  A typed Go library for building Discord applications.<br>
+  Low-level Discord API foundation and high-level bot facade.
+</p>
+
+<p align="center">
+  <strong>Current release:</strong> <code>v0.9.0-beta.5</code>
+</p>
+
+---
 
 This is a public beta. The API is usable for bot applications, but the project
 does not yet claim complete official Discord REST endpoint and model coverage.

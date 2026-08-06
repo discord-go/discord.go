@@ -1,4 +1,8 @@
-# discord.go Documentation
+<p align="center">
+  <img src="/logo.svg" alt="discord.go" width="160">
+</p>
+
+<h1 align="center">discord.go Documentation</h1>
 
 ## Overview
 

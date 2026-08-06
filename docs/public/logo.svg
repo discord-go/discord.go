@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Background circle -->
+  <circle cx="128" cy="128" r="120" fill="#5865f2"/>
+
+  <!-- Left ear -->
+  <ellipse cx="90" cy="48" rx="13" ry="24" fill="#4752c4"/>
+  <ellipse cx="90" cy="50" rx="6" ry="14" fill="#3c45a5"/>
+
+  <!-- Right ear -->
+  <ellipse cx="166" cy="48" rx="13" ry="24" fill="#4752c4"/>
+  <ellipse cx="166" cy="50" rx="6" ry="14" fill="#3c45a5"/>
+
+  <!-- Left arm -->
+  <path d="M 62 152 Q 46 162 50 180 Q 54 190 66 186" fill="none" stroke="#4752c4" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- Right arm -->
+  <path d="M 194 152 Q 210 165 210 182" fill="none" stroke="#4752c4" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- Body -->
+  <ellipse cx="128" cy="132" rx="72" ry="76" fill="#5865f2"/>
+
+  <!-- Belly -->
+  <ellipse cx="128" cy="148" rx="48" ry="44" fill="#c7ccf9"/>
+
+  <!-- Left cheek -->
+  <circle cx="86" cy="138" r="11" fill="#ff7b8a" opacity="0.65"/>
+  <!-- Right cheek -->
+  <circle cx="170" cy="138" r="11" fill="#ff7b8a" opacity="0.65"/>
+
+  <!-- Left eye -->
+  <ellipse cx="106" cy="106" rx="17" ry="21" fill="white"/>
+  <circle cx="109" cy="109" r="10" fill="#2b2b3a"/>
+  <circle cx="112" cy="105" r="4" fill="white"/>
+
+  <!-- Right eye -->
+  <ellipse cx="150" cy="106" rx="17" ry="21" fill="white"/>
+  <circle cx="147" cy="109" r="10" fill="#2b2b3a"/>
+  <circle cx="150" cy="105" r="4" fill="white"/>
+
+  <!-- Nose (dark, visible against lavender belly) -->
+  <ellipse cx="128" cy="126" rx="8" ry="5" fill="#2b2b3a"/>
+
+  <!-- Smile -->
+  <path d="M 112 136 Q 128 148 144 136" stroke="#2b2b3a" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Buck teeth -->
+  <rect x="119" y="138" width="7" height="10" rx="1.5" fill="white" stroke="#2b2b3a" stroke-width="1.2"/>
+  <rect x="130" y="138" width="7" height="10" rx="1.5" fill="white" stroke="#2b2b3a" stroke-width="1.2"/>
+
+  <!-- Code card (absolute position, no transform) -->
+  <rect x="196" y="168" width="46" height="34" rx="5" fill="#2b2b3a" stroke="#4752c4" stroke-width="2"/>
+  <text x="219" y="190" font-family="monospace" font-size="15" font-weight="bold" fill="#7983f5" text-anchor="middle">go</text>
+
+  <!-- Left foot -->
+  <ellipse cx="100" cy="206" rx="19" ry="10" fill="#3c45a5"/>
+  <!-- Right foot -->
+  <ellipse cx="156" cy="206" rx="19" ry="10" fill="#3c45a5"/>
+
+  <!-- Sparkles -->
+  <circle cx="204" cy="72" r="2.5" fill="white" opacity="0.8"/>
+  <circle cx="216" cy="84" r="1.5" fill="white" opacity="0.8"/>
+  <circle cx="52" cy="84" r="2" fill="white" opacity="0.8"/>
+</svg>

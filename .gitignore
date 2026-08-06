@@ -19,3 +19,6 @@ bin/
 logs/
 *.sqlite
 *.db
+node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
