@@ -1,0 +1,21 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Go outputs and coverage
+*.out
+*.test
+coverage.html
+c.out
+bin/
+
+# Editor and OS files
+.idea/
+.vscode/settings.json
+.DS_Store
+
+# Local example output
+logs/
+*.sqlite
+*.db
