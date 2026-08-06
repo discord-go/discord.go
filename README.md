@@ -71,10 +71,10 @@ func main() {
 
 ## Documentation
 
-The complete tutorial site is under [`docs/`](docs/README.md). Start with the
-high-level [`bot` guides](docs/high-level/README.md) for application code or
-the [`low-level guides`](docs/low-level/README.md) for protocol and REST work.
-Runnable examples are organized under [`docs/examples/`](docs/examples/README.md).
+The complete tutorial site is under [`docs/`](docs/). Start with the high-level
+[`bot` guides](docs/high-level/) for application code or the
+[`low-level guides`](docs/low-level/) for protocol and REST work. Runnable
+examples are organized under [`docs/examples/`](docs/examples/).
 
 ## Development
 

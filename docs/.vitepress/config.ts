@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'discord.go',
   description: 'A typed Go library for building Discord applications',
+  base: '/discord.go/',
   cleanUrls: true,
   lastUpdated: true,
 
