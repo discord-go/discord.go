@@ -75,6 +75,11 @@ func main() {
 
 ## Shared Safety Rules
 
+- **Use `interactions.VerifyRequest`, not `VerifySignature`, for incoming HTTP
+  interaction webhooks.** `VerifySignature` checks only the Ed25519 signature
+  and allows replay attacks. `VerifyRequest` additionally enforces timestamp
+  freshness (5-minute window) to reject replayed requests. If you use
+  `interactions.Server`, this is handled automatically.
 - Treat custom IDs, selected values, and modal values as untrusted input.
 - Authorize a component at click time; rendering a button is not authorization.
 - Keep custom IDs stable and short. Put sensitive or long-lived state in server

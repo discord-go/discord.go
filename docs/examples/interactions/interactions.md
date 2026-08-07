@@ -138,6 +138,10 @@ methods already acknowledge the interaction.
 
 ## Production Checklist
 
+- **Verify incoming interaction webhooks with `interactions.VerifyRequest`, not
+  `VerifySignature`.** `VerifyRequest` enforces both the Ed25519 signature and
+  timestamp freshness to prevent replay attacks. If you use
+  `interactions.Server` as your HTTP handler, this is handled automatically.
 - Validate guild, channel, actor, message, and resource ownership in each route.
 - Use a timeout for external work and make the final operation idempotent.
 - Use guild-scoped command synchronization while developing fast-changing
