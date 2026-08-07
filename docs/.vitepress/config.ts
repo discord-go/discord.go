@@ -184,6 +184,7 @@ export default defineConfig({
           { text: 'Building Your First Bot', link: '/examples/first-bot' },
           { text: 'Best Practices', link: '/examples/best-practices' },
           { text: 'Troubleshooting', link: '/examples/troubleshooting' },
+          { text: 'FAQ', link: '/faq' },
           { text: 'Glossary', link: '/examples/glossary' },
         ],
       },

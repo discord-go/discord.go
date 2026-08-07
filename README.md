@@ -97,78 +97,8 @@ examples are organized under [docs/examples/](docs/examples/).
 API reference is available on
 [pkg.go.dev](https://pkg.go.dev/github.com/discord-go/discord.go).
 
-## FAQ
-
-**How long do global slash commands take to propagate?**
-
-Up to one hour. Use `bot.WithGuildCommandSync(guildID)` during development for
-near-instant propagation.
-
-**What intents do I need?**
-
-`intents.Guilds` for slash commands. Add `intents.GuildMessages` and
-`intents.MessageContent` for prefix commands. Voice requires
-`intents.GuildVoiceStates`.
-
-**How do I shard?**
-
-Use `bot.WithShards(count)` or set `numShards` to 0 for automatic detection
-via the `gateway/bot` endpoint. Shards start with 5-second delays between
-concurrency buckets.
-
-**How do I handle interaction security?**
-
-Use `interactions.VerifyRequest` (not `VerifySignature`) to validate incoming
-interaction webhooks. `VerifyRequest` enforces both the Ed25519 signature and
-timestamp freshness to prevent replay attacks. For a complete HTTP server,
-use `interactions.NewServer(publicKey, handler)` which verifies signatures
-and timestamps automatically, handles pings, and dispatches to your handler.
-
-**How do I configure voice?**
-
-Voice requires `intents.GuildVoiceStates`. Use `bot.JoinVoiceChannel` to
-join, then create a `voice.Client` from the voice server update event. The
-library handles AES-256-GCM transport encryption (with a cached cipher.AEAD
-for performance) and DAVE MLS end-to-end encryption.
-
-## Troubleshooting
-
-**Bot connects but commands don't appear.**
-
-Global commands take up to an hour to propagate. Use
-`bot.WithGuildCommandSync(guildID)` for development.
-
-**`401 Unauthorized` on REST calls.**
-
-Ensure the token is set correctly and includes the `Bot` prefix only if
-required. `rest.New` defaults to `AuthBot` mode. Use
-`client.SetBearerToken` for OAuth2 bearer tokens.
-
-**`403 Forbidden` on interaction responses.**
-
-Interaction tokens expire after 15 minutes. Respond within Discord's deadline
-(3 seconds for initial response), then use followups.
-
-**`429 Too Many Requests`.**
-
-The library handles rate limits automatically with bucket hashing and retry.
-If you still see 429s, you may be hitting the global 50 req/s limit. Reduce
-concurrency or add delays between batch operations.
-
-**Gateway disconnects with code 4004.**
-
-Authentication failed. Check that the bot token is valid and not expired.
-
-**Gateway disconnects with code 4014.**
-
-Disallowed intent(s). Enable the required privileged intents in the Discord
-Developer Portal under Bot > Privileged Gateway Intents.
-
-**`bot: token format is invalid` on Start.**
-
-The token does not have the expected three-segment format. Verify the token
-is copied correctly from the Discord Developer Portal. Bot tokens have three
-dot-separated segments.
+See the [FAQ](docs/faq.md) and [Troubleshooting](docs/examples/troubleshooting.md)
+pages for common questions and solutions.
 
 ## Development
 
