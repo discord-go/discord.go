@@ -1,5 +1,4 @@
 import { defineConfig } from 'vitepress'
-import { sitemap } from 'vitepress-plugin-sitemap'
 
 export default defineConfig({
   title: 'discord.go',
@@ -340,7 +339,6 @@ export default defineConfig({
   },
 
   sitemap: {
-    hostname: 'https://discord-go.github.io',
-    baseDir: '/discord.go/',
+    hostname: 'https://discord-go.github.io/discord.go',
   },
 })
