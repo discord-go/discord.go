@@ -89,8 +89,9 @@ manager.
 ## API Walkthrough
 
 The public API is `ShardManager`, `NewShardManager`, `Start`, `Shutdown`,
-`Broadcast`, `JoinVoiceChannel`, `Shard`, `NumShards`, all configuration
-setters, `CalculateShardID`, `CalculateShards`, `ShardID`, and `ShardDelay`.
+`Broadcast`, `JoinVoiceChannel`, `JoinVoiceChannelContext`, `Shard`,
+`NumShards`, all configuration setters, `CalculateShardID`, `CalculateShards`,
+`ShardID`, and `ShardDelay`.
 
 ## Examples
 

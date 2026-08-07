@@ -83,13 +83,14 @@ and refresh them when authorization changes.
 
 OAuth2 bearer tokens are not bot tokens and must not be passed to a bot-token
 REST client without calling `SetBearerToken`. An empty `state` disables the
-CSRF correlation value. The package does not cache, revoke automatically, or
+CSRF correlation value — use `GenerateState()` to create a cryptographically
+random state string. The package does not cache, revoke automatically, or
 interpret `ExpiresIn` into a timer.
 
 ## API Walkthrough
 
 The complete exported API is `AuthorizeURL`, `TokenURL`, `RevokeURL`, `Config`,
-`Client`, `New`, `TokenResponse`, `AuthorizationInfo`,
+`Client`, `New`, `GenerateState`, `TokenResponse`, `AuthorizationInfo`,
 `AuthorizationURL`, `ExchangeCode`, `RefreshToken`, `RevokeToken`,
 `CurrentUser`, `CurrentUserGuilds`, `CurrentApplication`, and
 `CurrentAuthorization`.

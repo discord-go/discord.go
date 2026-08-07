@@ -1,6 +1,7 @@
 package http
 
 import (
+	"crypto/tls"
 	"io"
 	"net/http"
 	"strconv"
@@ -26,11 +27,21 @@ type DefaultClient struct {
 
 // NewClient creates a new DefaultClient with the specified User-Agent.
 func NewClient(userAgent string) *DefaultClient {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	// Discord REST requests go to a single host. The default
+	// MaxIdleConnsPerHost of 2 is too low for concurrent REST calls and
+	// causes connection churn.
+	transport.MaxIdleConnsPerHost = 32
+	// Enforce TLS 1.2 as the minimum for a library handling auth tokens.
+	transport.TLSClientConfig.MinVersion = tls.VersionTLS12
 	return &DefaultClient{
 		HTTPClient: &http.Client{
-			Transport: &LoggingTransport{
-				Base: http.DefaultTransport,
+			Transport: &Transport{
+				Base: transport,
 			},
+			// Default timeout for REST requests. Callers can override this
+			// by providing their own http.Client via rest.New.
+			Timeout: 30 * time.Second,
 		},
 		UserAgent: userAgent,
 		Retrier:   NewDefaultRetrier(3),

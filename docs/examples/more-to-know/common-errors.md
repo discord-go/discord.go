@@ -74,8 +74,9 @@ func main() {
 
 ## Error Categories
 
-- `bot.ErrMissingToken`, `ErrBotAlreadyRunning`, and `ErrBotNotRunning` describe
-  lifecycle state.
+- `bot.ErrMissingToken`, `ErrInvalidToken`, `ErrBotAlreadyRunning`, and
+  `ErrBotNotRunning` describe lifecycle state. `ErrInvalidToken` is returned
+  when the token does not have the expected three-segment format.
 - `bot.ErrInteractionAlreadyResponded` means the initial callback was already
   accepted; use `Followup` or an edit instead.
 - `bot.ErrCollectorClosed` describes a collector that was cancelled before a

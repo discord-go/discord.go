@@ -123,8 +123,8 @@ The router synchronizes the registered commands after READY. `/hello` reads its 
 ## Related Pages
 
 - [Examples Overview](README.md)
-- [Basic Client](basic-client.md)
-- [Buttons](buttons.md)
+- [Basic Client](../setup/basic-client.md)
+- [Buttons](../interactions/buttons.md)
 - [Autocomplete](autocomplete.md)
 - [Moderation](moderation.md)
 - [Complete source: `examples/slash_commands/main.go`](../code/slash_commands/main.go)

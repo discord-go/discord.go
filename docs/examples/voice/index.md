@@ -228,8 +228,8 @@ The bot connects, joins the configured voice channel, logs its voice state sessi
 ## Related Pages
 
 - [Examples Overview](README.md)
-- [Basic Client](basic-client.md)
-- [Gateway](gateway.md)
+- [Basic Client](../setup/basic-client.md)
+- [Gateway](../more-to-know/gateway.md)
 - [Complete bot voice facade: `bot/voice.go`](../../../bot/voice.go)
 - [Voice client source: `voice/client.go`](../../../voice/client.go)
 - [Voice server payload: `voice/session.go`](../../../voice/session.go)

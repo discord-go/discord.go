@@ -148,6 +148,6 @@ The bot registers four guild-only moderation commands. Authorized users receive 
 
 - [Examples Overview](README.md)
 - [Slash Commands](slash-commands.md)
-- [Full Template](full-template.md)
+- [Full Template](../advanced/full-template.md)
 - [Complete source: `examples/moderation/main.go`](../code/moderation/main.go)
 - [REST client source](../../rest/client.go)

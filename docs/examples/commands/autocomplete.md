@@ -25,4 +25,4 @@ Return a small, fast result set. Use `FocusedOption` and do not perform long dat
 ## Related Pages
 
 - [Interactions](../interactions/interactions.md)
-- [Slash Commands](../slash-commands.md)
+- [Slash Commands](../commands/slash-commands.md)

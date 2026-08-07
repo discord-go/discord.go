@@ -10,7 +10,7 @@ import (
 
 // Client is a Discord REST API client.
 type Client struct {
-	Token      string
+	token      string
 	AuthMode   AuthMode
 	HTTPClient http.Client
 	Limiter    ratelimit.Limiter
@@ -33,13 +33,13 @@ const (
 // New creates a new REST client.
 func New(token string, limiter ratelimit.Limiter, httpClient http.Client) *Client {
 	if httpClient == nil {
-		httpClient = http.NewClient("DiscordBot (https://github.com/discord-go, 1.0)")
+		httpClient = http.NewClient("DiscordBot (https://github.com/discord-go, " + http.Version + ")")
 	}
 	if limiter == nil {
 		limiter = ratelimit.NewLimiter(ratelimit.NewMemoryStore())
 	}
 	return &Client{
-		Token:      token,
+		token:      token,
 		AuthMode:   AuthBot,
 		HTTPClient: httpClient,
 		Limiter:    limiter,
@@ -47,14 +47,21 @@ func New(token string, limiter ratelimit.Limiter, httpClient http.Client) *Clien
 	}
 }
 
+// SetToken sets the authentication token. The token is stored unexported
+// and is only accessible via the internal request path. Treat the token
+// as a secret: do not log it or commit it to version control.
+func (c *Client) SetToken(token string) {
+	c.token = token
+}
+
 // SetBearerToken configures OAuth2 bearer authentication.
 func (c *Client) SetBearerToken(token string) {
-	c.Token = token
+	c.token = token
 	c.AuthMode = AuthBearer
 }
 
 // SetBotToken configures bot-token authentication.
 func (c *Client) SetBotToken(token string) {
-	c.Token = token
+	c.token = token
 	c.AuthMode = AuthBot
 }

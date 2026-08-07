@@ -29,7 +29,7 @@ type Client struct {
 	Session     *Session
 	Heartbeater *Heartbeater
 
-	Token   string
+	token   string
 	Intents intents.Intent
 	Shard   []int
 	Cache   cache.Cache
@@ -44,6 +44,14 @@ type Client struct {
 	sendMu      sync.Mutex
 	sendTimes   [120]time.Time
 	sendTimeIdx int
+}
+
+// SetToken sets the bot token used for gateway identification. The token
+// is stored unexported and is only accessible via the internal gateway
+// path. Treat the token as a secret: do not log it or commit it to
+// version control.
+func (c *Client) SetToken(token string) {
+	c.token = token
 }
 
 // NewClient creates a new Client.
@@ -119,9 +127,9 @@ func (c *Client) Start(ctx context.Context) error {
 
 		// Reconnect
 		url := c.GatewayURL
-		if c.Session != nil && c.Session.CanResume() && err != ErrInvalidSession {
+		if c.Session != nil && c.Session.CanResume() && !errors.Is(err, ErrInvalidSession) {
 			url = c.Session.ResumeURL()
-		} else if err == ErrInvalidSession && c.Session != nil {
+		} else if errors.Is(err, ErrInvalidSession) && c.Session != nil {
 			c.Session.Reset()
 		}
 
@@ -151,11 +159,17 @@ type RequestGuildMembersData struct {
 
 // RequestGuildMembers sends a request to fetch guild members.
 func (c *Client) RequestGuildMembers(data RequestGuildMembersData) error {
+	return c.RequestGuildMembersContext(context.Background(), data)
+}
+
+// RequestGuildMembersContext sends a request to fetch guild members with the
+// given context, allowing cancellation of the underlying gateway send.
+func (c *Client) RequestGuildMembersContext(ctx context.Context, data RequestGuildMembersData) error {
 	b, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
-	return c.Send(context.Background(), GatewayPayload{Op: OpcodeRequestGuildMembers, Data: b})
+	return c.Send(ctx, GatewayPayload{Op: OpcodeRequestGuildMembers, Data: b})
 }
 
 // VoiceStateUpdateData represents the payload to join or leave a voice channel.
@@ -168,6 +182,12 @@ type VoiceStateUpdateData struct {
 
 // JoinVoiceChannel sends an Opcode 4 VoiceStateUpdate.
 func (c *Client) JoinVoiceChannel(guildID, channelID snowflake.ID, mute, deaf bool) error {
+	return c.JoinVoiceChannelContext(context.Background(), guildID, channelID, mute, deaf)
+}
+
+// JoinVoiceChannelContext sends an Opcode 4 VoiceStateUpdate with the given
+// context, allowing cancellation of the underlying gateway send.
+func (c *Client) JoinVoiceChannelContext(ctx context.Context, guildID, channelID snowflake.ID, mute, deaf bool) error {
 	payloadData := map[string]interface{}{
 		"guild_id":  guildID.String(),
 		"self_mute": mute,
@@ -182,7 +202,7 @@ func (c *Client) JoinVoiceChannel(guildID, channelID snowflake.ID, mute, deaf bo
 	if err != nil {
 		return err
 	}
-	return c.Send(context.Background(), GatewayPayload{Op: OpcodeVoiceStateUpdate, Data: b})
+	return c.Send(ctx, GatewayPayload{Op: OpcodeVoiceStateUpdate, Data: b})
 }
 
 // Send sends a GatewayPayload to the gateway, enforcing payload size (4096 bytes) and rate limit (120/60s).

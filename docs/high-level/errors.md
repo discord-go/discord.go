@@ -84,9 +84,10 @@ Call `OnError` to add observers without replacing the default callback. The
 `ErrorHandler` type is `func(error)`.
 
 For direct operations, check the returned error. Use `errors.Is` for sentinel
-errors such as `ErrMissingToken`, `ErrBotAlreadyRunning`,
+errors such as `ErrMissingToken`, `ErrInvalidToken`, `ErrBotAlreadyRunning`,
 `ErrBotNotRunning`, and `ErrInteractionAlreadyResponded`; use `errors.As` for
-`*HandlerPanicError` and REST `*rest.APIError`.
+`*HandlerPanicError` and REST `*rest.APIError`. `ErrInvalidToken` is returned
+by `Start` when the token does not have the expected three-segment format.
 
 ## Using
 
@@ -189,7 +190,7 @@ if errors.Is(err, bot.ErrInteractionAlreadyResponded) {
 - `WithLogger(*log.Logger) bot.Option` chooses the lifecycle and default error
   logger; nil restores the standard logger.
 - `HandlerPanicError` has `Event` and `Value` fields and implements `Error()`.
-- `ErrMissingToken`, `ErrBotAlreadyRunning`, `ErrBotNotRunning`,
+- `ErrMissingToken`, `ErrInvalidToken`, `ErrBotAlreadyRunning`, `ErrBotNotRunning`,
   `ErrInteractionAlreadyResponded`, and `ErrCollectorClosed` are exported
   sentinel errors for common state failures.
 - `rest.APIError` has `Code`, `Message`, `Errors`, and `HTTPStatus`; use

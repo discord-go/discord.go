@@ -123,6 +123,6 @@ The examples are excerpts; the linked source is the complete runnable program.
 
 - [Examples Overview](README.md)
 - [Buttons](buttons.md)
-- [Collectors](collectors.md)
-- [Full Template](full-template.md)
+- [Collectors](../more-to-know/collectors.md)
+- [Full Template](../advanced/full-template.md)
 - [Complete source: `examples/v2_components/main.go`](../code/v2_components/main.go)

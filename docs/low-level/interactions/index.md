@@ -4,9 +4,9 @@
 
 The `interactions` package models incoming Discord interactions and the JSON
 used to answer them. It includes `Interaction`, command definitions and option
-types, callback data, response callback types, a slash-command builder, and
-Ed25519 request verification. It does not run an HTTP server and does not
-manage interaction tokens; use REST interaction methods for callback delivery.
+types, callback data, response callback types, a slash-command builder,
+Ed25519 request verification, and an `http.Handler` that receives and verifies
+interaction webhooks automatically.
 
 ## Architecture
 
@@ -88,7 +88,50 @@ ephemeral; flags are bit values, not callback types.
 Verify an interaction before unmarshaling or acting on its body. The signature
 message is the UTF-8 timestamp concatenated directly with the raw request
 body. `VerifySignature` expects hex accepted by `encoding/hex`, returns false
-for invalid lengths or encoding, and never returns an error.
+for invalid lengths or encoding, and never returns an error. It verifies the
+cryptographic signature but does not check timestamp freshness.
+
+Use `VerifyRequest` for incoming HTTP requests. It calls `VerifySignature`
+and additionally rejects timestamps older or newer than `MaxTimestampSkew`
+(5 minutes) relative to the verifier's clock, preventing replay attacks:
+
+```go
+valid := interactions.VerifyRequest(publicKeyHex, timestamp, signatureHex, body, time.Now())
+```
+
+## HTTP Server
+
+The `interactions.Server` is an `http.Handler` that receives Discord
+interaction webhooks, verifies their Ed25519 signature and timestamp
+freshness, and dispatches them to a handler. It auto-responds to pings
+(type 1) with a pong and defaults to a deferred response if the handler
+returns nil.
+
+```go
+package main
+
+import (
+	"net/http"
+
+	"github.com/discord-go/discord.go/interactions"
+)
+
+func main() {
+	publicKey := "your-app-public-key"
+	srv := interactions.NewServer(publicKey, func(i *interactions.Interaction) *interactions.InteractionResponse {
+		switch i.Type {
+		case interactions.InteractionTypeApplicationCommand:
+			return &interactions.InteractionResponse{
+				Type: interactions.InteractionCallbackTypeChannelMessageWithSource,
+				Data: &interactions.InteractionCallbackData{Content: "Hello!"},
+			}
+		}
+		return nil // auto-defer
+	})
+	http.Handle("/interactions", srv)
+	http.ListenAndServe(":8080", nil)
+}
+```
 
 ## Best Practices
 
@@ -96,6 +139,8 @@ Acknowledge an interaction within Discord's deadline, then use the interaction
 token for follow-ups. Preserve raw `Data` until the interaction type is known.
 Validate option names and choice values before registration. Treat tokens,
 signature headers, and custom IDs as secrets or untrusted input respectively.
+Use `interactions.Server` or `VerifyRequest` (not `VerifySignature` alone)
+for incoming HTTP requests to prevent replay attacks.
 
 ## Common Mistakes
 
@@ -113,7 +158,8 @@ The exported API is `Interaction`, `InteractionType` and constants,
 `ApplicationCommandInteractionDataOption`, `InteractionCallbackData`,
 `InteractionCallbackType` and constants, `InteractionResponse`,
 `InteractionContextType` and constants, `SlashCommandBuilder` and all its
-builder methods, and `VerifySignature`.
+builder methods, `VerifySignature`, `VerifyRequest`, `MaxTimestampSkew`,
+`Server`, `NewServer`, and `InteractionHandler`.
 
 ## Examples
 

@@ -92,7 +92,9 @@ a secure token with an empty environment variable.
 
 ## Common Patterns
 
-- Validate the token explicitly before `NewFromConfig` or `Run`.
+- Validate the token explicitly before `NewFromConfig` or `Run`. `Start`
+  returns `ErrInvalidToken` if the token does not have three dot-separated
+  segments.
 - Use guild command sync in a development config and global sync in production.
 - Keep intent defaults close to the feature that needs them.
 - Use `WithRESTClient`, `WithLogger`, and `WithErrorHandler` as options after

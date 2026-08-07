@@ -16,11 +16,13 @@ time, reset-after duration, global status, and scope. `ParseHeaders` reads
 remaining and reset time.
 
 `NewLimiter(store)` creates a limiter. It enforces a 50-request-per-second
-process-wide window and tracks route locks. Once a response supplies a bucket
-hash, the route is mapped to the hash so aliases share state. `Wait` honors
-context cancellation while sleeping for global or bucket resets; unknown
-buckets proceed immediately. `Update` records the parsed response and global
-reset.
+process-wide global limit using `golang.org/x/time/rate.Limiter` (a token
+bucket) and tracks route locks. The token bucket allows concurrent goroutines
+to reserve tokens in parallel without serializing through a global mutex.
+Once a response supplies a bucket hash, the route is mapped to the hash so
+aliases share state. `Wait` honors context cancellation while sleeping for
+global or bucket resets; unknown buckets proceed immediately. `Update`
+records the parsed response and global reset.
 
 ## Quick Start
 

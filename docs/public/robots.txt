@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://discord-go.github.io/discord.go/sitemap.xml

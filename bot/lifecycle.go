@@ -24,6 +24,9 @@ func (b *Bot) Start(ctx context.Context) error {
 	if strings.TrimSpace(b.token) == "" {
 		return ErrMissingToken
 	}
+	if !isValidBotToken(b.token) {
+		return ErrInvalidToken
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -105,7 +108,7 @@ func (b *Bot) Start(ctx context.Context) error {
 		client = gateway.NewClient(conn, dispatcher)
 		client.Session = gateway.NewSession()
 		client.Cache = b.cacheStore
-		client.Token = b.token
+		client.SetToken(b.token)
 		client.Intents = b.intentsVal
 		client.GatewayURL = gatewayURL
 		client.ConnFactory = connect

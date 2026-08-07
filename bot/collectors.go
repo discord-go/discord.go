@@ -19,6 +19,9 @@ type InteractionFilter func(*InteractionContext) bool
 // MessageFilter decides whether a message should be collected.
 type MessageFilter func(*MessageContext) bool
 
+// ReactionFilter decides whether a reaction should be collected.
+type ReactionFilter func(*ReactionContext) bool
+
 type interactionCollector struct {
 	filter InteractionFilter
 	result chan *InteractionContext
@@ -27,6 +30,11 @@ type interactionCollector struct {
 type messageCollector struct {
 	filter MessageFilter
 	result chan *MessageContext
+}
+
+type reactionCollector struct {
+	filter ReactionFilter
+	result chan *ReactionContext
 }
 
 // AwaitInteraction waits for one interaction matching filter or context
@@ -106,6 +114,49 @@ func (b *Bot) publishMessage(message *MessageContext) {
 		select {
 		case collector.result <- message:
 			delete(b.messageCollectors, id)
+		default:
+		}
+	}
+	b.collectorMu.Unlock()
+}
+
+// AwaitReaction waits for one reaction matching filter or context
+// cancellation. It is useful for confirmation prompts, pagination, and
+// reaction-based menus.
+func (b *Bot) AwaitReaction(ctx context.Context, filter ReactionFilter) (*ReactionContext, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	result := make(chan *ReactionContext, 1)
+	id := b.subscriptions.Add(1)
+	b.collectorMu.Lock()
+	if b.reactionCollectors == nil {
+		b.reactionCollectors = make(map[uint64]reactionCollector)
+	}
+	b.reactionCollectors[id] = reactionCollector{filter: filter, result: result}
+	b.collectorMu.Unlock()
+	defer func() {
+		b.collectorMu.Lock()
+		delete(b.reactionCollectors, id)
+		b.collectorMu.Unlock()
+	}()
+	select {
+	case reaction := <-result:
+		return reaction, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (b *Bot) publishReaction(reaction *ReactionContext) {
+	b.collectorMu.Lock()
+	for id, collector := range b.reactionCollectors {
+		if collector.filter != nil && !collector.filter(reaction) {
+			continue
+		}
+		select {
+		case collector.result <- reaction:
+			delete(b.reactionCollectors, id)
 		default:
 		}
 	}

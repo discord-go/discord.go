@@ -132,7 +132,7 @@ Use `MustCommand` only for static startup definitions where a programming error 
 
 - [Main File](main-file.md) focuses on lifecycle composition.
 - [Creating Commands](creating-commands.md) adds typed options.
-- [Full Template](../full-template.md) shows a multi-file repository example.
+- [Full Template](../advanced/full-template.md) shows a multi-file repository example.
 - [Template source](../code/v2_template/main.go) demonstrates split registration files.
 
 ## Related Pages

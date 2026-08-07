@@ -134,8 +134,8 @@ The router must be attached before the bot receives `READY`.
 ## Examples
 
 - [Project Setup](project-setup.md) shows feature registration.
-- [Gateway](../gateway.md) uses explicit subscriptions and shutdown.
-- [Full Template](../full-template.md) demonstrates production-oriented wiring.
+- [Gateway](../more-to-know/gateway.md) uses explicit subscriptions and shutdown.
+- [Full Template](../advanced/full-template.md) demonstrates production-oriented wiring.
 
 ## Related Pages
 

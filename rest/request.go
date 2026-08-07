@@ -78,8 +78,8 @@ func (c *Client) request(ctx context.Context, method, path string, body any, v a
 			return err
 		}
 
-		if authenticate && c.AuthMode != AuthNone && c.Token != "" {
-			req.Header.Set("Authorization", string(c.AuthMode)+" "+c.Token)
+		if authenticate && c.AuthMode != AuthNone && c.token != "" {
+			req.Header.Set("Authorization", string(c.AuthMode)+" "+c.token)
 		}
 		if reqBodyBytes != nil {
 			req.Header.Set("Content-Type", "application/json")

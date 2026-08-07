@@ -140,7 +140,7 @@ Bulk overwrite treats the slice as the source of truth; omitting a command delet
 
 - [Adding Your App](../setup/adding-your-app.md) uses automatic guild sync.
 - [Creating Commands](creating-commands.md) builds command options.
-- [Slash Commands](../slash-commands.md) explains global propagation.
+- [Slash Commands](../commands/slash-commands.md) explains global propagation.
 - [REST command source](../../../rest/commands.go) lists all deployment methods.
 
 ## Related Pages

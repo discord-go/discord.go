@@ -159,8 +159,8 @@ The template logs READY and errors, registers the Components V2 command catalog,
 ## Related Pages
 
 - [Examples Overview](README.md)
-- [Basic Client](basic-client.md)
-- [Slash Commands](slash-commands.md)
-- [Components V2](components-v2.md)
-- [Moderation](moderation.md)
+- [Basic Client](../setup/basic-client.md)
+- [Slash Commands](../commands/slash-commands.md)
+- [Components V2](../interactions/components-v2.md)
+- [Moderation](../commands/moderation.md)
 - [Complete template source](../code/v2_template/main.go)

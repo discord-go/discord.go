@@ -192,6 +192,7 @@ type Bot struct {
 	collectorMu           sync.Mutex
 	interactionCollectors map[uint64]interactionCollector
 	messageCollectors     map[uint64]messageCollector
+	reactionCollectors    map[uint64]reactionCollector
 	jobsMu                sync.Mutex
 	jobs                  map[uint64]context.CancelFunc
 
@@ -374,7 +375,7 @@ func New(token string, opts ...Option) *Bot {
 		b.Rest = rest.New(token, nil, nil)
 	}
 	if b.errorHandler == nil {
-		b.errorHandler = func(err error) { b.logger.Printf("bot: %v", err) }
+		b.errorHandler = func(err error) { b.logger.Printf("bot: %s", b.redactToken(err.Error())) }
 	}
 	if b.router != nil {
 		b.router.setErrorHandler(b.reportError)

@@ -208,6 +208,10 @@ if ctx.IsMessageComponent() {
   deferred forms, `UpdateMessage`, autocomplete, `Modal`, and
   `LaunchActivity`. `interactions.VerifySignature` verifies an Ed25519 HTTP
   interaction request from a public key, timestamp, signature, and body.
+  `interactions.VerifyRequest` additionally checks timestamp freshness to
+  prevent replay attacks. `interactions.Server` is an `http.Handler` that
+  verifies signatures and timestamps automatically, handles pings, and
+  dispatches to a user-provided handler.
 
 ## Examples
 

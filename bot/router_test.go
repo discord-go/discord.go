@@ -79,7 +79,7 @@ func TestInteractionOptionsPreserveSnowflakePrecision(t *testing.T) {
 
 func TestBotLifecycleWithInjectedConnection(t *testing.T) {
 	connection := newBlockingConnection()
-	b := New("token", WithConnectionFactory(func(string) (gateway.Connection, error) {
+	b := New("MTIz.NjQ1.abc123", WithConnectionFactory(func(string) (gateway.Connection, error) {
 		return connection, nil
 	}), WithCommandSyncDisabled())
 
@@ -100,6 +100,13 @@ func TestBotLifecycleWithInjectedConnection(t *testing.T) {
 func TestBotStartRequiresToken(t *testing.T) {
 	if err := New("").Start(nil); !errors.Is(err, ErrMissingToken) {
 		t.Fatalf("Start() error = %v, want ErrMissingToken", err)
+	}
+}
+
+func TestBotStartRejectsInvalidTokenFormat(t *testing.T) {
+	// A token without three dot-separated segments is not a valid bot token.
+	if err := New("not-a-valid-token").Start(nil); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("Start() error = %v, want ErrInvalidToken", err)
 	}
 }
 

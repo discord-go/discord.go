@@ -148,9 +148,9 @@ The corrected code bounds application work even if a command payload is malforme
 
 ## Examples
 
-- [Slash Commands](../slash-commands.md) combines options with permission middleware.
-- [Autocomplete](../autocomplete.md) handles focused option queries.
-- [Moderation](../moderation.md) validates user targets before REST actions.
+- [Slash Commands](../commands/slash-commands.md) combines options with permission middleware.
+- [Autocomplete](../commands/autocomplete.md) handles focused option queries.
+- [Moderation](../commands/moderation.md) validates user targets before REST actions.
 - [Context-menu commands](../../low-level/interactions/README.md) explains the underlying interaction model.
 
 ## Related Pages

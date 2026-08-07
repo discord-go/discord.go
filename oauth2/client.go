@@ -3,12 +3,15 @@ package oauth2
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/discord-go/discord.go/application"
 	"github.com/discord-go/discord.go/guilds"
@@ -46,9 +49,22 @@ type AuthorizationInfo struct {
 
 func New(config Config) *Client {
 	if config.HTTPClient == nil {
-		config.HTTPClient = http.DefaultClient
+		config.HTTPClient = &http.Client{
+			Timeout: 30 * time.Second,
+		}
 	}
 	return &Client{Config: config}
+}
+
+// GenerateState generates a cryptographically random state string for use
+// in OAuth2 CSRF protection. The state should be stored in the user's session
+// before redirecting to Discord, and verified when Discord redirects back.
+func GenerateState() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("oauth2: failed to generate state: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 
 func (c *Client) AuthorizationURL(scopes []string, state string) string {

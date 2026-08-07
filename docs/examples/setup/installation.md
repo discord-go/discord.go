@@ -125,7 +125,7 @@ Running the package with `go run .` includes all Go files in the package and cat
 
 ## Examples
 
-- [Basic Client](../basic-client.md) is the smallest source-backed bot.
+- [Basic Client](../setup/basic-client.md) is the smallest source-backed bot.
 - [Project Setup](../commands/project-setup.md) shows a maintainable application layout.
 - [`go.mod`](../../../go.mod) documents this checkout's module and toolchain.
 

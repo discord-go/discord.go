@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { sitemap } from 'vitepress-plugin-sitemap'
 
 export default defineConfig({
   title: 'discord.go',
@@ -10,13 +11,30 @@ export default defineConfig({
   head: [
     ['meta', { name: 'theme-color', content: '#5865f2' }],
     ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
+    ['meta', { property: 'og:title', content: 'discord.go' }],
+    ['meta', { property: 'og:description', content: 'A typed Go library for building Discord applications' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:url', content: 'https://discord-go.github.io/discord.go/' }],
+    ['meta', { property: 'og:image', content: 'https://discord-go.github.io/discord.go/og-image.png' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: 'discord.go' }],
+    ['meta', { name: 'twitter:description', content: 'A typed Go library for building Discord applications' }],
+    ['meta', { name: 'twitter:image', content: 'https://discord-go.github.io/discord.go/og-image.png' }],
   ],
 
   srcDir: '.',
   outDir: '.vitepress/dist',
 
-  // Ignore dead links to .go source files, example code, and other non-docs content
-  ignoreDeadLinks: true,
+  // Allow dead links to .go source files and other non-docs content.
+  // VitePress cannot resolve links to source files; these are intentional.
+  ignoreDeadLinks: [
+    /^https?:\/\//,
+    /\.go$/,
+    /\.json$/,
+    /\.svg$/,
+    /\.png$/,
+    /go\.mod$/,
+  ],
 
   themeConfig: {
     logo: '/logo.svg',
@@ -158,7 +176,16 @@ export default defineConfig({
           { text: 'Overview', link: '/examples/advanced/' },
           { text: 'Full Template', link: '/examples/advanced/full-template' },
           { text: 'OAuth2 Authorization Code Flow', link: '/examples/advanced/oauth2' },
+          { text: 'OAuth2 Tutorial', link: '/examples/oauth2-tutorial' },
           { text: 'Gateway Sharding', link: '/examples/advanced/sharding' },
+          { text: 'Sharding Guide', link: '/examples/sharding-guide' },
+          { text: 'REST Recipes', link: '/examples/rest-recipes' },
+          { text: 'Cache Guide', link: '/examples/cache-guide' },
+          { text: 'Webhook Examples', link: '/examples/webhooks/webhook-examples' },
+          { text: 'Building Your First Bot', link: '/examples/first-bot' },
+          { text: 'Best Practices', link: '/examples/best-practices' },
+          { text: 'Troubleshooting', link: '/examples/troubleshooting' },
+          { text: 'Glossary', link: '/examples/glossary' },
         ],
       },
       {
@@ -192,17 +219,25 @@ export default defineConfig({
           { text: 'Commands And Routing', link: '/high-level/commands' },
           { text: 'Interaction Responses And Data', link: '/high-level/interactions' },
           { text: 'Components And Components V2', link: '/high-level/components' },
+          { text: 'Components V2 Guide', link: '/high-level/components-v2-guide' },
           { text: 'Buttons', link: '/high-level/buttons' },
           { text: 'Modals And Text Inputs', link: '/high-level/modals' },
           { text: 'Collectors And Jobs', link: '/high-level/collectors' },
           { text: 'Permissions And Middleware', link: '/high-level/permissions' },
+          { text: 'Middleware Guide', link: '/high-level/middleware-guide' },
           { text: 'Lifecycle And Shutdown', link: '/high-level/lifecycle' },
           { text: 'Presence And Latency', link: '/high-level/presence' },
           { text: 'Caching', link: '/high-level/caching' },
           { text: 'Resource Access', link: '/high-level/resources' },
           { text: 'Embeds And Rich Messages', link: '/high-level/embeds' },
           { text: 'Voice State Control', link: '/high-level/voice' },
+          { text: 'Voice Guide', link: '/high-level/voice-guide' },
           { text: 'Errors And Recovery', link: '/high-level/errors' },
+          { text: 'Error Handling Guide', link: '/high-level/error-handling' },
+          { text: 'Security', link: '/high-level/security' },
+          { text: 'Performance', link: '/high-level/performance' },
+          { text: 'Testing', link: '/high-level/testing' },
+          { text: 'Anti-Patterns', link: '/high-level/anti-patterns' },
         ],
       },
       {
@@ -252,6 +287,19 @@ export default defineConfig({
       message: 'Released under the Apache License 2.0.',
       copyright: 'Copyright © 2026 discord.go contributors',
     },
+
+    lastUpdated: {
+      text: 'Last updated',
+      formatOptions: {
+        dateStyle: 'short',
+        forceLocale: true,
+      },
+    },
+
+    editLink: {
+      pattern: 'https://github.com/discord-go/discord.go/edit/main/docs/:path',
+      text: 'Edit this page on GitHub',
+    },
   },
 
   markdown: {
@@ -289,5 +337,10 @@ export default defineConfig({
         })
       })
     },
+  },
+
+  sitemap: {
+    hostname: 'https://discord-go.github.io',
+    baseDir: '/discord.go/',
   },
 })

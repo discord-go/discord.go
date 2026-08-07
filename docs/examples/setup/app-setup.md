@@ -124,9 +124,9 @@ Add `MessageContent` only when the bot reads message text, and enable the privil
 
 ## Examples
 
-- [Basic Client](../basic-client.md) connects and responds to `/ping`.
-- [Gateway](../gateway.md) explains typed and generic dispatch handlers.
-- [Full Template](../full-template.md) adds presence and configuration.
+- [Basic Client](../setup/basic-client.md) connects and responds to `/ping`.
+- [Gateway](../more-to-know/gateway.md) explains typed and generic dispatch handlers.
+- [Full Template](../advanced/full-template.md) adds presence and configuration.
 
 ## Related Pages
 

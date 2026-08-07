@@ -34,8 +34,8 @@ func (m *mockHTTPClient) Post(url, contentType string, body io.Reader) (*http.Re
 
 func TestNew(t *testing.T) {
 	c := New("token", nil, nil)
-	if c.Token != "token" {
-		t.Errorf("Expected token to be 'token', got %s", c.Token)
+	if c.token != "token" {
+		t.Errorf("Expected token to be 'token', got %s", c.token)
 	}
 	if c.HTTPClient == nil {
 		t.Error("Expected HTTPClient to be initialized")

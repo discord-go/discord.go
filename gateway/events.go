@@ -259,7 +259,7 @@ func (c *Client) readLoop(ctx context.Context) error {
 // sendIdentify sends an Identify (op 2) payload to the gateway.
 func (c *Client) sendIdentify() error {
 	identify := Identify{
-		Token:   c.Token,
+		Token:   c.token,
 		Intents: c.Intents,
 		Shard:   c.Shard,
 		Properties: IdentifyProperties{
@@ -288,7 +288,7 @@ func (c *Client) sendResume() error {
 		return ErrInvalidSession
 	}
 
-	resume := c.Session.ToResume(c.Token)
+	resume := c.Session.ToResume(c.token)
 
 	data, err := json.Marshal(resume)
 	if err != nil {

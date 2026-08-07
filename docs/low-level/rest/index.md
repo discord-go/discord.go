@@ -12,9 +12,11 @@ by endpoint family rather than exposing route concatenation to callers.
 
 `New(token, limiter, httpClient)` uses `Authorization: Bot`, a memory limiter,
 and `http.NewClient` when the optional arguments are nil. It sets
-`BaseURL` to `https://discord.com/api/v10`. `SetBearerToken` changes the mode
-to `Bearer`; `SetBotToken` restores `Bot`. `AuthNone` is used internally by
-no-auth methods and prevents an authorization header.
+`BaseURL` to `https://discord.com/api/v10`. The token is stored in an
+unexported field and is only accessible via the internal request path.
+`SetBearerToken` changes the mode to `Bearer`; `SetBotToken` restores `Bot`.
+`SetToken` sets the token without changing the auth mode. `AuthNone` is used
+internally by no-auth methods and prevents an authorization header.
 
 `Request` and `RequestNoAuth` are the JSON escape hatches. Multipart methods
 are described in [`uploads.md`](uploads.md). The client records 401, 403, and
@@ -38,7 +40,7 @@ func main() {
 	c := rest.New("bot-token", nil, nil)
 	fmt.Println(c.BaseURL, c.AuthMode == rest.AuthBot)
 	c.SetBearerToken("oauth-token")
-	fmt.Println(c.AuthMode == rest.AuthBearer, c.Token)
+	fmt.Println(c.AuthMode == rest.AuthBearer)
 	c.SetBotToken("bot-token")
 	fmt.Println(c.AuthMode == rest.AuthBot, context.Background() != nil)
 }
@@ -92,9 +94,10 @@ server-supplied delay; a context can still cancel that wait.
 
 ## API Walkthrough
 
-The API is split into `Client` and auth constructors, request/multipart helpers,
-typed endpoint methods, response models, create/modify/query parameter structs,
-`APIError` and `CaptchaError`, audit-reason helpers, attachment helpers, and
+The API is split into `Client` and auth constructors (`New`, `SetToken`,
+`SetBearerToken`, `SetBotToken`), request/multipart helpers, typed endpoint
+methods, response models, create/modify/query parameter structs, `APIError`
+and `CaptchaError`, audit-reason helpers, attachment helpers, and
 attachment-size constants. [`requests.md`](requests.md),
 [`uploads.md`](uploads.md), and [`endpoints.md`](endpoints.md) document these
 subsections separately so the full exported surface remains navigable.

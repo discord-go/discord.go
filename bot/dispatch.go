@@ -165,6 +165,7 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			return
 		}
 		ctx := &ReactionContext{BaseContext: b.baseContext(), MessageReactionAdd: &reaction}
+		b.publishReaction(ctx)
 		b.mu.RLock()
 		handlers := append([]ReactionHandler(nil), b.reactionHandlers...)
 		b.mu.RUnlock()

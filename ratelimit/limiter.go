@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // Limiter manages Discord API rate limits, blocking requests when buckets are exhausted.
@@ -21,9 +23,11 @@ type limiter struct {
 	globalMu    sync.RWMutex
 	globalReset time.Time
 
-	globalTokensMu sync.Mutex
-	reqTimestamps  [50]time.Time
-	reqIdx         int
+	// globalLimiter enforces Discord's 50 requests/second global limit
+	// using a token bucket. This is more efficient than a mutex-protected
+	// ring buffer because Wait does not hold a lock while sleeping —
+	// concurrent goroutines can reserve tokens in parallel.
+	globalLimiter *rate.Limiter
 
 	bucketLocks sync.Map // map[string]*sync.Mutex
 	routeToHash sync.Map // map[string]string
@@ -35,7 +39,8 @@ func NewLimiter(store Store) Limiter {
 		store = NewMemoryStore()
 	}
 	return &limiter{
-		store: store,
+		store:         store,
+		globalLimiter: rate.NewLimiter(rate.Limit(50), 50),
 	}
 }
 
@@ -61,27 +66,11 @@ func (l *limiter) Wait(ctx context.Context, bucket string) error {
 		}
 	}
 
-	// Enforce 50 requests/second global limit
-	for {
-		l.globalTokensMu.Lock()
-		tNow := time.Now()
-		oldest := l.reqTimestamps[l.reqIdx]
-		var waitDuration time.Duration
-		if !oldest.IsZero() && tNow.Sub(oldest) < time.Second {
-			waitDuration = time.Second - tNow.Sub(oldest)
-		}
-		if waitDuration <= 0 {
-			l.reqTimestamps[l.reqIdx] = tNow
-			l.reqIdx = (l.reqIdx + 1) % len(l.reqTimestamps)
-			l.globalTokensMu.Unlock()
-			break
-		}
-		l.globalTokensMu.Unlock()
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(waitDuration):
-		}
+	// Enforce 50 requests/second global limit using a token bucket.
+	// rate.Limiter.Wait blocks until a token is available, without
+	// holding a global mutex during the wait.
+	if err := l.globalLimiter.Wait(ctx); err != nil {
+		return err
 	}
 
 	if bucket == "" {

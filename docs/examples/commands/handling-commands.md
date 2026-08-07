@@ -154,10 +154,10 @@ _, _ = ctx.Followup("second")
 
 ## Examples
 
-- [Buttons](../buttons.md) updates a component message.
-- [Modals](../modals.md) acknowledges with a modal and handles its submission.
-- [Moderation](../moderation.md) defers before REST actions.
-- [Collectors](../collectors.md) scopes follow-up interaction workflows.
+- [Buttons](../interactions/buttons.md) updates a component message.
+- [Modals](../interactions/modals.md) acknowledges with a modal and handles its submission.
+- [Moderation](../commands/moderation.md) defers before REST actions.
+- [Collectors](../more-to-know/collectors.md) scopes follow-up interaction workflows.
 
 ## Related Pages
 

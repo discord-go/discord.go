@@ -5,17 +5,20 @@
 The `http` package provides the transport boundary used by REST. `Client` is
 the small interface needed by `rest.Client`; `DefaultClient` wraps
 `net/http.Client`, adds a user agent, and retries transient failures through a
-`Retrier`. `LoggingTransport` is a pass-through `http.RoundTripper` that can be
-extended with logging or metrics.
+`Retrier`. `Transport` is a pass-through `http.RoundTripper` that serves as
+an extension point for applications that want to wrap the default transport
+with logging, metrics, or tracing. `LoggingTransport` is a deprecated alias
+for `Transport`.
 
 ## Architecture
 
-`NewClient(userAgent)` creates a default client with a logging transport around
-`http.DefaultTransport` and a `NewDefaultRetrier(3)`. `DefaultClient.Do` adds
-the user agent when the request has none, executes up to the configured retry
-count, recreates a request body through `Request.GetBody`, and honors context
-cancellation while waiting. `Get` and `Post` create standard requests and
-delegate to `Do`.
+`NewClient(userAgent)` creates a default client with a `Transport` wrapping a
+cloned `http.DefaultTransport` (tuned with `MaxIdleConnsPerHost=32` and
+`TLSClientConfig.MinVersion=1.2`) and a `NewDefaultRetrier(3)`. The client
+has a 30-second timeout. `DefaultClient.Do` adds the user agent when the
+request has none, executes up to the configured retry count, recreates a
+request body through `Request.GetBody`, and honors context cancellation
+while waiting. `Get` and `Post` create standard requests and delegate to `Do`.
 
 `DefaultRetrier.ShouldRetry` retries transport errors except context canceled
 and deadline exceeded, plus HTTP 408, 425, 429, 500, 502, 503, and 504. Its
@@ -59,10 +62,11 @@ created with a maximum retry count; a nil retrier disables retry logic.
 
 ## Using Transports
 
-`LoggingTransport.RoundTrip` delegates to `Base`, and uses
+`Transport.RoundTrip` delegates to `Base`, and uses
 `http.DefaultTransport` when `Base` is nil. Wrap it with a custom transport to
 record timing, status, or request IDs, but do not log Authorization headers or
-request bodies containing tokens.
+request bodies containing tokens. `LoggingTransport` is a deprecated alias for
+`Transport`.
 
 ## Common Patterns
 
@@ -81,14 +85,15 @@ custom retrier does not retry authentication or validation failures.
 
 A POST body supplied by a reader without `GetBody` is not safely replayed.
 `Retry-After` is interpreted as seconds. Context cancellation is not retried.
-The package's logging transport currently only passes through; it does not
-automatically emit logs.
+`Transport` is a pass-through; it does not automatically emit logs.
 
 ## API Walkthrough
 
 The public API is `Client`, `DefaultClient`, `NewClient`, `DefaultClient.Do`,
 `Get`, and `Post`; `Retrier`, `DefaultRetrier`, `NewDefaultRetrier`,
-`ShouldRetry`, `Backoff`, and `MaxRetries`; and `LoggingTransport.RoundTrip`.
+`ShouldRetry`, `Backoff`, and `MaxRetries`; `Transport.RoundTrip`; and
+`Version` (the library version used in the default User-Agent).
+`LoggingTransport` is a deprecated alias for `Transport`.
 
 ## Examples
 

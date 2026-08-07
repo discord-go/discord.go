@@ -194,7 +194,11 @@ func (sm *ShardManager) Start(ctx context.Context) error {
 		}
 		req.Header.Set("Authorization", "Bot "+sm.token)
 
-		resp, err := http.DefaultClient.Do(req)
+		// Use a dedicated client with a timeout instead of http.DefaultClient,
+		// which has no timeout and can block indefinitely if the caller's
+		// context has no deadline.
+		gatewayBotClient := &http.Client{Timeout: 30 * time.Second}
+		resp, err := gatewayBotClient.Do(req)
 		if err != nil {
 			return fmt.Errorf("gateway: failed to fetch gateway/bot: %w", err)
 		}
@@ -269,7 +273,7 @@ func (sm *ShardManager) Start(ctx context.Context) error {
 			client.Session = NewSession()
 			client.Cache = sm.cache
 			client.Compressed = sm.compressed
-			client.Token = sm.token
+			client.SetToken(sm.token)
 			client.Intents = sm.intents
 			client.Shard = shardID.ToIdentifyShard()
 			client.IdentifyTracker = sm.identifyTracker
@@ -327,7 +331,7 @@ func (sm *ShardManager) Shutdown(ctx context.Context) error {
 		}
 	}
 
-	sm.shards = sm.shards[:0]
+	sm.shards = nil
 	return firstErr
 }
 

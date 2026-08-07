@@ -71,7 +71,11 @@ machine. `GetState` and `ConnectionState.IsActive` expose lifecycle state;
 Call `SetSpeaking` with `Microphone`, `Soundshare`, `Priority`, or a bitwise
 combination. Maintain sequence, timestamp, SSRC, and nonce counter as the
 client does; callers should send frames through `SendOpus` rather than building
-encrypted packets around stale counters. Received audio can be delivered
+encrypted packets around stale counters. `SendOpus` uses a cached
+`cipher.AEAD` created when the secret key is received, avoiding per-packet
+cipher allocation. The nonce counter is checked for overflow before each
+send — if it reaches `2^32 - 1`, `SendOpus` returns an error instead of
+wrapping to zero and reusing a nonce. Received audio can be delivered
 through `OnAudioPacket` after SSRC mapping. `NewAESGCMEncrypter` exposes a
 generic AES-GCM `Encrypter` with 12-byte nonce normalization.
 

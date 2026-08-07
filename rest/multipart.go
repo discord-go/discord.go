@@ -143,8 +143,8 @@ func (c *Client) requestMultipartForm(ctx context.Context, method, path string, 
 	if err != nil {
 		return err
 	}
-	if c.AuthMode != AuthNone && c.Token != "" {
-		req.Header.Set("Authorization", string(c.AuthMode)+" "+c.Token)
+	if c.AuthMode != AuthNone && c.token != "" {
+		req.Header.Set("Authorization", string(c.AuthMode)+" "+c.token)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	if reason, ok := ReasonFromContext(ctx); ok {
@@ -234,8 +234,8 @@ func (c *Client) requestMultipart(ctx context.Context, method, path string, payl
 			return err
 		}
 
-		if authenticate && c.AuthMode != AuthNone && c.Token != "" {
-			req.Header.Set("Authorization", string(c.AuthMode)+" "+c.Token)
+		if authenticate && c.AuthMode != AuthNone && c.token != "" {
+			req.Header.Set("Authorization", string(c.AuthMode)+" "+c.token)
 		}
 		req.Header.Set("Content-Type", w.FormDataContentType())
 

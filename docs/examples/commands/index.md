@@ -130,11 +130,11 @@ The router normalizes names to lower-case, but `router.Validate` still requires 
 - [Handling Commands](handling-commands.md) covers acknowledgements and follow-ups.
 - [Deploying Commands](deploying-commands.md) uses the REST API explicitly.
 - [Handling Events](handling-events.md) observes Gateway lifecycle and guild events.
-- [Slash Commands](../slash-commands.md) contains a larger command catalog.
+- [Slash Commands](../commands/slash-commands.md) contains a larger command catalog.
 
 ## Related Pages
 
 - [Setup overview](../setup/README.md)
 - [Main File](main-file.md)
 - [Commands examples](../README.md)
-- [Gateway](../gateway.md)
+- [Gateway](../more-to-know/gateway.md)

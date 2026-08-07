@@ -115,9 +115,9 @@ The `-w` flag writes formatting changes, and the package-wide commands check mor
 
 ## Examples
 
-- [Slash Commands](../slash-commands.md) demonstrates validation and middleware.
-- [Gateway](../gateway.md) demonstrates error handling for event decoding.
-- [Full Template](../full-template.md) shows a layout suitable for larger applications.
+- [Slash Commands](../commands/slash-commands.md) demonstrates validation and middleware.
+- [Gateway](../more-to-know/gateway.md) demonstrates error handling for event decoding.
+- [Full Template](../advanced/full-template.md) shows a layout suitable for larger applications.
 
 ## Related Pages
 

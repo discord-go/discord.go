@@ -186,15 +186,63 @@ defer cancelJob()
 
 - `InteractionFilter` is `func(*InteractionContext) bool`.
 - `MessageFilter` is `func(*MessageContext) bool`.
+- `ReactionFilter` is `func(*ReactionContext) bool`.
 - `AwaitInteraction(context.Context, InteractionFilter) (*InteractionContext, error)`
   waits for one matching interaction.
 - `AwaitMessage(context.Context, MessageFilter) (*MessageContext, error)` waits
   for one matching message. Both return the context error on cancellation.
+- `AwaitReaction(context.Context, ReactionFilter) (*ReactionContext, error)`
+  waits for one matching reaction. Useful for confirmation prompts,
+  reaction-based menus, and pagination.
 - `ErrCollectorClosed` describes a closed collector; current waits primarily
   return the supplied context error when cancellation wins the select.
 - `Every(context.Context, time.Duration, func(context.Context)) func()` starts
   a lifecycle-managed ticker job. Invalid intervals or nil jobs return a no-op
   cancellation function.
+
+## Reaction Collector
+
+`AwaitReaction` works like the other collectors: it registers a filter,
+publishes each `MESSAGE_REACTION_ADD` event to matching collectors, and
+returns the first match or the context error.
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+
+reaction, err := b.AwaitReaction(ctx, func(rc *bot.ReactionContext) bool {
+    return rc.MessageID == targetMessageID && rc.Emoji.Name == "✅"
+})
+if err != nil {
+    log.Printf("no reaction received: %v", err)
+    return
+}
+log.Printf("confirmed by %s", reaction.UserID)
+```
+
+## Paginator
+
+The `Paginator` creates a message with prev/next/stop buttons and edits
+it in-place as the user navigates. Pages are provided as a slice of
+`PaginatorPage` structs containing content and optional embeds.
+
+```go
+pages := []bot.PaginatorPage{
+    {Content: "Page 1"},
+    {Content: "Page 2"},
+    {Content: "Page 3"},
+}
+p := b.NewPaginator(channelID, pages,
+    bot.WithPaginatorTimeout(10*time.Minute),
+    bot.WithPaginatorUser(userID), // restrict to one user
+)
+if err := p.Send(ctx); err != nil {
+    log.Printf("paginator error: %v", err)
+}
+```
+
+The paginator blocks until the timeout expires, the user clicks stop,
+or the context is cancelled. Buttons are removed on exit.
 
 ## Examples
 

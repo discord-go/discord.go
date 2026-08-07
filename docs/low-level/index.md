@@ -23,7 +23,7 @@ describe payloads that cross the REST and Gateway boundaries. [`snowflake/`](sno
 is used by most models to preserve Discord IDs. [`json/`](json/README.md) is the
 small serialization seam used by protocol code.
 
-REST calls pass through [`ratelimit/`](ratelimit/README.md) and [`http/`](http/README.md).
+REST calls pass through [`ratelimit/`](ratelimit/) and [`http/`](http/).
 Gateway sessions use [`events/`](events/README.md), [`gateway/heartbeat.md`](gateway/heartbeat.md),
 and [`gateway/shards.md`](gateway/shards.md). Voice is a separate connection
 that is coordinated with Gateway voice-state events; see [`voice/`](voice/README.md).

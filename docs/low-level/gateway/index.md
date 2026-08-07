@@ -48,7 +48,7 @@ func main() {
 	dispatcher := gateway.NewDispatcher()
 	dispatcher.AddHandler(func(ready events.Ready) { fmt.Println(ready.SessionID) })
 	client := gateway.NewClient(&connection{}, dispatcher)
-	client.Token = "example-token"
+	client.SetToken("example-token")
 	client.Intents = intents.Guilds
 	client.Session = gateway.NewSession()
 
@@ -62,12 +62,14 @@ The example sends a local payload only. A real client needs a WebSocket-backed
 
 ## Creating A Client
 
-Set `Token`, `Intents`, `Shard`, `GatewayURL`, `Compressed`, `Session`, and
-`ConnFactory` after `NewClient`. `Send` serializes a `GatewayPayload`, rejects
-payloads over 4096 bytes, enforces the package's 120-per-minute send window,
-and honors context cancellation. `RequestGuildMembers` and
-`JoinVoiceChannel` create the relevant control payloads; a zero channel ID in
-`JoinVoiceChannel` means leave the channel.
+Set the token via `SetToken`, then set `Intents`, `Shard`, `GatewayURL`,
+`Compressed`, `Session`, and `ConnFactory` after `NewClient`. `Send` serializes
+a `GatewayPayload`, rejects payloads over 4096 bytes, enforces the package's
+120-per-minute send window, and honors context cancellation.
+`RequestGuildMembers` and `JoinVoiceChannel` create the relevant control
+payloads; a zero channel ID in `JoinVoiceChannel` means leave the channel.
+Context-accepting variants `RequestGuildMembersContext` and
+`JoinVoiceChannelContext` allow cancellation of the underlying gateway send.
 
 ## Using Sessions And Errors
 
@@ -104,7 +106,8 @@ without fixing authentication or intents.
 ## API Walkthrough
 
 The public API includes `Connection`, `Client`, `NewClient`, `Start`, `Send`,
-`RequestGuildMembers`, `JoinVoiceChannel`, `Dispatcher` and its methods,
+`SetToken`, `RequestGuildMembers`, `RequestGuildMembersContext`,
+`JoinVoiceChannel`, `JoinVoiceChannelContext`, `Dispatcher` and its methods,
 `GatewayPayload`, `Opcode` and constants, `Identify`, `IdentifyProperties`,
 `Resume`, `Session` and its methods, `IdentifyTracker`, close-code constants,
 `ShardManager`, and the Gateway error values. `HelloData`,

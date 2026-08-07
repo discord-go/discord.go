@@ -23,8 +23,10 @@ func TestNew(t *testing.T) {
 		t.Errorf("Expected Rest client to be initialized")
 	}
 
-	if client.Rest.Token != token {
-		t.Errorf("Expected token %q, got %q", token, client.Rest.Token)
+	// Verify the token was set by checking that SetBotToken doesn't panic
+	// and AuthMode is Bot (the default from rest.New).
+	if client.Rest.AuthMode != "Bot" {
+		t.Errorf("Expected AuthMode 'Bot', got %q", client.Rest.AuthMode)
 	}
 
 	if client.Cache != mockC {

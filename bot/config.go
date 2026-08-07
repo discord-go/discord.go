@@ -10,6 +10,11 @@ import (
 
 // Config contains application-owned bot startup settings. It intentionally
 // contains no secrets beyond the token and can be loaded from JSON or env.
+//
+// Security note: the Token field has a JSON tag for config-file loading, but
+// tokens in config files risk accidental commit. Prefer ConfigFromEnv or
+// load the token from a secrets manager and set it via Config.Token before
+// calling NewFromConfig. Never commit a config file containing a token.
 type Config struct {
 	Token           string             `json:"token,omitempty"`
 	Prefix          string             `json:"prefix,omitempty"`

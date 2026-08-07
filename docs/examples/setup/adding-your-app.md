@@ -130,8 +130,8 @@ The correct installation includes the command scope and starts with least privil
 
 ## Examples
 
-- [Slash Commands](../slash-commands.md) demonstrates guild-only and permission middleware.
-- [Moderation](../moderation.md) maps permissions to REST actions.
+- [Slash Commands](../commands/slash-commands.md) demonstrates guild-only and permission middleware.
+- [Moderation](../commands/moderation.md) maps permissions to REST actions.
 - [Deploying Commands](../commands/deploying-commands.md) shows explicit REST synchronization.
 
 ## Related Pages

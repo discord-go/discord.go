@@ -72,7 +72,10 @@ every REST operation and use multipart helpers for attachments.
 
 `webhook.Webhook` and `channels.Webhook` are different types. A webhook token
 is not a bot token. The model does not validate URL, name, or type values and
-does not fetch the webhook.
+does not fetch the webhook. Discord does not sign incoming webhook payloads
+with Ed25519 like it does for interactions — secure webhook endpoints with
+HTTPS, validate the webhook token in the URL path, and consider rate-limiting
+or IP-restricting the endpoint.
 
 ## API Walkthrough
 

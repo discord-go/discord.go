@@ -174,6 +174,6 @@ The bot connects and logs each decodable `MESSAGE_DELETE` payload as a message I
 ## Related Pages
 
 - [Examples Overview](README.md)
-- [Basic Client](basic-client.md)
-- [Voice](voice.md)
+- [Basic Client](../setup/basic-client.md)
+- [Voice](../voice/index.md)
 - [Complete event model: `events/message_events.go`](../../events/message_events.go)

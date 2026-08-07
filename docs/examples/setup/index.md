@@ -141,9 +141,9 @@ Register static routes before `Run`; the bot's command synchronizer reads the ro
 
 ## Examples
 
-- [Basic Client](../basic-client.md) adds prefix and direct message handling.
-- [Slash Commands](../slash-commands.md) expands options, middleware, and deferred responses.
-- [Full Template](../full-template.md) shows configuration and a multi-file layout.
+- [Basic Client](../setup/basic-client.md) adds prefix and direct message handling.
+- [Slash Commands](../commands/slash-commands.md) expands options, middleware, and deferred responses.
+- [Full Template](../advanced/full-template.md) shows configuration and a multi-file layout.
 - [Complete source example](../code/ping/main.go) is a runnable package in this repository.
 
 ## Related Pages

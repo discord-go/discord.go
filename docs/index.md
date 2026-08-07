@@ -139,9 +139,21 @@ related APIs. Resource endpoint groups are listed in
 
 ## Examples
 
-Use [`examples/setup/basic-client.md`](examples/setup/basic-client.md) for the first bot,
+Use [`examples/first-bot.md`](examples/first-bot.md) for a step-by-step tutorial,
+[`examples/setup/basic-client.md`](examples/setup/basic-client.md) for the first bot,
 [`examples/commands/slash-commands.md`](examples/commands/slash-commands.md) for command routing,
 [`examples/interactions/components-v2.md`](examples/interactions/components-v2.md) for modern messages,
+[`high-level/components-v2-guide`](high-level/components-v2-guide) for the V2 deep-dive,
+[`high-level/voice-guide`](high-level/voice-guide) for voice,
+[`high-level/security`](high-level/security) for security practices,
+[`high-level/middleware-guide`](high-level/middleware-guide) for middleware,
+[`high-level/error-handling`](high-level/error-handling) for error handling,
+[`high-level/testing`](high-level/testing) for testing bots,
+[`high-level/performance`](high-level/performance) for performance tuning,
+[`high-level/anti-patterns`](high-level/anti-patterns) for common mistakes,
+[`examples/best-practices.md`](examples/best-practices.md) for consolidated best practices,
+[`examples/troubleshooting.md`](examples/troubleshooting.md) for troubleshooting,
+[`examples/glossary.md`](examples/glossary.md) for term definitions,
 and [`examples/advanced/full-template.md`](examples/advanced/full-template.md) for a larger
 application layout.
 
@@ -149,6 +161,7 @@ application layout.
 
 - [`high-level/client.md`](high-level/client.md)
 - [`high-level/lifecycle.md`](high-level/lifecycle.md)
+- [`high-level/security.md`](high-level/security.md)
 - [`low-level/rest/README.md`](low-level/rest/README.md)
 - [`low-level/gateway/README.md`](low-level/gateway/README.md)
 - [`examples/README.md`](examples/README.md)

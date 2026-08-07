@@ -2,6 +2,8 @@ package voice
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -121,6 +123,7 @@ type Client struct {
 
 	UDP          *UDPConnection
 	SecretKey    [32]byte
+	aead         cipher.AEAD
 	Sequence     uint16
 	Timestamp    uint32
 	SSRC         uint32
@@ -245,6 +248,11 @@ func (c *Client) Connect(ctx context.Context) error {
 			c.mu.Lock()
 			if len(sessionDesc.SecretKey) == 32 {
 				copy(c.SecretKey[:], sessionDesc.SecretKey)
+				if block, err := aes.NewCipher(c.SecretKey[:]); err == nil {
+					if gcm, err := cipher.NewGCM(block); err == nil {
+						c.aead = gcm
+					}
+				}
 			} else if c.Token != "test-bypass" {
 				c.mu.Unlock()
 				return c.failConnect(errors.New("voice: invalid session encryption key"))
@@ -593,8 +601,7 @@ func (c *Client) audioReadLoop() {
 		udp := c.UDP
 		dave := c.DaveSession
 		onAudio := c.OnAudioPacket
-		var key [32]byte
-		copy(key[:], c.SecretKey[:])
+		aead := c.aead
 		c.mu.Unlock()
 
 		if udp == nil {
@@ -668,7 +675,11 @@ func (c *Client) audioReadLoop() {
 		nonce := make([]byte, 12)
 		copy(nonce, packet[n-4:n])
 
-		decrypted, err := DecryptAEAD(key, packet[:headerLen], packet[headerLen:n-4], nonce)
+		if aead == nil {
+			log.Printf("AUDIO_DEBUG: encryption key not set, skipping")
+			continue
+		}
+		decrypted, err := aead.Open(nil, nonce, packet[headerLen:n-4], packet[:headerLen])
 		if err != nil {
 			log.Printf("AUDIO_DEBUG: Transport decryption failed: %v (headerLen=%d, ciphLen=%d)", err, headerLen, n-4-headerLen)
 			continue
@@ -913,8 +924,14 @@ func (c *Client) SendOpus(opus []byte) error {
 	seq := c.Sequence
 	ts := c.Timestamp
 	ssrc := c.SSRC
-	var key [32]byte
-	copy(key[:], c.SecretKey[:])
+	aead := c.aead
+	// Prevent nonce reuse: if the counter is at its maximum value, the
+	// next increment would wrap to 0 and reuse a nonce, breaking GCM.
+	// The caller must re-establish the voice session to get a new key.
+	if c.NonceCounter == ^uint32(0) {
+		c.mu.Unlock()
+		return errors.New("voice: nonce counter overflow, reconnection required")
+	}
 	nonce := c.NonceCounter
 	c.Sequence++
 	c.Timestamp += 960
@@ -923,6 +940,9 @@ func (c *Client) SendOpus(opus []byte) error {
 
 	if udp == nil {
 		return errors.New("voice: udp not connected")
+	}
+	if aead == nil {
+		return errors.New("voice: encryption key not set")
 	}
 	if c.DaveSession != nil && !c.DaveSession.Ready() {
 		return errors.New("voice: DAVE session not ready")
@@ -945,11 +965,19 @@ func (c *Client) SendOpus(opus []byte) error {
 		}
 	}
 
-	// Transport encryption (AES-256-GCM)
-	packet, err := EncryptAEAD(key, hdrBytes, payload, nonce)
-	if err != nil {
-		return err
-	}
+	// Transport encryption (AES-256-GCM) using cached cipher.AEAD
+	nonceBytes := make([]byte, 12)
+	binary.BigEndian.PutUint32(nonceBytes[0:4], nonce)
+
+	ciphertext := aead.Seal(nil, nonceBytes, payload, hdrBytes)
+
+	nonceSuffix := make([]byte, 4)
+	binary.BigEndian.PutUint32(nonceSuffix, nonce)
+
+	packet := make([]byte, len(hdrBytes)+len(ciphertext)+4)
+	copy(packet, hdrBytes)
+	copy(packet[len(hdrBytes):], ciphertext)
+	copy(packet[len(hdrBytes)+len(ciphertext):], nonceSuffix)
 
 	return udp.Write(packet)
 }

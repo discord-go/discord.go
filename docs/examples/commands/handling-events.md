@@ -143,14 +143,14 @@ Handlers can overlap; synchronize application-owned state.
 
 ## Examples
 
-- [Gateway](../gateway.md) decodes `MESSAGE_DELETE` through a generic event route.
-- [Basic Client](../basic-client.md) combines commands and message events.
-- [Voice](../voice.md) demonstrates voice lifecycle events.
+- [Gateway](../more-to-know/gateway.md) decodes `MESSAGE_DELETE` through a generic event route.
+- [Basic Client](../setup/basic-client.md) combines commands and message events.
+- [Voice](../voice/index.md) demonstrates voice lifecycle events.
 - [Event models](../../low-level/events/README.md) documents low-level payload types.
 
 ## Related Pages
 
 - [Main File](main-file.md)
 - [Handling Commands](handling-commands.md)
-- [Gateway](../gateway.md)
+- [Gateway](../more-to-know/gateway.md)
 - [Intents](../../low-level/intents/README.md)
