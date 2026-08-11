@@ -687,6 +687,14 @@ func (i *InteractionContext) EditReply(content string) (*messages.Message, error
 	return i.EditReplyComplex(rest.EditMessageParams{Content: &content})
 }
 
+// EditReplyText edits the original interaction response's text content,
+// discarding the returned message. This is a convenience for handlers that
+// only need to know whether the edit succeeded.
+func (i *InteractionContext) EditReplyText(content string) error {
+	_, err := i.EditReply(content)
+	return err
+}
+
 // EditReplyComplex edits the original interaction response with full control.
 func (i *InteractionContext) EditReplyComplex(params rest.EditMessageParams) (*messages.Message, error) {
 	ctx, cancel := i.newCtx()

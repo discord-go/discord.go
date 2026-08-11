@@ -36,6 +36,9 @@ type CreateGuildRoleParams struct {
 
 // CreateGuildChannelParams is used for creating a guild channel within a guild,
 // or as part of CreateGuildParams.
+//
+// Discord limits channel names to 100 characters. Names longer than 100
+// characters will be rejected by the API with a 400 error.
 type CreateGuildChannelParams struct {
 	Name                 string               `json:"name"`
 	Type                 channels.ChannelType `json:"type,omitempty"`
