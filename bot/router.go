@@ -183,6 +183,7 @@ type Router struct {
 	selects        map[string]*InteractionRoute
 	selectPrefixes []*InteractionRoute
 	modals         map[string]*InteractionRoute
+	modalPrefixes  []*InteractionRoute
 	autocomplete   map[string]*InteractionRoute
 }
 
@@ -302,6 +303,17 @@ func (r *Router) Modal(customID string, handler InteractionHandler) *Interaction
 	route := r.interactionRoute(customID, handler)
 	r.mu.Lock()
 	r.modals[customID] = route
+	r.mu.Unlock()
+	return route
+}
+
+// ModalPrefix registers a modal handler for IDs beginning with prefix.
+// This is useful for dynamic modal IDs like `supreq_stop_modal_<requestID>`
+// where the request ID is appended at runtime.
+func (r *Router) ModalPrefix(prefix string, handler InteractionHandler) *InteractionRoute {
+	route := r.interactionRoute(prefix, handler)
+	r.mu.Lock()
+	r.modalPrefixes = append(r.modalPrefixes, route)
 	r.mu.Unlock()
 	return route
 }
@@ -502,27 +514,20 @@ func (r *Router) handleInteraction(ctx *InteractionContext) bool {
 	case ctx.IsButton():
 		route = r.buttons[ctx.CustomID()]
 		if route == nil {
-			for _, candidate := range r.buttonPrefixes {
-				if strings.HasPrefix(ctx.CustomID(), candidate.ID) {
-					route = candidate
-					break
-				}
-			}
+			route = matchPrefix(r.buttonPrefixes, ctx.CustomID())
 		}
 		ok = route != nil
 	case ctx.IsSelectMenu():
 		route = r.selects[ctx.CustomID()]
 		if route == nil {
-			for _, candidate := range r.selectPrefixes {
-				if strings.HasPrefix(ctx.CustomID(), candidate.ID) {
-					route = candidate
-					break
-				}
-			}
+			route = matchPrefix(r.selectPrefixes, ctx.CustomID())
 		}
 		ok = route != nil
 	case ctx.IsModalSubmit():
 		route = r.modals[ctx.CustomID()]
+		if route == nil {
+			route = matchPrefix(r.modalPrefixes, ctx.CustomID())
+		}
 		ok = route != nil
 	}
 	r.mu.RUnlock()
@@ -752,4 +757,19 @@ func parsePrefixArgs(input string) ([]string, error) {
 		args = append(args, current.String())
 	}
 	return args, nil
+}
+
+// matchPrefix finds the longest matching prefix route for the given custom ID.
+// This ensures that overlapping prefixes (e.g. "supreq_cost_" and
+// "supreq_cost_done_") resolve to the most specific handler.
+func matchPrefix(routes []*InteractionRoute, customID string) *InteractionRoute {
+	var best *InteractionRoute
+	bestLen := -1
+	for _, candidate := range routes {
+		if strings.HasPrefix(customID, candidate.ID) && len(candidate.ID) > bestLen {
+			best = candidate
+			bestLen = len(candidate.ID)
+		}
+	}
+	return best
 }

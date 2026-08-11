@@ -48,3 +48,27 @@ Discord API v10. The gateway URL includes `v=10` and the REST base URL is
 ## What Go version is required?
 
 Go 1.26 or newer, as declared in `go.mod`.
+
+## How do I handle dynamic modal IDs?
+
+Use `Router.ModalPrefix(prefix, handler)` to match modal submissions by
+prefix. For example, `ModalPrefix("supreq_stop_modal_", handler)` matches
+`supreq_stop_modal_abc123`. Prefix matching uses longest-match-first, so
+overlapping prefixes resolve to the most specific handler.
+
+## How do I send an ephemeral response with embeds and components?
+
+Use `ctx.ReplyEphemeralComplex(data)` which sets the ephemeral flag
+automatically. This is the complex counterpart to `ctx.ReplyEphemeral(content)`.
+
+## Can I configure the interaction response timeout?
+
+Yes. Use `bot.WithInteractionTimeout(d)` when creating the bot. The default
+is 3 seconds (matching Discord's deadline). Note that Discord enforces its
+own 3-second deadline regardless — if you need more time, call `Defer` first,
+then do I/O, then use `EditReply` or `Followup`.
+
+## How do I safely access the first embed on a message?
+
+Use `msg.FirstEmbed()` which returns `(Embed, bool)` and handles nil
+messages and empty embed slices without panicking.

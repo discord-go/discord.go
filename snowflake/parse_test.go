@@ -33,3 +33,29 @@ func TestParse(t *testing.T) {
 		})
 	}
 }
+
+func TestMustParse(t *testing.T) {
+	id := MustParse("123456789")
+	if id != 123456789 {
+		t.Errorf("expected 123456789, got %d", id)
+	}
+}
+
+func TestMustParsePanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected MustParse to panic on invalid input")
+		}
+	}()
+	MustParse("not-a-number")
+}
+
+func TestIsZero(t *testing.T) {
+	var zero ID
+	if !zero.IsZero() {
+		t.Error("expected zero ID to be zero")
+	}
+	if ID(123).IsZero() {
+		t.Error("expected non-zero ID to not be zero")
+	}
+}

@@ -528,6 +528,20 @@ func (i *InteractionContext) ReplyComplex(data *interactions.InteractionCallback
 	})
 }
 
+// ReplyEphemeralComplex sends a fully customized interaction response that is
+// visible only to the invoker. This is the complex counterpart to
+// ReplyEphemeral, allowing embeds and components in an ephemeral response.
+func (i *InteractionContext) ReplyEphemeralComplex(data *interactions.InteractionCallbackData) error {
+	if data == nil {
+		return errors.New("bot: interaction response data is nil")
+	}
+	data.Flags |= messages.FlagEphemeral
+	return i.respond(&interactions.InteractionResponse{
+		Type: interactions.InteractionCallbackTypeChannelMessageWithSource,
+		Data: data,
+	})
+}
+
 // ReplyComplexWithFiles sends an initial interaction response with attachments.
 func (i *InteractionContext) ReplyComplexWithFiles(data *interactions.InteractionCallbackData, files ...rest.File) error {
 	if data == nil {
@@ -597,7 +611,11 @@ func (i *InteractionContext) respond(response *interactions.InteractionResponse)
 }
 
 func (i *InteractionContext) responseCtx() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(i.Context(), 3*time.Second)
+	d := 3 * time.Second
+	if i.Bot != nil && i.Bot.interactionTimeout > 0 {
+		d = i.Bot.interactionTimeout
+	}
+	return context.WithTimeout(i.Context(), d)
 }
 
 // Update edits the message that triggered a component interaction.

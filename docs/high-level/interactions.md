@@ -212,6 +212,22 @@ if ctx.IsMessageComponent() {
   prevent replay attacks. `interactions.Server` is an `http.Handler` that
   verifies signatures and timestamps automatically, handles pings, and
   dispatches to a user-provided handler.
+- `InteractionContext` response methods: `Reply`, `ReplyEphemeral`,
+  `ReplyComplex`, `ReplyEphemeralComplex` (complex response with ephemeral
+  flag), `ReplyEmbed`, `Defer`, `DeferEphemeral`, `Update`, `ShowModal`.
+  Follow-up methods: `Followup`, `FollowupEphemeral`, `FollowupEmbed`,
+  `FollowupComplex`. `messages.Message.FirstEmbed()` safely accesses the
+  first embed without index-out-of-range panics.
+- `Router` component registration: `Button`/`ButtonPrefix`,
+  `Select`/`SelectPrefix`, `Modal`/`ModalPrefix`. Prefix matching uses
+  longest-match-first, so overlapping prefixes resolve to the most specific
+  handler. `bot.WithInteractionTimeout` makes the 3-second initial response
+  deadline configurable.
+- `snowflake.MustParse(s)` panics on invalid input; `snowflake.ID.IsZero()`
+  tests for an unset snowflake. `permissions.Permission.String()` returns
+  the decimal string for channel permission overwrites.
+  `ApplicationCommandOption` has an `Options` field for nested subcommand
+  options.
 
 ## Examples
 

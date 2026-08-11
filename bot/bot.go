@@ -174,6 +174,11 @@ type Bot struct {
 	presenceMu  sync.Mutex
 	presence    *PresenceUpdate
 
+	// interactionTimeout is the deadline for initial interaction responses.
+	// Discord requires a response within 3 seconds; this defaults to 3s but
+	// can be extended for handlers that do I/O before responding.
+	interactionTimeout time.Duration
+
 	lifecycleMu sync.Mutex
 	stateMu     sync.RWMutex
 	state       BotState
@@ -348,6 +353,16 @@ func WithGuildCommandSync(guildID snowflake.ID) Option {
 	return WithCommandSync(CommandSyncConfig{Mode: CommandSyncGuild, GuildID: guildID})
 }
 
+// WithInteractionTimeout sets the deadline for initial interaction responses.
+// Discord requires a response within 3 seconds; the default is 3s. Increase
+// this only if your handlers do I/O (e.g. database queries) before calling
+// Reply, Defer, or ShowModal. Note that Discord enforces its own 3-second
+// deadline regardless — if you need more time, call Defer first, then do I/O,
+// then use EditReply or Followup.
+func WithInteractionTimeout(d time.Duration) Option {
+	return func(b *Bot) { b.interactionTimeout = d }
+}
+
 // New creates a new Bot instance.
 func New(token string, opts ...Option) *Bot {
 	b := &Bot{
@@ -360,6 +375,7 @@ func New(token string, opts ...Option) *Bot {
 			Mode:    CommandSyncGlobal,
 			Timeout: 30 * time.Second,
 		},
+		interactionTimeout:    3 * time.Second,
 		eventHandlers:         make(map[string][]eventSubscription),
 		readyCh:               make(chan struct{}),
 		interactionCollectors: make(map[uint64]interactionCollector),

@@ -34,6 +34,12 @@ discord.go.
 - Set `WithMaxHandlerConcurrency` to bound goroutine creation.
 - Handle panics via the error handler.
 - Use collectors for button/select/menu flows with timeouts.
+- Use `Router.ModalPrefix` for dynamic modal IDs (e.g. `supreq_modal_<id>`).
+- Use `ctx.ReplyEphemeralComplex` for ephemeral responses with embeds/components.
+- Use `msg.FirstEmbed()` instead of `msg.Embeds[0]` to avoid index panics.
+- Use `snowflake.MustParse` for config constants, `snowflake.Parse` for untrusted input.
+- Use `snowflake.ID.IsZero()` instead of `id == 0` for readability.
+- Use `permissions.Permission.String()` for channel permission overwrites.
 
 ## REST Usage
 

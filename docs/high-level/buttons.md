@@ -12,7 +12,9 @@ a bot route.
 `components.ButtonBuilder` creates a `components.Button`. The button travels in
 an action row inside `messages.MessageSend.Components` or
 `interactions.InteractionCallbackData.Components`. `bot.Router.Button` matches
-one exact custom ID and `ButtonPrefix` matches the first registered prefix.
+one exact custom ID and `ButtonPrefix` matches the longest registered prefix,
+so overlapping prefixes (e.g. `supreq_cost_` and `supreq_cost_done_`) resolve
+to the most specific handler.
 Handlers receive `*bot.InteractionContext`; `UpdateContent` edits the message
 that contained the button, while `Reply` sends a separate interaction response.
 

@@ -1,7 +1,15 @@
 package permissions
 
+import "strconv"
+
 // Permission represents a 64-bit integer containing multiple Discord permission flags.
 type Permission uint64
+
+// String returns the decimal string representation of the permission bitfield.
+// This is the format Discord expects in channel permission overwrites.
+func (p Permission) String() string {
+	return strconv.FormatUint(uint64(p), 10)
+}
 
 // Add adds the given permissions to the bitfield.
 func (p *Permission) Add(permissions Permission) {

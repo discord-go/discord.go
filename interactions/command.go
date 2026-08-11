@@ -44,6 +44,7 @@ type ApplicationCommandOption struct {
 	MinLength                int                              `json:"min_length,omitempty"`
 	MaxLength                int                              `json:"max_length,omitempty"`
 	ChannelTypes             []int                            `json:"channel_types,omitempty"`
+	Options                  []ApplicationCommandOption       `json:"options,omitempty"`
 }
 
 // ApplicationCommand represents a Discord application command.

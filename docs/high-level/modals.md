@@ -188,7 +188,11 @@ value := ctx.ModalValue("name")
   `Reply`, `ReplyEphemeral`, `Defer`, `EditReply`, and `Followup` are the core
   submit-handler methods.
 - `Router.Modal(customID string, handler InteractionHandler) *InteractionRoute`
-  registers an exact modal route.
+  registers an exact modal route. `Router.ModalPrefix(prefix string, handler
+  InteractionHandler) *InteractionRoute` registers a prefix-matched modal
+  route for dynamic modal IDs like `supreq_stop_modal_<requestID>`. Prefix
+  matching uses longest-match-first, so overlapping prefixes resolve to the
+  most specific handler.
 
 ## Examples
 

@@ -139,3 +139,13 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+
+// FirstEmbed returns the first embed on the message, or false if the
+// message has no embeds. This is a safe accessor that avoids index-out-of-
+// range panics when a message's embeds were edited or removed externally.
+func (m *Message) FirstEmbed() (Embed, bool) {
+	if m == nil || len(m.Embeds) == 0 {
+		return Embed{}, false
+	}
+	return m.Embeds[0], true
+}

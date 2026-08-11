@@ -73,3 +73,15 @@ func TestPermission_HasAll(t *testing.T) {
 		t.Error("Expected HasAll(0) to be true")
 	}
 }
+
+func TestPermissionString(t *testing.T) {
+	p := Permission(8)
+	if p.String() != "8" {
+		t.Errorf("expected \"8\", got %q", p.String())
+	}
+
+	var zero Permission
+	if zero.String() != "0" {
+		t.Errorf("expected \"0\", got %q", zero.String())
+	}
+}

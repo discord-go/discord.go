@@ -11,3 +11,14 @@ func Parse(s string) (ID, error) {
 	}
 	return ID(parsed), nil
 }
+
+// MustParse parses a string representation of a Discord snowflake and panics
+// on error. Use it only for compile-time constants or config values known
+// to be valid; for untrusted input, use Parse.
+func MustParse(s string) ID {
+	id, err := Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
