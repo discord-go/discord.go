@@ -8,6 +8,7 @@ import (
 	"github.com/discord-go/discord.go/channels"
 	"github.com/discord-go/discord.go/guilds"
 	"github.com/discord-go/discord.go/messages"
+	"github.com/discord-go/discord.go/rest"
 	"github.com/discord-go/discord.go/snowflake"
 	"github.com/discord-go/discord.go/users"
 )
@@ -25,6 +26,14 @@ func (b *Bot) GatewayLatency() time.Duration {
 		return 0
 	}
 	return client.Heartbeater.Ping()
+}
+
+// RestClient returns the REST API client. The client is initialized during
+// New and is safe to use immediately after construction, before Start or Run
+// is called. This accessor provides a consistent method-based API alongside
+// the public Rest field.
+func (b *Bot) RestClient() *rest.Client {
+	return b.Rest
 }
 
 // APILatency measures a lightweight REST request to the current-user endpoint.

@@ -16,10 +16,13 @@ dispatch, `Op` is 0, `Data` is the raw JSON object, `Seq` is the sequence, and
 `MessageCreate`, `MessageUpdate`, `MessageDelete`, `MessageReactionAdd`,
 `InteractionCreate`, and `GuildAuditLogEntryCreate`.
 
-The wrappers embed the corresponding model where possible. `MessageCreate`
-adds `GuildID`, `MessageReactionAdd` contains IDs and an `emojis.Emoji`, and
-`GuildAuditLogEntryCreate` adds `GuildID`. `MessageCreate.UnmarshalJSON` and
-the embedded model unmarshalers handle nested components and string IDs.
+The wrappers embed the corresponding model where possible. `Ready` includes
+`V`, `User`, `Guilds` (the array of partial guild objects Discord sends at
+READY time, each with `Unavailable` set to true), and `SessionID`.
+`MessageCreate` adds `GuildID`, `MessageReactionAdd` contains IDs and an
+`emojis.Emoji`, and `GuildAuditLogEntryCreate` adds `GuildID`.
+`MessageCreate.UnmarshalJSON` and the embedded model unmarshalers handle
+nested components and string IDs.
 
 ## Quick Start
 
@@ -79,10 +82,11 @@ low-level package.
 
 ## API Walkthrough
 
-The complete exported API is `Event`, `Ready`, `GuildCreate`, `GuildUpdate`,
-`GuildDelete`, `ChannelCreate`, `ChannelUpdate`, `MessageCreate` and its
-`UnmarshalJSON`, `MessageUpdate`, `MessageDelete`, `MessageReactionAdd`,
-`InteractionCreate`, and `GuildAuditLogEntryCreate`.
+The complete exported API is `Event`, `Ready` (with `V`, `User`, `Guilds`,
+and `SessionID` fields), `GuildCreate`, `GuildUpdate`, `GuildDelete`,
+`ChannelCreate`, `ChannelUpdate`, `MessageCreate` and its `UnmarshalJSON`,
+`MessageUpdate`, `MessageDelete`, `MessageReactionAdd`, `InteractionCreate`,
+and `GuildAuditLogEntryCreate`.
 
 ## Examples
 

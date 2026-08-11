@@ -16,8 +16,9 @@ handlers in separate goroutines. Context helpers retain a reference to the bot
 and its REST client, so a `MessageContext` or `InteractionContext` can perform
 common operations without rebuilding a request.
 
-`Bot.Rest` is public for direct endpoint access. `Bot.Store` is application-owned
-persistence and is not a Discord cache.
+`Bot.Rest` is public for direct endpoint access; `Bot.RestClient()` is the
+method-based accessor that returns the same client. `Bot.Store` is
+application-owned persistence and is not a Discord cache.
 
 ## Quick Start
 
@@ -86,13 +87,16 @@ For JSON and environment-driven construction, see
 
 ### Basic: inspect the client
 
-`State`, `IsReady`, `WaitReady`, `User`, `AppID`, `ReadyAt`, and `Uptime` are
-safe to call while the bot is running. `User` returns a copy of the READY user.
+`State`, `IsReady`, `WaitReady`, `User`, `AppID`, `ReadyAt`, `Uptime`, and
+`RestClient` are safe to call while the bot is running. `User` returns a copy
+of the READY user. `RestClient` returns the REST client (the same one exposed
+by the `Rest` field).
 
 ### Intermediate: use direct REST
 
-For example, `client.Rest.GetCurrentUser(ctx)` performs a request not tied to an
-event. Always pass a context with cancellation or a deadline for long work.
+For example, `client.RestClient().GetCurrentUser(ctx)` performs a request not
+tied to an event. Always pass a context with cancellation or a deadline for
+long work.
 
 ### Advanced: replace transports
 
@@ -198,7 +202,7 @@ return client.Wait()
   `OnceEvent` and `Once` remove the handler after its first call.
 - `State`, `Done`, `Wait`, `Start`, `Run`, `RunContext`, `Stop`, `WaitReady`,
   `IsReady`, `AppID`, `User`, `ReadyAt`, `Uptime`, `Stats`, `GatewayLatency`,
-  and `APILatency` expose lifecycle and runtime state.
+  `APILatency`, and `RestClient` expose lifecycle and runtime state.
 - `BotState` has `BotStateStopped`, `BotStateStarting`, `BotStateRunning`, and
   `BotStateStopping`.
 - `CommandSyncConfig` contains `Mode`, `GuildID`, and `Timeout`; modes are

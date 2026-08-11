@@ -71,6 +71,35 @@ func TestUserEvents(t *testing.T) {
 	}
 }
 
+func TestReadyGuilds(t *testing.T) {
+	data := []byte(`{
+		"v": 10,
+		"user": {"id": "123"},
+		"session_id": "abc",
+		"guilds": [
+			{"id": "111", "unavailable": true},
+			{"id": "222", "unavailable": true}
+		]
+	}`)
+
+	var r Ready
+	if err := json.Unmarshal(data, &r); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Guilds) != 2 {
+		t.Fatalf("expected 2 guilds, got %d", len(r.Guilds))
+	}
+	if r.Guilds[0].ID.String() != "111" {
+		t.Errorf("first guild ID = %s, want 111", r.Guilds[0].ID)
+	}
+	if !r.Guilds[0].Unavailable {
+		t.Error("expected first guild to be unavailable")
+	}
+	if r.Guilds[1].ID.String() != "222" {
+		t.Errorf("second guild ID = %s, want 222", r.Guilds[1].ID)
+	}
+}
+
 func TestInteractionEvents(t *testing.T) {
 	data := []byte(`{"id":"123"}`)
 

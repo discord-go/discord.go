@@ -72,7 +72,9 @@ Handlers receive `*bot.InteractionContext`. The embedded
 `*interactions.Interaction` exposes `ID`, `ApplicationID`, `Type`, `GuildID`,
 `ChannelID`, `Member`, `User`, `Token`, `Message`, `AppPermissions`, `Locale`,
 and `GuildLocale`. These fields can be nil or empty for different interaction
-types, so use the predicate methods before reading them.
+types, so use the predicate methods before reading them. The `User()`
+accessor handles the guild-vs-DM user lookup automatically; `GuildID()`
+dereferences the pointer and returns zero for DMs.
 
 Use `interactions.InteractionCallbackData` for embeds, components, flags,
 attachments, choices, modal fields, and polls. `messages.FlagEphemeral` makes an
@@ -104,6 +106,8 @@ return `Autocomplete` choices.
 - Check `IsChatInputCommand`, `IsContextMenuCommand`, `IsButton`,
   `IsSelectMenu`, `IsModalSubmit`, and `IsAutocomplete` before type-specific
   access.
+- Use `User()` instead of manually checking `ctx.User` and `ctx.Member.User`;
+  use `GuildID()` instead of dereferencing `ctx.GuildID`.
 - Use `HasOption` before treating zero or an empty string as a supplied value.
 - Use `Subcommand` and `SubcommandGroup` for nested command definitions.
 - Use `FollowupEphemeral` for private progress or validation messages after a
@@ -178,18 +182,24 @@ if ctx.IsMessageComponent() {
 
 ## API Walkthrough
 
-- `InteractionContext.CommandName`, `CommandType`, `CustomID`, `ComponentType`,
+- `InteractionContext.CommandName`, `CommandType`, `CustomID`, `Suffix`,
+  `ComponentType`,
   `Values`, `ModalValue`, `ModalValues`, `FocusedOption`, `Options`,
   `Subcommand`, `SubcommandGroup`, `HasOption`, and `GetOption` inspect decoded
   interaction data.
+- `User() *users.User` returns the invoking user, handling both guild
+  (nested inside `Member`) and DM (top-level `User`) interactions.
+  `GuildID() snowflake.ID` returns the guild ID or zero for DMs.
+  `Suffix() string` returns the portion of the custom ID after the matched
+  prefix for `ButtonPrefix`, `SelectPrefix`, and `ModalPrefix` routes.
 - `GetStringOption`, `GetIntOption`, `GetFloatOption`, `GetBoolOption`,
   `GetUserID`, `GetRoleID`, and `GetChannelID` return typed option values.
 - `IsChatInputCommand`, `IsCommand`, `IsContextMenuCommand`,
   `IsUserContextMenuCommand`, `IsMessageContextMenuCommand`, `IsRepliable`,
   `InGuild`, `IsAutocomplete`, `IsMessageComponent`, `IsButton`, `IsSelectMenu`,
   and `IsModalSubmit` identify valid response paths.
-- `MemberPermissions`, `BotPermissions`, and `TargetID` expose permission and
-  context-command data.
+- `MemberPermissions`, `BotPermissions`, `User`, `GuildID`, and `TargetID`
+  expose permission and context data.
 - `Reply`, `ReplyEphemeral`, `ReplyEmbed`, `ReplyComplex`, and
   `ReplyComplexWithFiles` send initial responses.
 - `Defer`, `DeferEphemeral`, `Update`, `UpdateContent`, `DeferUpdate`, `Pong`,

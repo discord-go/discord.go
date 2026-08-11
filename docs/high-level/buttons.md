@@ -91,8 +91,11 @@ message replacement or `Update` for a complete component/embeds payload.
 ### Intermediate: prefix route
 
 Use `router.ButtonPrefix("ticket:close:", handler)` for a family of buttons.
-The current `CustomID` is available through `ctx.CustomID()`. Parse and validate
-the suffix before changing state.
+The current `CustomID` is available through `ctx.CustomID()`. The portion
+after the matched prefix is available through `ctx.Suffix()` — for example,
+a button with custom ID `ticket:close:123` dispatched under the prefix
+`ticket:close:` yields `ctx.Suffix()` == `"123"`. Validate the suffix before
+changing state.
 
 ### Advanced: defer and collect
 
@@ -187,7 +190,9 @@ button := components.NewButtonBuilder().
   exact route; `ButtonPrefix(prefix string, handler InteractionHandler)`
   registers a prefix route. Both return `*InteractionRoute`.
 - `InteractionRoute.Use(Middleware) *InteractionRoute` adds route middleware.
-- `InteractionContext.CustomID() string`, `IsButton() bool`, `Update`,
+- `InteractionContext.CustomID() string` returns the full custom ID;
+  `Suffix() string` returns the part after the matched prefix for prefix
+  routes (empty for exact-match routes). `IsButton() bool`, `Update`,
   `UpdateContent`, `DeferUpdate`, `Reply`, `ReplyEphemeral`, `EditReplyComplex`,
   and `Followup` are the normal button response methods.
 

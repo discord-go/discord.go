@@ -26,6 +26,10 @@ channels. Message methods include `CreateMessage`,
 `CreateMessageComplex`, multipart send, `GetChannelMessage`, list, edit,
 delete, bulk delete, crosspost, pin/unpin, reactions, polls, and search.
 Use `messages.MessageSend`, `GetMessagesParams`, and `EditMessageParams`.
+`FetchAllMessages` paginates backward through channel history;
+`FormatTranscript` formats messages into a readable text transcript;
+`GenerateTranscript` combines both and returns a `File` for upload.
+`StringPtr` is a convenience helper for `*string` parameter fields.
 
 ### Guilds, Members, And Roles
 

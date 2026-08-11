@@ -188,6 +188,9 @@ return b.Stop(stopCtx)
 - `WaitReady(context.Context) error` waits for READY; `IsReady() bool` checks it.
 - `OnReady`, `OnReconnect`, `OnResume`, `OnInvalidated`, and `OnDisconnect`
   register lifecycle callbacks.
+- `ReadyContext` embeds `*events.Ready`, which includes `User`, `Guilds`
+  (the array of unavailable guild objects from the READY payload), `V`, and
+  `SessionID`. Use `ctx.Guilds` to log the guild count at startup.
 - `Every(context.Context, time.Duration, func(context.Context)) func()` creates
   a cancellable run-owned job.
 - `WithShards(int) Option` enables sharding; zero requests Discord's recommended

@@ -515,18 +515,27 @@ func (r *Router) handleInteraction(ctx *InteractionContext) bool {
 		route = r.buttons[ctx.CustomID()]
 		if route == nil {
 			route = matchPrefix(r.buttonPrefixes, ctx.CustomID())
+			if route != nil {
+				ctx.matchedPrefix = route.ID
+			}
 		}
 		ok = route != nil
 	case ctx.IsSelectMenu():
 		route = r.selects[ctx.CustomID()]
 		if route == nil {
 			route = matchPrefix(r.selectPrefixes, ctx.CustomID())
+			if route != nil {
+				ctx.matchedPrefix = route.ID
+			}
 		}
 		ok = route != nil
 	case ctx.IsModalSubmit():
 		route = r.modals[ctx.CustomID()]
 		if route == nil {
 			route = matchPrefix(r.modalPrefixes, ctx.CustomID())
+			if route != nil {
+				ctx.matchedPrefix = route.ID
+			}
 		}
 		ok = route != nil
 	}

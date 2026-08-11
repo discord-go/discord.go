@@ -82,8 +82,9 @@ is a routing hint rather than a security boundary. If a button belongs to a
 specific user or resource, check that relationship inside the handler.
 
 For IDs such as `ticket:close:123`, use `router.ButtonPrefix("ticket:close:",
-handler)`, parse the suffix, and verify that the actor is allowed to close the
-ticket before performing the operation.
+handler)`, then read the suffix with `ctx.Suffix()` (which returns `"123"`),
+and verify that the actor is allowed to close the ticket before performing
+the operation.
 
 ## Slow Handlers
 

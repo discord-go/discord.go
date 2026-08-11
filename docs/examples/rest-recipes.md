@@ -112,6 +112,10 @@ func getAuditLogs(ctx context.Context, restClient *rest.Client, guildID string) 
 - Use `context.WithTimeout` for all REST calls.
 - Use bulk endpoints instead of individual calls for batch operations.
 - Check for `*rest.APIError` to handle API-specific errors.
+- Use `rest.StringPtr` for `*string` parameter fields like
+  `EditMessageParams.Content`.
+- Use `rest.GenerateTranscript` to produce a transcript file from channel
+  message history, suitable for ticket-bot close flows.
 
 ## Best Practices
 

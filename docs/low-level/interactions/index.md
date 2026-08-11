@@ -74,6 +74,12 @@ uses 0 for guild install and 1 for user install. `SetContexts` uses 0 for
 guild, 1 for bot DM, and 2 for private channel. `Build` returns a value copy.
 The builder performs no name, description, or option-count validation.
 
+> **Note:** These `Add*Option` methods exist only on `SlashCommandBuilder`,
+> the low-level builder for direct REST registration. They are **not**
+> available on the `*bot.Command` returned by `router.Command`. For the
+> high-level router, pass `interactions.ApplicationCommandOption` values as
+> variadic arguments to `router.Command`.
+
 ## Using Responses
 
 Use callback type 4 for an immediate message, 5 to defer a command response,

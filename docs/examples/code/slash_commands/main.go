@@ -35,10 +35,8 @@ import (
 func globalLoggingMiddleware(next bot.CommandHandler) bot.CommandHandler {
 	return func(ctx *bot.InteractionContext) {
 		invoker := "Unknown"
-		if ctx.User != nil {
-			invoker = ctx.User.Username
-		} else if ctx.Member != nil && ctx.Member.User != nil {
-			invoker = ctx.Member.User.Username
+		if u := ctx.User(); u != nil {
+			invoker = u.Username
 		}
 
 		log.Printf("[Global Middleware] Command '/%s' invoked by %s", ctx.CommandName(), invoker)
@@ -161,10 +159,8 @@ func handleHello(ctx *bot.InteractionContext) {
 	// 5. Reading string, integer, and boolean options
 	name := ctx.GetStringOption("name")
 	if name == "" {
-		if ctx.User != nil {
-			name = ctx.User.Username
-		} else if ctx.Member != nil && ctx.Member.User != nil {
-			name = ctx.Member.User.Username
+		if u := ctx.User(); u != nil {
+			name = u.Username
 		} else {
 			name = "friend"
 		}
@@ -210,10 +206,8 @@ func handleUserInfo(ctx *bot.InteractionContext) {
 	// 5. Reading user option as a snowflake ID with ctx.GetUserID()
 	targetID := ctx.GetUserID("user")
 	if targetID == 0 {
-		if ctx.User != nil {
-			targetID = ctx.User.ID
-		} else if ctx.Member != nil && ctx.Member.User != nil {
-			targetID = ctx.Member.User.ID
+		if u := ctx.User(); u != nil {
+			targetID = u.ID
 		}
 	}
 
@@ -245,8 +239,8 @@ func handleKick(ctx *bot.InteractionContext) {
 // and replying using ctx.ReplyEmbed().
 func handleServerInfo(ctx *bot.InteractionContext) {
 	guildID := "Unknown"
-	if ctx.GuildID != nil {
-		guildID = ctx.GuildID.String()
+	if ctx.InGuild() {
+		guildID = ctx.GuildID().String()
 	}
 
 	// 6. Using messages.NewEmbedBuilder() for rich formatted embeds

@@ -209,6 +209,9 @@ router.Prefix("say", func(ctx *bot.MessageContext, args []string) {
   `AddBooleanOption`, `AddUserOption`, `AddChannelOption`, `AddRoleOption`,
   `AddMentionableOption`, `AddOption`, `SetIntegrationTypes`, `SetContexts`,
   and `Build` methods create a low-level command value for direct REST use.
+  These `Add*Option` methods are **not** available on the `*bot.Command`
+  returned by `router.Command`; for the high-level router, pass
+  `interactions.ApplicationCommandOption` values as variadic arguments.
 
 ## Examples
 

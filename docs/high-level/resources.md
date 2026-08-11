@@ -28,18 +28,7 @@ import (
 
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/intents"
-	"github.com/discord-go/discord.go/snowflake"
 )
-
-func userID(ctx *bot.InteractionContext) snowflake.ID {
-	if ctx.User != nil {
-		return ctx.User.ID
-	}
-	if ctx.Member != nil && ctx.Member.User != nil {
-		return ctx.Member.User.ID
-	}
-	return 0
-}
 
 func main() {
 	token := os.Getenv("DISCORD_TOKEN")
@@ -48,18 +37,18 @@ func main() {
 	}
 	router := bot.NewRouter()
 	router.Command("whoami", "Fetch the invoking user", func(ctx *bot.InteractionContext) {
-		id := userID(ctx)
-		if id == 0 {
+		user := ctx.User()
+		if user == nil {
 			_ = ctx.Reply("No user ID was present")
 			return
 		}
-		user, err := ctx.Bot.FetchUser(ctx.Context(), id)
+		fetched, err := ctx.Bot.FetchUser(ctx.Context(), user.ID)
 		if err != nil {
 			log.Printf("fetch user: %v", err)
 			_ = ctx.Reply("The user could not be fetched")
 			return
 		}
-		_ = ctx.Reply("You are " + user.Username)
+		_ = ctx.Reply("You are " + fetched.Username)
 	})
 	b := bot.New(token, bot.WithIntents(intents.Guilds), bot.WithRouter(router))
 	if err := b.Run(); err != nil {
@@ -183,11 +172,16 @@ fmt.Println(guild.Name)
 - `CachedMessage(snowflake.ID) (*messages.Message, bool)` and
   `FetchMessage(context.Context, channelID, messageID snowflake.ID) (*messages.Message, error)`
   access messages.
-- `User() *users.User`, `AppID() snowflake.ID`, `ReadyAt() time.Time`, and
-  `Uptime() time.Duration` expose bot identity and readiness state.
+- `User() *users.User`, `AppID() snowflake.ID`, `ReadyAt() time.Time`,
+  `Uptime() time.Duration`, and `RestClient() *rest.Client` expose bot
+  identity, readiness state, and the REST client. `RestClient()` returns the
+  same client as the public `Bot.Rest` field.
 - `Bot.Rest *rest.Client` exposes direct REST methods such as
   `GetChannelMessage`, `GetGuild`, `GetUser`, `GetGuildMember`, and the many
   channel, guild, command, webhook, and interaction operations.
+- `rest.StringPtr(string) *string` is a convenience helper for the many REST
+  parameter fields that use `*string` (for example,
+  `EditMessageParams.Content` and `ModifyChannelParams.Name`).
 - `rest.WithReason(context.Context, string) context.Context` attaches an audit
   log reason; `ReasonFromContext` retrieves it.
 

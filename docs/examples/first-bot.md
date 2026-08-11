@@ -88,17 +88,29 @@ registered 2 slash commands: /hello, /ping
 
 ## Step 4: Add Options
 
-Add a command with options:
+Add a command with options. Options are passed as variadic
+`interactions.ApplicationCommandOption` values:
 
 ```go
 router.Command("greet", "Greet someone", func(ctx *bot.InteractionContext) {
-    name := ctx.StringOption("name")
+    name := ctx.GetStringOption("name")
     if name == "" {
         name = "friend"
     }
     ctx.Reply("Hello, " + name + "!")
-}).AddStringOption("name", "Who to greet", false)
+}, interactions.ApplicationCommandOption{
+    Type:        interactions.ApplicationCommandOptionTypeString,
+    Name:        "name",
+    Description: "Who to greet",
+    Required:    false,
+})
 ```
+
+> **Note:** The `AddStringOption`, `AddUserOption`, and other `Add*Option`
+> methods exist only on `interactions.SlashCommandBuilder` (the low-level
+> builder for direct REST registration). They are **not** available on the
+> `*bot.Command` returned by `router.Command`. For the high-level router,
+> pass options as variadic arguments.
 
 ## Step 5: Add a Button
 

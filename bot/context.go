@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/discord-go/discord.go/permissions"
 	"github.com/discord-go/discord.go/rest"
 	"github.com/discord-go/discord.go/snowflake"
+	"github.com/discord-go/discord.go/users"
 )
 
 // BaseContext provides shared functionality for all event context types.
@@ -154,12 +156,13 @@ type InteractionContext struct {
 	BaseContext
 	*interactions.Interaction
 
-	cmdData    *interactions.ApplicationCommandInteractionData
-	data       *interactionData
-	responded  bool
-	deferred   bool
-	ephemeral  bool
-	responseMu sync.RWMutex
+	cmdData       *interactions.ApplicationCommandInteractionData
+	data          *interactionData
+	matchedPrefix string
+	responded     bool
+	deferred      bool
+	ephemeral     bool
+	responseMu    sync.RWMutex
 }
 
 type interactionData struct {
@@ -219,6 +222,22 @@ func (i *InteractionContext) CustomID() string {
 		return ""
 	}
 	return i.data.CustomID
+}
+
+// Suffix returns the portion of the custom ID after the matched prefix.
+// When the interaction was dispatched via ButtonPrefix, SelectPrefix, or
+// ModalPrefix, Suffix returns the part of the custom ID that follows the
+// registered prefix. For exact-match routes (Button, Select, Modal) or when
+// no prefix was matched, Suffix returns an empty string.
+//
+// For example, if ButtonPrefix("ticket:close:", handler) matches a button
+// with custom ID "ticket:close:confirm:123456789", Suffix() returns
+// "confirm:123456789".
+func (i *InteractionContext) Suffix() string {
+	if i.matchedPrefix == "" {
+		return ""
+	}
+	return strings.TrimPrefix(i.CustomID(), i.matchedPrefix)
 }
 
 // ComponentType returns the component type for a message component interaction.
@@ -300,7 +319,30 @@ func (i *InteractionContext) IsRepliable() bool {
 
 // InGuild reports whether the interaction was received in a guild.
 func (i *InteractionContext) InGuild() bool {
-	return i.GuildID != nil
+	return i.Interaction.GuildID != nil
+}
+
+// User returns the invoking user. In a guild interaction the user is nested
+// inside Member; in a DM interaction it is on the top-level User field. This
+// accessor handles both cases and returns nil when neither is present.
+func (i *InteractionContext) User() *users.User {
+	if i.Interaction.User != nil {
+		return i.Interaction.User
+	}
+	if i.Interaction.Member != nil && i.Interaction.Member.User != nil {
+		return i.Interaction.Member.User
+	}
+	return nil
+}
+
+// GuildID returns the guild ID for a guild interaction, or zero for a DM
+// interaction. It dereferences the pointer so callers do not need to check
+// nil themselves.
+func (i *InteractionContext) GuildID() snowflake.ID {
+	if i.Interaction.GuildID != nil {
+		return *i.Interaction.GuildID
+	}
+	return 0
 }
 
 // IsAutocomplete reports whether this is an autocomplete interaction.

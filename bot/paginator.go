@@ -92,7 +92,7 @@ func (p *Paginator) Send(ctx context.Context) error {
 				if ic.Member != nil && ic.Member.User != nil && ic.Member.User.ID != p.userID {
 					return false
 				}
-				if ic.User != nil && ic.User.ID != p.userID {
+				if u := ic.User(); u != nil && u.ID != p.userID {
 					return false
 				}
 			}

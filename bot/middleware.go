@@ -129,10 +129,8 @@ func RequireOwners(ownerIDs ...snowflake.ID) Middleware {
 	return func(next CommandHandler) CommandHandler {
 		return func(ctx *InteractionContext) {
 			userID := snowflake.ID(0)
-			if ctx.User != nil {
-				userID = ctx.User.ID
-			} else if ctx.Member != nil && ctx.Member.User != nil {
-				userID = ctx.Member.User.ID
+			if u := ctx.User(); u != nil {
+				userID = u.ID
 			}
 			if _, ok := allowed[userID]; !ok {
 				replyEphemeral(ctx, "Only a bot owner can use this command.")
@@ -179,7 +177,7 @@ func RequirePrefixPermissions(perms permissions.Permission) PrefixMiddleware {
 func GuildOnly() Middleware {
 	return func(next CommandHandler) CommandHandler {
 		return func(ctx *InteractionContext) {
-			if ctx.GuildID == nil {
+			if !ctx.InGuild() {
 				replyEphemeral(ctx, "This command can only be used in a server.")
 				return
 			}
@@ -192,7 +190,7 @@ func GuildOnly() Middleware {
 func OwnerOnly() Middleware {
 	return func(next CommandHandler) CommandHandler {
 		return func(ctx *InteractionContext) {
-			if ctx.Member == nil || ctx.GuildID == nil || ctx.Guild == nil || ctx.Member.User == nil {
+			if ctx.Member == nil || !ctx.InGuild() || ctx.Guild == nil || ctx.Member.User == nil {
 				replyEphemeral(ctx, "This command can only be used by the server owner.")
 				return
 			}
@@ -264,16 +262,10 @@ func PrefixCooldown(duration time.Duration) PrefixMiddleware {
 
 func cooldownKey(ctx *InteractionContext) string {
 	userID := snowflake.ID(0)
-	if ctx.User != nil {
-		userID = ctx.User.ID
-	} else if ctx.Member != nil && ctx.Member.User != nil {
-		userID = ctx.Member.User.ID
+	if u := ctx.User(); u != nil {
+		userID = u.ID
 	}
-	guildID := snowflake.ID(0)
-	if ctx.GuildID != nil {
-		guildID = *ctx.GuildID
-	}
-	return userID.String() + ":" + guildID.String() + ":" + ctx.CommandName()
+	return userID.String() + ":" + ctx.GuildID().String() + ":" + ctx.CommandName()
 }
 
 func replyEphemeral(ctx *InteractionContext, content string) {

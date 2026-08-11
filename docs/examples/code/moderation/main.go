@@ -147,7 +147,7 @@ func handleBan(ctx *bot.InteractionContext) {
 
 	// Execute the ban via REST API
 	apiCtx := rest.WithReason(context.Background(), reason)
-	err := ctx.Bot.Rest.CreateGuildBan(apiCtx, *ctx.GuildID, userID, rest.CreateBanParams{
+	err := ctx.Bot.Rest.CreateGuildBan(apiCtx, ctx.GuildID(), userID, rest.CreateBanParams{
 		DeleteMessageSeconds: 86400, // Delete messages from last 24h
 	})
 	if err != nil {
@@ -180,7 +180,7 @@ func handleKick(ctx *bot.InteractionContext) {
 	}
 
 	apiCtx := rest.WithReason(context.Background(), reason)
-	err := ctx.Bot.Rest.RemoveGuildMember(apiCtx, *ctx.GuildID, userID)
+	err := ctx.Bot.Rest.RemoveGuildMember(apiCtx, ctx.GuildID(), userID)
 	if err != nil {
 		ctx.Followup(fmt.Sprintf("❌ Failed to kick <@%s>: `%v`", userID, err))
 		return
@@ -222,7 +222,7 @@ func handleTimeout(ctx *bot.InteractionContext) {
 	until := time.Now().Add(time.Duration(minutes) * time.Minute)
 
 	apiCtx := rest.WithReason(context.Background(), reason)
-	_, err := ctx.Bot.Rest.ModifyGuildMember(apiCtx, *ctx.GuildID, userID, rest.ModifyMemberParams{
+	_, err := ctx.Bot.Rest.ModifyGuildMember(apiCtx, ctx.GuildID(), userID, rest.ModifyMemberParams{
 		CommunicationDisabledUntil: &until,
 	})
 	if err != nil {
@@ -251,7 +251,7 @@ func handleUnban(ctx *bot.InteractionContext) {
 		return
 	}
 
-	err := ctx.Bot.Rest.RemoveGuildBan(context.Background(), *ctx.GuildID, userID)
+	err := ctx.Bot.Rest.RemoveGuildBan(context.Background(), ctx.GuildID(), userID)
 	if err != nil {
 		ctx.Followup(fmt.Sprintf("❌ Failed to unban <@%s>: `%v`", userID, err))
 		return
