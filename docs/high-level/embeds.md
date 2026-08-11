@@ -180,6 +180,11 @@ _ = ctx.ReplyEmbed(embed)
   configure and return an embed builder or value.
 - `MessageSend` contains `Content`, `Embeds`, `AllowedMentions`, `Components`,
   `Attachments`, `Flags`, `Poll`, and related message fields.
+- `NewMessageSendBuilder() *MessageSendBuilder` creates a fluent builder for
+  `MessageSend` with `SetContent`, `SetEmbeds`/`AddEmbed`,
+  `SetComponents`/`AddComponent`, `SetFlags`/`AddFlag`, `SetAllowedMentions`,
+  `SetMessageReference`, `SetNonce`, `SetEnforceNonce`, `SetPoll`,
+  `AddAttachment`, `SetStickerIDs`, and `Build`.
 - `InteractionCallbackData` contains `Content`, `Embeds`, `Flags`, `Components`,
   `Attachments`, and interaction-specific fields.
 - `MessageContext.ReplyEmbed`, `ReplyComplex`, and `ReplyComplexWithFiles`,

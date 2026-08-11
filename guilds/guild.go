@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/discord-go/discord.go/emojis"
+	"github.com/discord-go/discord.go/permissions"
 	"github.com/discord-go/discord.go/roles"
 	"github.com/discord-go/discord.go/snowflake"
 )
@@ -18,7 +19,7 @@ type Guild struct {
 	DiscoverySplash             *string        `json:"discovery_splash"`
 	Owner                       *bool          `json:"owner,omitempty"`
 	OwnerID                     snowflake.ID   `json:"owner_id,string"`
-	Permissions                 *string        `json:"permissions,omitempty"`
+	Permissions                 *permissions.Permission `json:"permissions,omitempty"`
 	Region                      *string        `json:"region,omitempty"` // Deprecated
 	AFKChannelID                *snowflake.ID  `json:"afk_channel_id,string"`
 	AFKTimeout                  int            `json:"afk_timeout"`

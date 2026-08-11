@@ -1,6 +1,7 @@
 package application
 
 import (
+	"github.com/discord-go/discord.go/permissions"
 	"github.com/discord-go/discord.go/snowflake"
 	"github.com/discord-go/discord.go/users"
 )
@@ -47,8 +48,8 @@ type Application struct {
 }
 
 type InstallParams struct {
-	Scopes      []string `json:"scopes"`
-	Permissions string   `json:"permissions"`
+	Scopes      []string                `json:"scopes"`
+	Permissions permissions.Permission  `json:"permissions,string"`
 }
 
 type IntegrationTypeConfig struct {

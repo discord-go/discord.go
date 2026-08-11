@@ -19,9 +19,11 @@ channel variants. Thread information is split between `ThreadMetadata` and
 the available/applied tag fields.
 
 `Invite` may contain an `InviteGuild`, channel, inviter, target user or
-application, approximate counts, and expiry. `Overwrite` uses string allow and
-deny bitfields because it mirrors the API response; convert them carefully
-before passing values to [`../permissions/`](../permissions/README.md).
+application, approximate counts, and expiry. `Overwrite` uses
+`permissions.Permission` for `Allow` and `Deny`, so you can use permission
+constants directly without manual string conversion. The fields use
+`json:",string"` so Discord's string-encoded numbers marshal and unmarshal
+correctly.
 
 ## Quick Start
 
@@ -77,8 +79,9 @@ permissions or fetch messages.
 ## API Walkthrough
 
 The exported types are `Channel`, `ChannelType` and all constants,
-`Overwrite`, `ThreadMetadata`, `ThreadMember`, `ForumTag`, `DefaultReaction`,
-`Invite`, `InviteGuild`, `Application`, and `Webhook`. There are no constructors
+`Overwrite` (with `permissions.Permission` for `Allow` and `Deny`),
+`ThreadMetadata`, `ThreadMember`, `ForumTag`, `DefaultReaction`, `Invite`,
+`InviteGuild`, `Application`, and `Webhook`. There are no constructors
 or methods.
 
 ## Examples

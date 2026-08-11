@@ -3,6 +3,7 @@ package channels
 import (
 	"time"
 
+	"github.com/discord-go/discord.go/permissions"
 	"github.com/discord-go/discord.go/snowflake"
 	"github.com/discord-go/discord.go/users"
 )
@@ -46,10 +47,10 @@ type Channel struct {
 }
 
 type Overwrite struct {
-	ID    snowflake.ID `json:"id,string"`
-	Type  int          `json:"type"`
-	Allow string       `json:"allow"`
-	Deny  string       `json:"deny"`
+	ID    snowflake.ID          `json:"id,string"`
+	Type  int                   `json:"type"`
+	Allow permissions.Permission `json:"allow,string"`
+	Deny  permissions.Permission `json:"deny,string"`
 }
 
 type ForumTag struct {

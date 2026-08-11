@@ -175,7 +175,10 @@ router.Command("ban", "Ban a member", handleBan).
 - `permissions.Build(...Permission) Permission` combines flags.
 - `NewBuilder(initial ...Permission) *Builder`, `Builder.Add`, `Remove`, and
   `Build` provide fluent composition.
-- `permissions.Overwrite` contains `ID`, `Type`, `Allow`, and `Deny`.
+- `permissions.Overwrite` contains `ID`, `Type`, `Allow`, and `Deny` (all
+  `Permission` typed). `channels.Overwrite` also uses `permissions.Permission`
+  for `Allow` and `Deny`, so the two types are compatible without manual
+  string conversion.
 - `permissions.Calculate(memberID, guildID, guildOwnerID, baseRolePermissions,
   memberRoleIDs, memberRolePermissions, overwrites) Permission` applies owner,
   administrator, everyone, role, and member overwrite precedence.

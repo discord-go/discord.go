@@ -23,6 +23,12 @@ checks title 256, description 4096, footer 2048, author 256, field count 25,
 field name 256, field value 1024, and total counted characters 6000. It does
 not validate every URL or Discord-specific content rule.
 
+`MessageSendBuilder` provides the same fluent pattern for `MessageSend`
+payloads — `SetContent`, `SetEmbeds`/`AddEmbed`, `SetComponents`/`AddComponent`,
+`SetFlags`/`AddFlag`, `SetAllowedMentions`, `SetMessageReference`, `SetNonce`,
+`SetEnforceNonce`, `SetPoll`, `AddAttachment`, `SetStickerIDs`, and `Build`.
+Use it when a struct literal becomes verbose.
+
 ## Quick Start
 
 ```go
@@ -102,14 +108,14 @@ from omitting it when application defaults are involved.
 
 ## API Walkthrough
 
-The exported API includes `Message`, `MessageSend`, `MessageType` and its
-constants, `MessageReference`, `MessageActivity`, `MessageCall` and its
-unmarshaller, `MessageSnapshot`, `InteractionMetadata`, `Attachment`,
-`AttachmentSend`, `Embed` and all nested embed types, `EmbedBuilder` and its
-setters, `AllowedMentions` and its unmarshaller, `AllowedMentionType` and
-constants, `Reaction`, `ReactionCountDetails`, `Poll`, `PollAnswer`,
-`PollMedia`, `PollResults`, `AnswerCount`, all message flag constants, and
-`Message.UnmarshalJSON`.
+The exported API includes `Message`, `MessageSend`, `MessageSendBuilder` and
+its setters, `MessageType` and its constants, `MessageReference`,
+`MessageActivity`, `MessageCall` and its unmarshaller, `MessageSnapshot`,
+`InteractionMetadata`, `Attachment`, `AttachmentSend`, `Embed` and all nested
+embed types, `EmbedBuilder` and its setters, `AllowedMentions` and its
+unmarshaller, `AllowedMentionType` and constants, `Reaction`,
+`ReactionCountDetails`, `Poll`, `PollAnswer`, `PollMedia`, `PollResults`,
+`AnswerCount`, all message flag constants, and `Message.UnmarshalJSON`.
 
 ## Examples
 

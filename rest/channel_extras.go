@@ -6,13 +6,14 @@ import (
 	"strconv"
 
 	"github.com/discord-go/discord.go/messages"
+	"github.com/discord-go/discord.go/permissions"
 	"github.com/discord-go/discord.go/snowflake"
 )
 
 type PermissionOverwriteParams struct {
-	Allow string `json:"allow"`
-	Deny  string `json:"deny"`
-	Type  int    `json:"type"`
+	Allow permissions.Permission `json:"allow,string"`
+	Deny  permissions.Permission `json:"deny,string"`
+	Type  int                    `json:"type"`
 }
 
 func (c *Client) EditChannelPermission(ctx context.Context, channelID, overwriteID snowflake.ID, params PermissionOverwriteParams) error {
