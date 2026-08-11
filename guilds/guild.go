@@ -11,49 +11,49 @@ import (
 
 // Guild represents a Discord guild (server).
 type Guild struct {
-	ID                          snowflake.ID   `json:"id,string"`
-	Name                        string         `json:"name"`
-	Icon                        *string        `json:"icon"`
-	IconHash                    *string        `json:"icon_hash,omitempty"`
-	Splash                      *string        `json:"splash"`
-	DiscoverySplash             *string        `json:"discovery_splash"`
-	Owner                       *bool          `json:"owner,omitempty"`
-	OwnerID                     snowflake.ID   `json:"owner_id,string"`
+	ID                          snowflake.ID            `json:"id,string"`
+	Name                        string                  `json:"name"`
+	Icon                        *string                 `json:"icon"`
+	IconHash                    *string                 `json:"icon_hash,omitempty"`
+	Splash                      *string                 `json:"splash"`
+	DiscoverySplash             *string                 `json:"discovery_splash"`
+	Owner                       *bool                   `json:"owner,omitempty"`
+	OwnerID                     snowflake.ID            `json:"owner_id,string"`
 	Permissions                 *permissions.Permission `json:"permissions,omitempty"`
-	Region                      *string        `json:"region,omitempty"` // Deprecated
-	AFKChannelID                *snowflake.ID  `json:"afk_channel_id,string"`
-	AFKTimeout                  int            `json:"afk_timeout"`
-	WidgetEnabled               *bool          `json:"widget_enabled,omitempty"`
-	WidgetChannelID             *snowflake.ID  `json:"widget_channel_id,string"`
-	VerificationLevel           int            `json:"verification_level"`
-	DefaultMessageNotifications int            `json:"default_message_notifications"`
-	ExplicitContentFilter       int            `json:"explicit_content_filter"`
-	Roles                       []roles.Role   `json:"roles"`
-	Emojis                      []emojis.Emoji `json:"emojis"`
-	Features                    []Feature      `json:"features"`
-	MFALevel                    int            `json:"mfa_level"`
-	ApplicationID               *snowflake.ID  `json:"application_id,string"`
-	SystemChannelID             *snowflake.ID  `json:"system_channel_id,string"`
-	SystemChannelFlags          int            `json:"system_channel_flags"`
-	RulesChannelID              *snowflake.ID  `json:"rules_channel_id,string"`
-	MaxPresences                *int           `json:"max_presences,omitempty"`
-	MaxMembers                  *int           `json:"max_members,omitempty"`
-	VanityURLCode               *string        `json:"vanity_url_code"`
-	Description                 *string        `json:"description"`
-	Banner                      *string        `json:"banner"`
-	PremiumTier                 int            `json:"premium_tier"`
-	PremiumSubscriptionCount    *int           `json:"premium_subscription_count,omitempty"`
-	PreferredLocale             string         `json:"preferred_locale"`
-	PublicUpdatesChannelID      *snowflake.ID  `json:"public_updates_channel_id,string"`
-	MaxVideoChannelUsers        *int           `json:"max_video_channel_users,omitempty"`
-	MaxStageVideoChannelUsers   *int           `json:"max_stage_video_channel_users,omitempty"`
-	ApproximateMemberCount      *int           `json:"approximate_member_count,omitempty"`
-	ApproximatePresenceCount    *int           `json:"approximate_presence_count,omitempty"`
-	WelcomeScreen               *WelcomeScreen `json:"welcome_screen,omitempty"`
-	NSFWLevel                   int            `json:"nsfw_level"`
-	PremiumProgressBarEnabled   bool           `json:"premium_progress_bar_enabled"`
-	SafetyAlertsChannelID       *snowflake.ID  `json:"safety_alerts_channel_id,string"`
-	Unavailable                 bool           `json:"unavailable"`
+	Region                      *string                 `json:"region,omitempty"` // Deprecated
+	AFKChannelID                *snowflake.ID           `json:"afk_channel_id,string"`
+	AFKTimeout                  int                     `json:"afk_timeout"`
+	WidgetEnabled               *bool                   `json:"widget_enabled,omitempty"`
+	WidgetChannelID             *snowflake.ID           `json:"widget_channel_id,string"`
+	VerificationLevel           int                     `json:"verification_level"`
+	DefaultMessageNotifications int                     `json:"default_message_notifications"`
+	ExplicitContentFilter       int                     `json:"explicit_content_filter"`
+	Roles                       []roles.Role            `json:"roles"`
+	Emojis                      []emojis.Emoji          `json:"emojis"`
+	Features                    []Feature               `json:"features"`
+	MFALevel                    int                     `json:"mfa_level"`
+	ApplicationID               *snowflake.ID           `json:"application_id,string"`
+	SystemChannelID             *snowflake.ID           `json:"system_channel_id,string"`
+	SystemChannelFlags          int                     `json:"system_channel_flags"`
+	RulesChannelID              *snowflake.ID           `json:"rules_channel_id,string"`
+	MaxPresences                *int                    `json:"max_presences,omitempty"`
+	MaxMembers                  *int                    `json:"max_members,omitempty"`
+	VanityURLCode               *string                 `json:"vanity_url_code"`
+	Description                 *string                 `json:"description"`
+	Banner                      *string                 `json:"banner"`
+	PremiumTier                 int                     `json:"premium_tier"`
+	PremiumSubscriptionCount    *int                    `json:"premium_subscription_count,omitempty"`
+	PreferredLocale             string                  `json:"preferred_locale"`
+	PublicUpdatesChannelID      *snowflake.ID           `json:"public_updates_channel_id,string"`
+	MaxVideoChannelUsers        *int                    `json:"max_video_channel_users,omitempty"`
+	MaxStageVideoChannelUsers   *int                    `json:"max_stage_video_channel_users,omitempty"`
+	ApproximateMemberCount      *int                    `json:"approximate_member_count,omitempty"`
+	ApproximatePresenceCount    *int                    `json:"approximate_presence_count,omitempty"`
+	WelcomeScreen               *WelcomeScreen          `json:"welcome_screen,omitempty"`
+	NSFWLevel                   int                     `json:"nsfw_level"`
+	PremiumProgressBarEnabled   bool                    `json:"premium_progress_bar_enabled"`
+	SafetyAlertsChannelID       *snowflake.ID           `json:"safety_alerts_channel_id,string"`
+	Unavailable                 bool                    `json:"unavailable"`
 }
 
 // UnmarshalJSON unmarshals Guild, correctly handling snowflakes where the API returns null strings.

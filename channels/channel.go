@@ -47,8 +47,8 @@ type Channel struct {
 }
 
 type Overwrite struct {
-	ID    snowflake.ID          `json:"id,string"`
-	Type  int                   `json:"type"`
+	ID    snowflake.ID           `json:"id,string"`
+	Type  int                    `json:"type"`
 	Allow permissions.Permission `json:"allow,string"`
 	Deny  permissions.Permission `json:"deny,string"`
 }

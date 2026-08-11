@@ -48,8 +48,8 @@ type Application struct {
 }
 
 type InstallParams struct {
-	Scopes      []string                `json:"scopes"`
-	Permissions permissions.Permission  `json:"permissions,string"`
+	Scopes      []string               `json:"scopes"`
+	Permissions permissions.Permission `json:"permissions,string"`
 }
 
 type IntegrationTypeConfig struct {
