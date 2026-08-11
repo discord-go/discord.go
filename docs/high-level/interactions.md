@@ -190,15 +190,20 @@ if ctx.IsMessageComponent() {
 - `User() *users.User` returns the invoking user, handling both guild
   (nested inside `Member`) and DM (top-level `User`) interactions.
   `GuildID() snowflake.ID` returns the guild ID or zero for DMs.
+  `ChannelID() snowflake.ID` returns the channel ID or zero when absent.
   `Suffix() string` returns the portion of the custom ID after the matched
   prefix for `ButtonPrefix`, `SelectPrefix`, and `ModalPrefix` routes.
+  `FocusedOptionString() string` returns the focused autocomplete option's
+  value as a string, or empty when no option is focused or the value is not
+  a string.
 - `GetStringOption`, `GetIntOption`, `GetFloatOption`, `GetBoolOption`,
   `GetUserID`, `GetRoleID`, and `GetChannelID` return typed option values.
 - `IsChatInputCommand`, `IsCommand`, `IsContextMenuCommand`,
   `IsUserContextMenuCommand`, `IsMessageContextMenuCommand`, `IsRepliable`,
   `InGuild`, `IsAutocomplete`, `IsMessageComponent`, `IsButton`, `IsSelectMenu`,
   and `IsModalSubmit` identify valid response paths.
-- `MemberPermissions`, `BotPermissions`, `User`, `GuildID`, and `TargetID`
+- `MemberPermissions`, `BotPermissions`, `User`, `GuildID`, `ChannelID`,
+  `FocusedOptionString`, and `TargetID`
   expose permission and context data.
 - `Reply`, `ReplyEphemeral`, `ReplyEmbed`, `ReplyComplex`, and
   `ReplyComplexWithFiles` send initial responses.

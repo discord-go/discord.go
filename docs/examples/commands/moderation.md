@@ -37,7 +37,7 @@ The source is the authoritative runnable example. The production adjustments bel
 
 ## Explanation
 
-Permission middleware checks the invoking member, but Discord still enforces the bot's own permissions and role hierarchy. Both checks matter. `ctx.GetUserID("user")` returns a `snowflake.ID`, and `ctx.GuildID` is a pointer because a command can otherwise be invoked in a DM; `GuildOnly` prevents dereferencing it outside a guild.
+Permission middleware checks the invoking member, but Discord still enforces the bot's own permissions and role hierarchy. Both checks matter. `ctx.GetUserID("user")` returns a `snowflake.ID`, and `ctx.GuildID()` returns a `snowflake.ID` (zero for DMs); `GuildOnly` prevents commands from running outside a guild.
 
 The source defers before each REST request. Its `rest.WithReason(context.Background(), reason)` call demonstrates audit reasons; a production service should derive that context from a bounded operation context instead of using an unbounded background context.
 
@@ -53,6 +53,12 @@ The source defers before each REST request. Its `rest.WithReason(context.Backgro
 
 - Clamp user-provided timeout durations to Discord's supported range.
 - Use `rest.WithReason` for every action that should appear in the audit log.
+  Attach the reason to the context before the REST call:
+  `apiCtx = rest.WithReason(apiCtx, reason)`. Without it, Discord's audit log
+  shows "no reason provided" even when the bot logs the reason to its own
+  channel.
+- Use `AddGuildMemberRole` and `RemoveGuildMemberRole` for single-role
+  changes instead of fetch-modify-resend via `ModifyGuildMember`.
 - Use ephemeral replies for validation and permission errors that should not clutter a channel.
 - Handle REST errors without leaking internal request details to users.
 - Count successful and rejected moderation actions for operational review.
@@ -116,7 +122,7 @@ _ = ctx.Bot.Rest.CreateGuildBan(apiCtx, *ctx.GuildID, userID, rest.CreateBanPara
 apiCtx, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 defer cancel()
 apiCtx = rest.WithReason(apiCtx, reason)
-err := ctx.Bot.Rest.CreateGuildBan(apiCtx, *ctx.GuildID, userID, rest.CreateBanParams{
+err := ctx.Bot.Rest.CreateGuildBan(apiCtx, ctx.GuildID(), userID, rest.CreateBanParams{
 	DeleteMessageSeconds: 86400,
 })
 ```

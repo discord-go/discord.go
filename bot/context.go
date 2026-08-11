@@ -282,6 +282,20 @@ func (i *InteractionContext) FocusedOption() *interactions.ApplicationCommandInt
 	return findFocusedOption(i.Options())
 }
 
+// FocusedOptionString returns the focused option's value as a string. It is
+// a safe accessor for autocomplete handlers — if the focused value is nil,
+// not a string, or no option is focused, it returns an empty string.
+func (i *InteractionContext) FocusedOptionString() string {
+	focused := i.FocusedOption()
+	if focused == nil || focused.Value == nil {
+		return ""
+	}
+	if s, ok := focused.Value.(string); ok {
+		return s
+	}
+	return ""
+}
+
 // IsChatInputCommand reports whether this is a slash command interaction.
 func (i *InteractionContext) IsChatInputCommand() bool {
 	return i.Type == interactions.InteractionTypeApplicationCommand && i.CommandType() == interactions.ApplicationCommandTypeChatInput
@@ -341,6 +355,16 @@ func (i *InteractionContext) User() *users.User {
 func (i *InteractionContext) GuildID() snowflake.ID {
 	if i.Interaction.GuildID != nil {
 		return *i.Interaction.GuildID
+	}
+	return 0
+}
+
+// ChannelID returns the channel ID where the interaction occurred, or zero
+// when absent. It dereferences the pointer so callers do not need to check
+// nil themselves.
+func (i *InteractionContext) ChannelID() snowflake.ID {
+	if i.Interaction.ChannelID != nil {
+		return *i.Interaction.ChannelID
 	}
 	return 0
 }

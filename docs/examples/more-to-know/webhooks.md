@@ -56,7 +56,7 @@ func main() {
 		}
 		requestCtx, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 		defer cancel()
-		created, err := ctx.Bot.Rest.CreateWebhook(requestCtx, *ctx.ChannelID, rest.CreateWebhookParams{
+		created, err := ctx.Bot.Rest.CreateWebhook(requestCtx, ctx.ChannelID(), rest.CreateWebhookParams{
 			Name: "discord.go tutorial",
 		})
 		if err != nil {

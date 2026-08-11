@@ -1,6 +1,6 @@
 {
   "name": "discord-go",
-  "version": "0.11.1-coffee",
+  "version": "0.11.2-coffee",
   "private": true,
   "type": "module",
   "scripts": {

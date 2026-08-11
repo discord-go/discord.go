@@ -61,7 +61,7 @@ func main() {
 		actionType := int(auditlog.MESSAGE_DELETE)
 		requestCtx, cancel := context.WithTimeout(ctx.Context(), 8*time.Second)
 		defer cancel()
-		result, err := ctx.Bot.Rest.GetAuditLog(requestCtx, *ctx.GuildID, rest.AuditLogParams{
+		result, err := ctx.Bot.Rest.GetAuditLog(requestCtx, ctx.GuildID(), rest.AuditLogParams{
 			ActionType: &actionType,
 			Limit:      10,
 		})

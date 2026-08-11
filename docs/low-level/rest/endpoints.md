@@ -36,8 +36,12 @@ Use `messages.MessageSend`, `GetMessagesParams`, and `EditMessageParams`.
 Guild methods create, fetch, modify, leave, delete, prune, preview, widget,
 welcome screen, onboarding, vanity URL, integrations, bans, and role
 management. Member methods add, fetch, list, search, modify, remove, add or
-remove role, and voice-state operations. Role position and channel position
-methods accept `RolePosition` and `GuildChannelPosition`.
+remove role, and voice-state operations. `AddGuildMemberRole` and
+`RemoveGuildMemberRole` are the dedicated endpoints for single-role changes
+(prefer these over `ModifyGuildMember` when adding or removing one role).
+`BulkBanGuildMembers` bans up to 200 users in a single request and returns
+`BulkBanResult` with `BannedUsers` and `FailedUsers` ID lists. Role position
+and channel position methods accept `RolePosition` and `GuildChannelPosition`.
 
 ### Threads And Archives
 

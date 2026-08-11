@@ -166,6 +166,66 @@ func TestInteractionContextGuildID(t *testing.T) {
 	}
 }
 
+func TestInteractionContextChannelID(t *testing.T) {
+	channelID := snowflake.ID(555)
+	ic := newInteractionContext(BaseContext{}, &interactions.Interaction{
+		Type:      interactions.InteractionTypeApplicationCommand,
+		ChannelID: &channelID,
+	})
+	if got := ic.ChannelID(); got != channelID {
+		t.Errorf("expected channel ID %s, got %s", channelID, got)
+	}
+
+	// No channel ID.
+	ic2 := newInteractionContext(BaseContext{}, &interactions.Interaction{
+		Type: interactions.InteractionTypeApplicationCommand,
+	})
+	if got := ic2.ChannelID(); got != 0 {
+		t.Errorf("expected zero channel ID, got %s", got)
+	}
+}
+
+func TestFocusedOptionString(t *testing.T) {
+	// Autocomplete interaction with a focused string option.
+	ic := newInteractionContext(BaseContext{}, &interactions.Interaction{
+		Type: interactions.InteractionTypeApplicationCommandAutocomplete,
+		Data: mustMarshal(t, interactionData{
+			Options: []interactions.ApplicationCommandInteractionDataOption{
+				{Name: "query", Type: interactions.ApplicationCommandOptionTypeString, Value: "hello", Focused: true},
+			},
+		}),
+	})
+	if got := ic.FocusedOptionString(); got != "hello" {
+		t.Errorf("expected focused string 'hello', got %q", got)
+	}
+
+	// No focused option.
+	ic2 := newInteractionContext(BaseContext{}, &interactions.Interaction{
+		Type: interactions.InteractionTypeApplicationCommandAutocomplete,
+		Data: mustMarshal(t, interactionData{
+			Options: []interactions.ApplicationCommandInteractionDataOption{
+				{Name: "query", Type: interactions.ApplicationCommandOptionTypeString, Value: "hello"},
+			},
+		}),
+	})
+	if got := ic2.FocusedOptionString(); got != "" {
+		t.Errorf("expected empty string for no focused option, got %q", got)
+	}
+
+	// Focused option with non-string value.
+	ic3 := newInteractionContext(BaseContext{}, &interactions.Interaction{
+		Type: interactions.InteractionTypeApplicationCommandAutocomplete,
+		Data: mustMarshal(t, interactionData{
+			Options: []interactions.ApplicationCommandInteractionDataOption{
+				{Name: "count", Type: interactions.ApplicationCommandOptionTypeInteger, Value: float64(42), Focused: true},
+			},
+		}),
+	})
+	if got := ic3.FocusedOptionString(); got != "" {
+		t.Errorf("expected empty string for non-string focused value, got %q", got)
+	}
+}
+
 func TestMessageFirstEmbed(t *testing.T) {
 	// Test with embeds
 	msg := &messages.Message{

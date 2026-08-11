@@ -10,6 +10,14 @@ type SelectOption struct {
 	Default     bool        `json:"default,omitempty"`
 }
 
+// NewSelectOption creates a SelectOption with the given label and value.
+// It is a convenience helper for the common case where only a label and
+// value are needed. Set Description, Emoji, or Default on the returned
+// struct if needed.
+func NewSelectOption(label, value string) SelectOption {
+	return SelectOption{Label: label, Value: value}
+}
+
 type StringSelect struct {
 	CustomID    string         `json:"custom_id"`
 	Options     []SelectOption `json:"options"`

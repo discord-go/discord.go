@@ -206,6 +206,9 @@ button := components.NewButtonBuilder().
   `AddActionRowComponents`. Each builder's `Build` returns its concrete value.
 - `ModalData` stores `CustomID`, `Title`, and `[]Component`; `ModalBuilder` has
   `SetCustomID`, `SetCustomId`, `SetTitle`, `AddComponents`, and `Build`.
+- `SelectOption` has `Label`, `Value`, `Description`, `Emoji`, and `Default`
+  fields. `NewSelectOption(label, value string) SelectOption` is a convenience
+  constructor for the common label+value case.
 - `Unmarshal([]byte) (Component, error)` decodes supported component JSON and
   recursively handles nested children.
 - `ChannelSelectMenuBuilder`, `StringSelectMenuBuilder`,

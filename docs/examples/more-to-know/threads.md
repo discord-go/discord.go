@@ -62,7 +62,7 @@ func main() {
 		}
 		requestCtx, cancel := context.WithTimeout(ctx.Context(), 8*time.Second)
 		defer cancel()
-		thread, err := ctx.Bot.Rest.StartThreadWithMessage(requestCtx, *ctx.ChannelID, prompt.ID, rest.StartThreadWithMessageParams{
+		thread, err := ctx.Bot.Rest.StartThreadWithMessage(requestCtx, ctx.ChannelID(), prompt.ID, rest.StartThreadWithMessageParams{
 			Name:                "discussion",
 			AutoArchiveDuration: 60,
 		})
