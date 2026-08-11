@@ -107,6 +107,27 @@ application error.
 After one result, register the next wait with a new context and a filter that
 checks the same user and message. Avoid a single global collector for all users.
 
+### Advanced: collect multiple interactions
+
+Use `CollectInteractions` when a flow needs to receive multiple interactions
+over time, such as live polls, reaction roles, or multi-step wizards. It
+returns a channel and a stop function; the channel receives every matching
+interaction until the context is cancelled or `stop()` is called.
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+defer cancel()
+
+ch, stop := b.CollectInteractions(ctx, func(ic *bot.InteractionContext) bool {
+    return ic.IsButton() && ic.CustomID() == "vote:yes"
+})
+defer stop()
+
+for ic := range ch {
+    log.Printf("vote from %s", ic.User().ID)
+}
+```
+
 ### Advanced: periodic work
 
 Use `Every` for cleanup, metrics, or refresh work that belongs to the bot run.
@@ -189,6 +210,10 @@ defer cancelJob()
 - `ReactionFilter` is `func(*ReactionContext) bool`.
 - `AwaitInteraction(context.Context, InteractionFilter) (*InteractionContext, error)`
   waits for one matching interaction.
+- `CollectInteractions(context.Context, InteractionFilter) (<-chan *InteractionContext, func())`
+  collects multiple matching interactions into a channel until the context
+  is cancelled or the stop function is called. Useful for live polls,
+  reaction roles, and multi-step wizards.
 - `AwaitMessage(context.Context, MessageFilter) (*MessageContext, error)` waits
   for one matching message. Both return the context error on cancellation.
 - `AwaitReaction(context.Context, ReactionFilter) (*ReactionContext, error)`
@@ -242,7 +267,20 @@ if err := p.Send(ctx); err != nil {
 ```
 
 The paginator blocks until the timeout expires, the user clicks stop,
-or the context is cancelled. Buttons are removed on exit.
+or the context is cancelled. Buttons are removed on exit. Because `Send`
+blocks, it must be launched in a goroutine from interaction handlers —
+acknowledge the interaction first, then call `Send` in a `go` statement.
+
+For convenience, `SendAsync` wraps this pattern: it launches `Send` in a
+goroutine and returns immediately, delivering any error to an optional
+callback.
+
+```go
+ctx.ReplyEphemeral("Opening paginator…")
+p.SendAsync(ctx, func(err error) {
+    log.Printf("paginator error: %v", err)
+})
+```
 
 ## Examples
 

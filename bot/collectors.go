@@ -25,6 +25,7 @@ type ReactionFilter func(*ReactionContext) bool
 type interactionCollector struct {
 	filter InteractionFilter
 	result chan *InteractionContext
+	multi  bool
 }
 
 type messageCollector struct {
@@ -98,7 +99,9 @@ func (b *Bot) publishInteraction(interaction *InteractionContext) {
 		}
 		select {
 		case collector.result <- interaction:
-			delete(b.interactionCollectors, id)
+			if !collector.multi {
+				delete(b.interactionCollectors, id)
+			}
 		default:
 		}
 	}
@@ -161,6 +164,47 @@ func (b *Bot) publishReaction(reaction *ReactionContext) {
 		}
 	}
 	b.collectorMu.Unlock()
+}
+
+// CollectInteractions collects multiple interactions matching filter into a
+// channel until ctx is cancelled or the collector is stopped. It is a
+// general-purpose component collector for message-level interactions —
+// buttons, select menus, and modals — that runs until the caller stops it.
+//
+// The returned channel is buffered (1) and is closed when the collector
+// stops. The returned stop function cancels the collector and is safe to
+// call multiple times.
+//
+// Unlike AwaitInteraction, which collects exactly one interaction,
+// CollectInteractions is designed for flows that need to receive multiple
+// interactions over time, such as live polls, reaction roles, or
+// multi-step wizards.
+func (b *Bot) CollectInteractions(ctx context.Context, filter InteractionFilter) (<-chan *InteractionContext, func()) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	result := make(chan *InteractionContext, 16)
+	id := b.subscriptions.Add(1)
+	b.collectorMu.Lock()
+	if b.interactionCollectors == nil {
+		b.interactionCollectors = make(map[uint64]interactionCollector)
+	}
+	b.interactionCollectors[id] = interactionCollector{filter: filter, result: result, multi: true}
+	b.collectorMu.Unlock()
+
+	stop := func() {
+		b.collectorMu.Lock()
+		delete(b.interactionCollectors, id)
+		b.collectorMu.Unlock()
+	}
+
+	go func() {
+		<-ctx.Done()
+		stop()
+		close(result)
+	}()
+
+	return result, stop
 }
 
 // Every starts a lifecycle-managed background job. The returned function

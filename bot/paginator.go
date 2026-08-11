@@ -66,6 +66,7 @@ func (b *Bot) NewPaginator(channelID snowflake.ID, pages []PaginatorPage, opts .
 // Send creates the initial message and starts the interaction loop.
 // It blocks until the timeout expires, the user clicks stop, or ctx
 // is cancelled. The message is edited in-place as the user navigates.
+// For non-blocking use from an interaction handler, call SendAsync.
 func (p *Paginator) Send(ctx context.Context) error {
 	if len(p.pages) == 0 {
 		return fmt.Errorf("paginator: no pages")
@@ -128,6 +129,19 @@ func (p *Paginator) Send(ctx context.Context) error {
 	// Remove buttons on timeout.
 	_, _ = p.bot.Rest.EditMessage(ctx, p.channelID, msg.ID, p.toEditParams(current, true))
 	return nil
+}
+
+// SendAsync launches Send in a goroutine and returns immediately. It is
+// the non-blocking variant of Send — use it from interaction handlers so
+// the handler goroutine is not occupied for the paginator's lifetime.
+// The error (if any) is delivered to the optional onError callback rather
+// than returned, since the call returns before Send completes.
+func (p *Paginator) SendAsync(ctx context.Context, onError func(error)) {
+	go func() {
+		if err := p.Send(ctx); err != nil && onError != nil {
+			onError(err)
+		}
+	}()
 }
 
 func (p *Paginator) renderPage(index int, done bool) messages.MessageSend {

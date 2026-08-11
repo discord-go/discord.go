@@ -65,10 +65,17 @@ func RequireAnyPermissions(perms permissions.Permission) Middleware {
 }
 
 // RequireBotPermissions checks the permissions Discord granted to the bot for
-// the invoking interaction.
+// the invoking interaction. If the bot's permissions were not included in
+// the interaction payload (empty AppPermissions string), the middleware
+// fails closed with a message indicating the permissions were unavailable
+// rather than that the bot genuinely lacks them.
 func RequireBotPermissions(perms permissions.Permission) Middleware {
 	return func(next CommandHandler) CommandHandler {
 		return func(ctx *InteractionContext) {
+			if ctx.AppPermissions == "" {
+				replyEphemeral(ctx, "Bot permissions were not provided in this interaction. Ensure the bot has the required permissions and the applications.commands scope.")
+				return
+			}
 			actual, err := strconv.ParseUint(ctx.AppPermissions, 10, 64)
 			if err != nil || !permissions.Permission(actual).HasAll(perms) {
 				replyEphemeral(ctx, "The bot does not have permission to complete this command.")

@@ -256,6 +256,19 @@ func (i *InteractionContext) Values() []string {
 	return append([]string(nil), i.data.Values...)
 }
 
+// ModalRow represents a single action row within a modal submission.
+// Each row contains the text input components that were submitted in that row.
+type ModalRow struct {
+	CustomID   string       `json:"custom_id,omitempty"`
+	Components []ModalField `json:"components,omitempty"`
+}
+
+// ModalField represents a single text input field within a modal action row.
+type ModalField struct {
+	CustomID string `json:"custom_id,omitempty"`
+	Value    string `json:"value,omitempty"`
+}
+
 // ModalValue returns a submitted text input value by custom ID.
 func (i *InteractionContext) ModalValue(customID string) string {
 	for _, component := range i.modalComponents() {
@@ -267,6 +280,8 @@ func (i *InteractionContext) ModalValue(customID string) string {
 }
 
 // ModalValues returns all submitted modal text input values keyed by custom ID.
+// The map is flat — if two inputs share a custom ID, the last one wins.
+// Use ModalRows for the structured action-row hierarchy.
 func (i *InteractionContext) ModalValues() map[string]string {
 	values := make(map[string]string)
 	for _, component := range i.modalComponents() {
@@ -275,6 +290,30 @@ func (i *InteractionContext) ModalValues() map[string]string {
 		}
 	}
 	return values
+}
+
+// ModalRows returns the submitted modal values structured by action row.
+// Each row corresponds to a top-level action row in the modal, and each
+// row's components are the text inputs within that row. This preserves the
+// modal's layout hierarchy, unlike the flat ModalValues map.
+func (i *InteractionContext) ModalRows() []ModalRow {
+	if i.data == nil {
+		return nil
+	}
+	rows := make([]ModalRow, 0, len(i.data.Components))
+	for _, row := range i.data.Components {
+		modalRow := ModalRow{CustomID: row.CustomID}
+		for _, child := range row.Components {
+			if child.CustomID != "" {
+				modalRow.Components = append(modalRow.Components, ModalField{
+					CustomID: child.CustomID,
+					Value:    child.Value,
+				})
+			}
+		}
+		rows = append(rows, modalRow)
+	}
+	return rows
 }
 
 // FocusedOption returns the option currently focused for autocomplete.
@@ -419,6 +458,21 @@ func (i *InteractionContext) TargetID() snowflake.ID {
 	}
 	id, _ := snowflake.Parse(i.cmdData.TargetID)
 	return id
+}
+
+// FetchTargetMember fetches the target user's guild member via REST. It is
+// useful for moderation commands that need to inspect the target's roles
+// (e.g., to prevent banning another moderator). The interaction must be
+// in a guild; in a DM it returns nil.
+func (i *InteractionContext) FetchTargetMember(ctx context.Context) (*users.Member, error) {
+	if !i.InGuild() {
+		return nil, nil
+	}
+	targetID := i.TargetID()
+	if targetID == 0 {
+		return nil, nil
+	}
+	return i.rest.GetGuildMember(ctx, i.GuildID(), targetID)
 }
 
 // Options returns all top-level command options provided by the user.

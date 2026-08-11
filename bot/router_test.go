@@ -143,6 +143,18 @@ func TestInteractionRoutesAndModalOptions(t *testing.T) {
 	if !modalContext.IsModalSubmit() {
 		t.Fatal("expected modal submit")
 	}
+
+	// Test ModalRows for structured access.
+	rows := modalContext.ModalRows()
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(rows))
+	}
+	if len(rows[0].Components) != 1 {
+		t.Fatalf("expected 1 field in row 0, got %d", len(rows[0].Components))
+	}
+	if rows[0].Components[0].CustomID != "name" || rows[0].Components[0].Value != "Ada" {
+		t.Errorf("row 0 field = %+v, want {name Ada}", rows[0].Components[0])
+	}
 }
 
 func TestGenericEventSubscriptionAndCacheFacade(t *testing.T) {
@@ -249,4 +261,34 @@ func (c *blockingConnection) Close() error {
 		close(c.closed)
 	}
 	return nil
+}
+
+func TestCollectInteractions(t *testing.T) {
+	b := New("token")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch, stop := b.CollectInteractions(ctx, func(ic *InteractionContext) bool {
+		return ic.CustomID() == "vote:yes"
+	})
+	defer stop()
+
+	// Dispatch two matching interactions.
+	b.handleRawDispatch([]byte(`{"op":0,"t":"INTERACTION_CREATE","d":{"id":"1","type":3,"data":{"custom_id":"vote:yes","component_type":2}}}`))
+	b.handleRawDispatch([]byte(`{"op":0,"t":"INTERACTION_CREATE","d":{"id":"2","type":3,"data":{"custom_id":"vote:yes","component_type":2}}}`))
+
+	// Should receive both.
+	count := 0
+	for {
+		select {
+		case ic := <-ch:
+			count++
+			_ = ic
+			if count >= 2 {
+				return
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("expected 2 interactions, got %d", count)
+		}
+	}
 }

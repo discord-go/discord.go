@@ -96,6 +96,22 @@ Use distinct IDs such as `display-name`, `timezone`, and `bio`; call
 `ModalValues()` to get a `map[string]string`, then validate each value before
 writing application state.
 
+### Advanced: structured row access
+
+`ModalValues()` flattens all fields into a single map. When you need the
+action-row hierarchy (e.g., to process rows independently or detect layout),
+use `ModalRows()` instead. It returns `[]ModalRow`, each containing a
+`CustomID` and a slice of `ModalField` values (`CustomID` + `Value`) for the
+text inputs in that row.
+
+```go
+for _, row := range ctx.ModalRows() {
+    for _, field := range row.Components {
+        log.Printf("row=%s field=%s value=%s", row.CustomID, field.CustomID, field.Value)
+    }
+}
+```
+
 ### Advanced: scoped workflows
 
 Include a workflow or resource key in the modal custom ID and use
@@ -185,8 +201,8 @@ value := ctx.ModalValue("name")
   `ShowModalComplex(*interactions.InteractionCallbackData) error` send modal
   callbacks.
 - `InteractionContext.IsModalSubmit`, `CustomID`, `ModalValue`, `ModalValues`,
-  `Reply`, `ReplyEphemeral`, `Defer`, `EditReply`, and `Followup` are the core
-  submit-handler methods.
+  `ModalRows`, `Reply`, `ReplyEphemeral`, `Defer`, `EditReply`, and `Followup`
+  are the core submit-handler methods.
 - `Router.Modal(customID string, handler InteractionHandler) *InteractionRoute`
   registers an exact modal route. `Router.ModalPrefix(prefix string, handler
   InteractionHandler) *InteractionRoute` registers a prefix-matched modal

@@ -66,7 +66,7 @@ The source defers before each REST request. Its `rest.WithReason(context.Backgro
 ## Advanced Usage
 
 - Derive REST contexts from `ctx.Context()` with a deadline, for example ten seconds, and pass that context to `ctx.Bot.Rest`.
-- Re-fetch or validate the target member when the action is sensitive or the interaction may be delayed.
+- Re-fetch or validate the target member when the action is sensitive or the interaction may be delayed. Use `ctx.FetchTargetMember(ctx)` to fetch the target's guild member and inspect their roles for hierarchy checks (e.g., to prevent banning another moderator).
 - Add an application-owned authorization policy in addition to Discord permissions, such as moderator roles, two-person approval, or protected-user rules.
 - Make retries safe and avoid repeating a ban, kick, or timeout after an ambiguous network failure without checking current state.
 - Store immutable action records with actor, target, guild, reason, request ID, result, and timestamp.
@@ -113,7 +113,7 @@ router.Command("ban", "Ban a member", handleBan,
 
 ```go
 apiCtx := rest.WithReason(context.Background(), reason)
-_ = ctx.Bot.Rest.CreateGuildBan(apiCtx, *ctx.GuildID, userID, rest.CreateBanParams{})
+_ = ctx.Bot.Rest.CreateGuildBan(apiCtx, ctx.GuildID(), userID, rest.CreateBanParams{})
 ```
 
 ### Correct

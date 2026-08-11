@@ -94,8 +94,10 @@ Use `router.ButtonPrefix("ticket:close:", handler)` for a family of buttons.
 The current `CustomID` is available through `ctx.CustomID()`. The portion
 after the matched prefix is available through `ctx.Suffix()` — for example,
 a button with custom ID `ticket:close:123` dispatched under the prefix
-`ticket:close:` yields `ctx.Suffix()` == `"123"`. Validate the suffix before
-changing state.
+`ticket:close:` yields `ctx.Suffix()` == `"123"`. Note that `Suffix()`
+returns an empty string when the custom ID equals the prefix exactly (e.g.
+`"ticket:close:"` with no suffix); handlers should guard against empty
+suffixes. Validate the suffix before changing state.
 
 ### Advanced: defer and collect
 

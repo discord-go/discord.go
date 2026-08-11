@@ -99,7 +99,14 @@ original message if the application needs its ID or final content.
 For a button or select, use `Update` or `UpdateContent` to edit the triggering
 message, or `DeferUpdate` when the edit will happen later. For modal submissions,
 use `ModalValue` or `ModalValues`. For autocomplete, inspect `FocusedOption` and
-return `Autocomplete` choices.
+return `Autocomplete` choices. `FocusedOptionString()` is a safe shortcut that
+returns the focused value as a string without type assertions.
+
+Select menu values are always `[]string` from Discord's API. For `RoleSelect`,
+`UserSelect`, and `ChannelSelect`, parse each value with `snowflake.Parse` to
+get a `snowflake.ID`. For context-menu commands, `FetchTargetMember(ctx)`
+fetches the target user's guild member via REST — useful for moderation
+commands that need to inspect the target's roles.
 
 ## Common Patterns
 
@@ -203,7 +210,7 @@ if ctx.IsMessageComponent() {
   `InGuild`, `IsAutocomplete`, `IsMessageComponent`, `IsButton`, `IsSelectMenu`,
   and `IsModalSubmit` identify valid response paths.
 - `MemberPermissions`, `BotPermissions`, `User`, `GuildID`, `ChannelID`,
-  `FocusedOptionString`, and `TargetID`
+  `FocusedOptionString`, `TargetID`, and `FetchTargetMember`
   expose permission and context data.
 - `Reply`, `ReplyEphemeral`, `ReplyEmbed`, `ReplyComplex`, and
   `ReplyComplexWithFiles` send initial responses.
