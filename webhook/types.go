@@ -1,10 +1,14 @@
 package webhook
 
-// WebhookType represents the type of a webhook.
-type WebhookType int
+// Type represents the type of a webhook.
+type Type int
 
 const (
-	WebhookTypeIncoming        WebhookType = 1
-	WebhookTypeChannelFollower WebhookType = 2
-	WebhookTypeApplication     WebhookType = 3
+	// TypeIncoming is an incoming webhook that can be used to send messages.
+	TypeIncoming Type = 1
+	// TypeChannelFollower is a channel follower webhook that cross-posts
+	// from a source channel.
+	TypeChannelFollower Type = 2
+	// TypeApplication is an application webhook used for interactions.
+	TypeApplication Type = 3
 )

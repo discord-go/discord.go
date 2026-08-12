@@ -11,8 +11,8 @@ edit, and delete operations are methods on [`../rest/`](../rest/README.md).
 
 `Webhook` carries ID, type, guild and channel IDs, optional creator user, name,
 avatar hash, token, application ID, source guild and source channel, and URL.
-`WebhookTypeIncoming` is 1, `WebhookTypeChannelFollower` is 2, and
-`WebhookTypeApplication` is 3. Most identifiers use `snowflake.ID` with
+`TypeIncoming` is 1, `TypeChannelFollower` is 2, and
+`TypeApplication` is 3. Most identifiers use `snowflake.ID` with
 string JSON encoding. The token is optional in response models but is a
 credential when present.
 
@@ -33,7 +33,7 @@ func main() {
 	if err := json.Unmarshal([]byte(`{"id":"100","type":1,"channel_id":"200","name":"alerts","token":"secret"}`), &hook); err != nil {
 		panic(err)
 	}
-	fmt.Println(hook.ID, hook.Type == webhook.WebhookTypeIncoming, hook.Name, hook.Token != "")
+	fmt.Println(hook.ID, hook.Type == webhook.TypeIncoming, hook.Name, hook.Token != "")
 }
 ```
 
@@ -79,9 +79,9 @@ or IP-restricting the endpoint.
 
 ## API Walkthrough
 
-The complete public API is `Webhook`, `WebhookType`, and
-`WebhookTypeIncoming`, `WebhookTypeChannelFollower`, and
-`WebhookTypeApplication`.
+The complete public API is `Webhook`, `Type`, and
+`TypeIncoming`, `TypeChannelFollower`, and
+`TypeApplication`.
 
 ## Examples
 

@@ -10,7 +10,7 @@ import (
 // Webhook represents a Discord webhook.
 type Webhook struct {
 	ID            snowflake.ID      `json:"id,string"`
-	Type          WebhookType       `json:"type"`
+	Type          Type              `json:"type"`
 	GuildID       snowflake.ID      `json:"guild_id,string,omitempty"`
 	ChannelID     snowflake.ID      `json:"channel_id,string,omitempty"`
 	User          *users.User       `json:"user,omitempty"`

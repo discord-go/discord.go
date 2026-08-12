@@ -41,7 +41,7 @@ func TestWebhook_UnmarshalJSON(t *testing.T) {
 	if w.ID != snowflake.ID(1234567890) {
 		t.Errorf("Expected ID 1234567890, got %d", w.ID)
 	}
-	if w.Type != WebhookTypeIncoming {
+	if w.Type != TypeIncoming {
 		t.Errorf("Expected Type 1, got %d", w.Type)
 	}
 	if w.GuildID != snowflake.ID(9876543210) {
