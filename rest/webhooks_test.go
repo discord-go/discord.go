@@ -95,6 +95,25 @@ func TestDeleteWebhook(t *testing.T) {
 	}
 }
 
+func TestExecuteWebhookParamsBuilder(t *testing.T) {
+	b := NewExecuteWebhookParamsBuilder().
+		SetContent("hello").
+		SetUsername("Bot").
+		SetTTS(false).
+		SetFlags(64)
+
+	params := b.Build()
+	if params.Content != "hello" {
+		t.Errorf("Content = %q, want %q", params.Content, "hello")
+	}
+	if params.Username != "Bot" {
+		t.Errorf("Username = %q, want %q", params.Username, "Bot")
+	}
+	if params.Flags != 64 {
+		t.Errorf("Flags = %d, want 64", params.Flags)
+	}
+}
+
 func TestExecuteWebhook(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/webhooks/123/token" {

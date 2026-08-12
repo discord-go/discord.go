@@ -75,3 +75,91 @@ func TestWebhook_UnmarshalJSON(t *testing.T) {
 		t.Errorf("Expected URL 'https://discord.com/api/webhooks/1234567890/secure_token', got '%s'", w.URL)
 	}
 }
+
+func TestWebhookHelpers(t *testing.T) {
+	w := Webhook{
+		ID:    snowflake.ID(1234567890),
+		Type:  TypeIncoming,
+		Name:  "alerts",
+		Token: "secure_token",
+	}
+
+	if !w.IsIncoming() {
+		t.Error("expected IsIncoming true")
+	}
+	if w.IsChannelFollower() {
+		t.Error("expected IsChannelFollower false")
+	}
+	if w.IsApplication() {
+		t.Error("expected IsApplication false")
+	}
+	if w.IsZero() {
+		t.Error("expected IsZero false")
+	}
+	if !w.HasToken() {
+		t.Error("expected HasToken true")
+	}
+
+	execURL := w.ExecutionURL()
+	expected := "https://discord.com/api/webhooks/1234567890/secure_token"
+	if execURL != expected {
+		t.Errorf("ExecutionURL = %q, want %q", execURL, expected)
+	}
+
+	// No token -> empty URL
+	w.Token = ""
+	if w.ExecutionURL() != "" {
+		t.Errorf("expected empty ExecutionURL without token, got %q", w.ExecutionURL())
+	}
+
+	// Zero webhook
+	var zero Webhook
+	if !zero.IsZero() {
+		t.Error("expected IsZero true for zero-value Webhook")
+	}
+	if zero.HasToken() {
+		t.Error("expected HasToken false for zero-value Webhook")
+	}
+}
+
+func TestWebhookAvatarURL(t *testing.T) {
+	// With avatar hash
+	w := Webhook{
+		ID:     snowflake.ID(1234567890),
+		Avatar: "abc123",
+	}
+	url := w.AvatarURL(AvatarURLOptions{})
+	if url != "https://cdn.discordapp.com/avatars/1234567890/abc123.png" {
+		t.Errorf("AvatarURL = %q", url)
+	}
+
+	// With gif extension
+	url = w.AvatarURL(AvatarURLOptions{Extension: "gif"})
+	if url != "https://cdn.discordapp.com/avatars/1234567890/abc123.gif" {
+		t.Errorf("AvatarURL gif = %q", url)
+	}
+
+	// Without avatar -> default avatar
+	w.Avatar = ""
+	url = w.AvatarURL(AvatarURLOptions{})
+	if url == "" {
+		t.Error("expected default avatar URL, got empty")
+	}
+}
+
+func TestTypeString(t *testing.T) {
+	tests := []struct {
+		typ  Type
+		want string
+	}{
+		{TypeIncoming, "Incoming"},
+		{TypeChannelFollower, "ChannelFollower"},
+		{TypeApplication, "Application"},
+		{Type(99), "Unknown"},
+	}
+	for _, tt := range tests {
+		if got := tt.typ.String(); got != tt.want {
+			t.Errorf("Type(%d).String() = %q, want %q", tt.typ, got, tt.want)
+		}
+	}
+}

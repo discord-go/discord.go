@@ -50,10 +50,13 @@ otherwise.
 
 For token-authenticated execution, use REST methods such as
 `ExecuteWebhook`, `ExecuteWebhookWithOptions`, and their multipart variants.
-Interaction webhook URLs use the interaction token and the REST no-auth
-helpers. `Webhook.Token` should never be logged or included in a client-facing
-model. The webhook URL field is informational; build routes through the REST
-API rather than concatenating untrusted values.
+Slack-compatible and GitHub-compatible execution is available via
+`ExecuteSlackWebhook`/`ExecuteSlackWebhookWithOptions` and
+`ExecuteGitHubWebhook`/`ExecuteGitHubWebhookWithOptions`. Interaction webhook
+URLs use the interaction token and the REST no-auth helpers. `Webhook.Token`
+should never be logged or included in a client-facing model. The webhook URL
+field is informational; build routes through the REST API rather than
+concatenating untrusted values.
 
 ## Common Patterns
 
@@ -82,6 +85,31 @@ or IP-restricting the endpoint.
 The complete public API is `Webhook`, `Type`, and
 `TypeIncoming`, `TypeChannelFollower`, and
 `TypeApplication`.
+
+### Webhook methods
+
+- `AvatarURL(AvatarURLOptions)` — returns the CDN URL for the webhook's
+  avatar, or a default avatar when none is set.
+- `IsIncoming()`, `IsChannelFollower()`, `IsApplication()` — type checks.
+- `IsZero()` — true when the webhook has no ID (uninitialized).
+- `HasToken()` — true when the webhook carries a token (executable without
+  bot auth).
+- `ExecutionURL()` — the `discord.com/api/webhooks/{id}/{token}` URL, or
+  empty when the token is missing.
+
+### Type methods
+
+- `Type.String()` — returns `"Incoming"`, `"ChannelFollower"`,
+  `"Application"`, or `"Unknown"`.
+
+### REST builder
+
+- `rest.NewExecuteWebhookParamsBuilder()` — fluent builder for
+  `ExecuteWebhookParams`, mirroring `MessageSendBuilder`. Supports
+  `SetContent`, `SetUsername`, `SetAvatarURL`, `SetTTS`, `AddEmbed`,
+  `SetEmbeds`, `AddComponent`, `SetComponents`, `SetFlags`,
+  `AddAttachment`, `SetThreadName`, `AddAppliedTag`, `SetPoll`,
+  `SetAllowedMentions`, and `Build`.
 
 ## Examples
 

@@ -200,10 +200,20 @@ func (c *Client) ExecuteSlackWebhook(ctx context.Context, webhookID snowflake.ID
 	return c.RequestNoAuth(ctx, "POST", path, payload, nil)
 }
 
+func (c *Client) ExecuteSlackWebhookWithOptions(ctx context.Context, webhookID snowflake.ID, webhookToken string, payload any, options ExecuteWebhookOptions) error {
+	path := "/webhooks/" + webhookID.String() + "/" + webhookToken + "/slack" + options.query()
+	return c.RequestNoAuth(ctx, "POST", path, payload, nil)
+}
+
 func (c *Client) ExecuteGitHubWebhook(ctx context.Context, webhookID snowflake.ID, webhookToken string, payload any, wait bool) error {
 	path := "/webhooks/" + webhookID.String() + "/" + webhookToken + "/github"
 	if wait {
 		path += "?wait=true"
 	}
+	return c.RequestNoAuth(ctx, "POST", path, payload, nil)
+}
+
+func (c *Client) ExecuteGitHubWebhookWithOptions(ctx context.Context, webhookID snowflake.ID, webhookToken string, payload any, options ExecuteWebhookOptions) error {
+	path := "/webhooks/" + webhookID.String() + "/" + webhookToken + "/github" + options.query()
 	return c.RequestNoAuth(ctx, "POST", path, payload, nil)
 }
