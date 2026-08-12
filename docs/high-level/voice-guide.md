@@ -98,9 +98,9 @@ received in `SessionDescription`, avoiding per-packet cipher allocation.
 The nonce counter is a `uint32` that increments on each `SendOpus` call. If
 the counter reaches its maximum value (`2^32 - 1`), `SendOpus` returns an
 error instead of wrapping to zero, which would reuse a nonce and break GCM.
-The caller must re-establish the voice session to get a new key. At 20
-packets per second, this limit is reached after approximately 6.8 years of
-continuous audio.
+The caller must re-establish the voice session to get a new key. At 50
+packets per second (20 ms Opus frames), this limit is reached after
+approximately 2.7 years of continuous audio.
 
 ## UDP Packet Structure
 
