@@ -63,7 +63,7 @@ func main() {
 			return
 		}
 		log.Printf("thumbs-up message=%s user=%s", ctx.MessageID.String(), ctx.UserID.String())
-		if err := ctx.Bot.Rest.CreateReaction(ctx.Context(), ctx.ChannelID, ctx.MessageID, "✅"); err != nil {
+		if err := ctx.Bot.Rest.CreateReaction(ctx.Context(), ctx.ChannelID(), ctx.MessageID, "✅"); err != nil {
 			log.Printf("reaction acknowledgement: %v", err)
 		}
 	})

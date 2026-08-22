@@ -74,7 +74,7 @@ Handlers receive `*bot.InteractionContext`. The embedded
 and `GuildLocale`. These fields can be nil or empty for different interaction
 types, so use the predicate methods before reading them. The `User()`
 accessor handles the guild-vs-DM user lookup automatically; `GuildID()`
-dereferences the pointer and returns zero for DMs.
+and `ChannelID()` dereference the pointers and return zero for DMs.
 
 Use `interactions.InteractionCallbackData` for embeds, components, flags,
 attachments, choices, modal fields, and polls. `messages.FlagEphemeral` makes an

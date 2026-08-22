@@ -59,11 +59,18 @@ type MessageContext struct {
 	*events.MessageCreate
 }
 
+// ChannelID returns the channel ID where the message was sent.
+// This is a method for consistency with InteractionContext.ChannelID();
+// the underlying value comes from the embedded MessageCreate event.
+func (m *MessageContext) ChannelID() snowflake.ID {
+	return m.MessageCreate.ChannelID
+}
+
 // Reply sends a text message to the same channel.
 func (m *MessageContext) Reply(content string) (*messages.Message, error) {
 	ctx, cancel := m.newCtx()
 	defer cancel()
-	return m.rest.CreateMessage(ctx, m.ChannelID, content)
+	return m.rest.CreateMessage(ctx, m.ChannelID(), content)
 }
 
 // Replyf sends a formatted text message to the same channel.
@@ -80,63 +87,63 @@ func (m *MessageContext) ReplyEmbed(embeds ...messages.Embed) (*messages.Message
 func (m *MessageContext) ReplyComplex(send messages.MessageSend) (*messages.Message, error) {
 	ctx, cancel := m.newCtx()
 	defer cancel()
-	return m.rest.CreateMessageComplex(ctx, m.ChannelID, send)
+	return m.rest.CreateMessageComplex(ctx, m.ChannelID(), send)
 }
 
 // ReplyComplexWithFiles sends a customized message with multipart attachments.
 func (m *MessageContext) ReplyComplexWithFiles(send messages.MessageSend, files ...rest.File) (*messages.Message, error) {
 	ctx, cancel := m.newCtx()
 	defer cancel()
-	return m.rest.CreateMessageComplexWithFiles(ctx, m.ChannelID, send, files)
+	return m.rest.CreateMessageComplexWithFiles(ctx, m.ChannelID(), send, files)
 }
 
 // Edit edits this message.
 func (m *MessageContext) Edit(content string) (*messages.Message, error) {
 	ctx, cancel := m.newCtx()
 	defer cancel()
-	return m.rest.EditMessage(ctx, m.ChannelID, m.ID, rest.EditMessageParams{Content: &content})
+	return m.rest.EditMessage(ctx, m.ChannelID(), m.ID, rest.EditMessageParams{Content: &content})
 }
 
 // Fetch retrieves the current message from Discord.
 func (m *MessageContext) Fetch() (*messages.Message, error) {
 	ctx, cancel := m.newCtx()
 	defer cancel()
-	return m.rest.GetChannelMessage(ctx, m.ChannelID, m.ID)
+	return m.rest.GetChannelMessage(ctx, m.ChannelID(), m.ID)
 }
 
 // React adds a reaction emoji to this message.
 func (m *MessageContext) React(emoji string) error {
 	ctx, cancel := m.newCtx()
 	defer cancel()
-	return m.rest.CreateReaction(ctx, m.ChannelID, m.ID, emoji)
+	return m.rest.CreateReaction(ctx, m.ChannelID(), m.ID, emoji)
 }
 
 // Delete deletes this message.
 func (m *MessageContext) Delete() error {
 	ctx, cancel := m.newCtx()
 	defer cancel()
-	return m.rest.DeleteMessage(ctx, m.ChannelID, m.ID)
+	return m.rest.DeleteMessage(ctx, m.ChannelID(), m.ID)
 }
 
 // Pin pins this message in its channel.
 func (m *MessageContext) Pin() error {
 	ctx, cancel := m.newCtx()
 	defer cancel()
-	return m.rest.PinMessage(ctx, m.ChannelID, m.ID)
+	return m.rest.PinMessage(ctx, m.ChannelID(), m.ID)
 }
 
 // Unpin removes this message from its channel's pins.
 func (m *MessageContext) Unpin() error {
 	ctx, cancel := m.newCtx()
 	defer cancel()
-	return m.rest.UnpinMessage(ctx, m.ChannelID, m.ID)
+	return m.rest.UnpinMessage(ctx, m.ChannelID(), m.ID)
 }
 
 // TriggerTyping starts the typing indicator in this message's channel.
 func (m *MessageContext) TriggerTyping() error {
 	ctx, cancel := m.newCtx()
 	defer cancel()
-	return m.rest.TriggerTypingIndicator(ctx, m.ChannelID)
+	return m.rest.TriggerTypingIndicator(ctx, m.ChannelID())
 }
 
 // MessageUpdateContext wraps a MESSAGE_UPDATE event.
@@ -920,11 +927,18 @@ type ReactionContext struct {
 	*events.MessageReactionAdd
 }
 
+// ChannelID returns the channel ID where the reaction occurred.
+// This is a method for consistency with InteractionContext.ChannelID()
+// and MessageContext.ChannelID().
+func (r *ReactionContext) ChannelID() snowflake.ID {
+	return r.MessageReactionAdd.ChannelID
+}
+
 // Reply sends a text message to the channel where the reaction occurred.
 func (r *ReactionContext) Reply(content string) (*messages.Message, error) {
 	ctx, cancel := r.newCtx()
 	defer cancel()
-	return r.rest.CreateMessage(ctx, r.ChannelID, content)
+	return r.rest.CreateMessage(ctx, r.ChannelID(), content)
 }
 
 // GuildContext wraps a GUILD_CREATE event.

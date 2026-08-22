@@ -55,7 +55,7 @@ func main() {
 		bot.WithRouter(router),
 	)
 	b.OnMessageCreate(func(ctx *bot.MessageContext) {
-		log.Printf("message channel=%s content_length=%d", ctx.ChannelID.String(), len(ctx.Content))
+		log.Printf("message channel=%s content_length=%d", ctx.ChannelID().String(), len(ctx.Content))
 	})
 	b.OnReady(func(ctx *bot.ReadyContext) {
 		log.Printf("ready as %s", ctx.User.Username)
