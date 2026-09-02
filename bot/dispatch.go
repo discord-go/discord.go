@@ -246,6 +246,19 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse GUILD_CREATE: %w", err))
 			return
 		}
+		// Hydrate the voice tracker from the guild's initial voice states so
+		// CountInChannel/VoiceStatesInChannel are correct from the very
+		// first event after a (re)connect instead of only seeing states
+		// that changed later.
+		if b.voice != nil {
+			for _, state := range guild.VoiceStates {
+				if !guild.ID.IsZero() && state.GuildID == nil {
+					guildID := guild.ID
+					state.GuildID = &guildID
+				}
+				b.voice.apply(state)
+			}
+		}
 		ctx := &GuildContext{BaseContext: b.baseContext(), GuildCreate: &guild}
 		b.mu.RLock()
 		handlers := append([]GuildCreateHandler(nil), b.guildCreateHandlers...)
