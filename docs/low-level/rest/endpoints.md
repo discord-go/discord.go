@@ -22,7 +22,10 @@ command-permission methods. `CreateCommandParams` and
 
 `GetChannel`, `ModifyChannel`, `DeleteChannel`, `CreateGuildChannel`, DM
 creation, invites, webhooks, typing, and permission-overwrite methods cover
-channels. Message methods include `CreateMessage`,
+channels. `GetChannelInvites` lists a channel's invites and
+`GetGuildInvites` lists every guild invite with full metadata (`Uses`,
+`MaxUses`, `MaxAge`, `Temporary`, `CreatedAt`, inviter), which is what
+invite trackers snapshot. Message methods include `CreateMessage`,
 `CreateMessageComplex`, multipart send, `GetChannelMessage`, list, edit,
 delete, bulk delete, crosspost, pin/unpin, reactions, polls, and search.
 Use `messages.MessageSend`, `GetMessagesParams`, and `EditMessageParams`.

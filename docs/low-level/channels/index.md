@@ -19,7 +19,12 @@ channel variants. Thread information is split between `ThreadMetadata` and
 the available/applied tag fields.
 
 `Invite` may contain an `InviteGuild`, channel, inviter, target user or
-application, approximate counts, and expiry. `Overwrite` uses
+application, approximate counts, and expiry. Guild invite listings and the
+`INVITE_CREATE` / `INVITE_DELETE` gateway payloads also carry metadata:
+`Uses`, `MaxUses`, `MaxAge`, `Temporary`, `CreatedAt`, and the flat
+`GuildID`, `ChannelID`, `InviterID`, and `TargetUserID` snowflakes. REST
+invite objects from `GET /invites/{code}` omit most metadata, so these
+fields stay zero there. `Overwrite` uses
 `permissions.Permission` for `Allow` and `Deny`, so you can use permission
 constants directly without manual string conversion. The fields use
 `json:",string"` so Discord's string-encoded numbers marshal and unmarshal
