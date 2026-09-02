@@ -41,10 +41,8 @@ func (b *Bot) handleRawDispatch(data []byte) {
 	}
 	event := *payload.Type
 	b.eventsReceived.Add(1)
-	b.dispatchRaw(event, payload.Data)
-	b.dispatchEvent(event, payload.Data)
 
-	// Track voice states before typed dispatch so handlers that query the
+	// Track voice states before any dispatch so handlers that query the
 	// tracker observe the state that triggered them.
 	if event == "VOICE_STATE_UPDATE" && b.voice != nil {
 		var state voice.VoiceState
@@ -59,6 +57,9 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.voice.dropGuild(deleted.ID)
 		}
 	}
+
+	b.dispatchRaw(event, payload.Data)
+	b.dispatchEvent(event, payload.Data)
 
 	switch event {
 	case "READY":
