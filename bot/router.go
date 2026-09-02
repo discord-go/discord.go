@@ -725,19 +725,22 @@ func validateCommandOptions(cmdName string, options []interactions.ApplicationCo
 			if inSubcommand {
 				return fmt.Errorf("command %q cannot nest subcommand group %q inside subcommand", cmdName, option.Name)
 			}
-			if len(option.Options) == 0 {
-				return fmt.Errorf("command %q subcommand %q has no nested options", cmdName, option.Name)
-			}
-			nested := option.Options
+			// A group must contain at least one subcommand; a plain
+			// subcommand may have zero options (e.g. "/giveaway list").
 			if option.Type == interactions.ApplicationCommandOptionTypeSubCommandGroup {
-				for _, child := range nested {
+				if len(option.Options) == 0 {
+					return fmt.Errorf("command %q subcommand group %q has no subcommands", cmdName, option.Name)
+				}
+				for _, child := range option.Options {
 					if child.Type != interactions.ApplicationCommandOptionTypeSubCommand {
 						return fmt.Errorf("command %q group %q contains a non-subcommand option %q", cmdName, option.Name, child.Name)
 					}
 				}
 			}
-			if err := validateCommandOptions(cmdName, nested, true); err != nil {
-				return err
+			if len(option.Options) > 0 {
+				if err := validateCommandOptions(cmdName, option.Options, true); err != nil {
+					return err
+				}
 			}
 			continue
 		}

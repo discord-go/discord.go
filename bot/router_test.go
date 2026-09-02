@@ -98,14 +98,21 @@ func TestRouterCommandSubcommands(t *testing.T) {
 		t.Fatal("expected error for required subcommand")
 	}
 
-	// A subcommand without nested options is invalid.
+	// A subcommand without nested options is allowed (e.g. "/giveaway list").
 	if _, err := router.CommandE("b", "B", handler, interactions.ApplicationCommandOption{
-		Type: interactions.ApplicationCommandOptionTypeSubCommand, Name: "x", Description: "X",
-	}); err == nil {
-		t.Fatal("expected error for empty subcommand")
+		Type: interactions.ApplicationCommandOptionTypeSubCommand, Name: "list", Description: "List active giveaways",
+	}); err != nil {
+		t.Fatalf("option-less subcommand should be valid: %v", err)
 	}
 
-	// Duplicate nested names are rejected.
+	// A subcommand group with no subcommands is invalid.
+	if _, err := router.CommandE("g1", "G1", handler, interactions.ApplicationCommandOption{
+		Type: interactions.ApplicationCommandOptionTypeSubCommandGroup, Name: "g", Description: "G",
+	}); err == nil {
+		t.Fatal("expected error for empty subcommand group")
+	}
+
+	// A subcommand-group containing a non-subcommand is rejected.
 	if _, err := router.CommandE("c", "C", handler, interactions.ApplicationCommandOption{
 		Type: interactions.ApplicationCommandOptionTypeSubCommand, Name: "x", Description: "X",
 		Options: []interactions.ApplicationCommandOption{

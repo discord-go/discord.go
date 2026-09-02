@@ -122,8 +122,10 @@ router.Command("giveaway", "Server giveaways", func(ctx *bot.InteractionContext)
 
 Rules enforced by the router's validator:
 
-* subcommands (and groups) must provide nested options and are never required;
-* subcommand groups may only contain subcommands (one level of grouping);
+* subcommands may not be required;
+* a subcommand may have zero options (e.g. `/giveaway list`);
+* subcommand groups may only contain subcommands and must contain at least one
+  (one level of grouping);
 * subcommands cannot nest inside other subcommands;
 * leaf options may not carry nested options.
 
