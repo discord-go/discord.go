@@ -692,18 +692,57 @@ func validateCommandType(name, description string, typ interactions.ApplicationC
 	if handler == nil {
 		return fmt.Errorf("command %q has no handler", name)
 	}
+	if err := validateCommandOptions(name, options, false); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateCommandOptions validates one level of command options, recursing
+// into subcommand and subcommand group options. inSubcommand is true once
+// we are inside a subcommand (where further grouping is forbidden).
+func validateCommandOptions(cmdName string, options []interactions.ApplicationCommandOption, inSubcommand bool) error {
 	seen := make(map[string]struct{}, len(options))
 	for _, option := range options {
 		optionName := strings.ToLower(strings.TrimSpace(option.Name))
 		if optionName == "" || len(optionName) > 32 {
-			return fmt.Errorf("command %q has an option with an invalid name", name)
+			return fmt.Errorf("command %q has an option with an invalid name", cmdName)
+		}
+		if strings.TrimSpace(option.Description) == "" || len(option.Description) > 100 {
+			return fmt.Errorf("command %q option %q has an invalid description", cmdName, option.Name)
 		}
 		if _, exists := seen[optionName]; exists {
-			return fmt.Errorf("command %q has duplicate option %q", name, option.Name)
+			return fmt.Errorf("command %q has duplicate option %q", cmdName, option.Name)
 		}
 		seen[optionName] = struct{}{}
-		if strings.TrimSpace(option.Description) == "" || len(option.Description) > 100 {
-			return fmt.Errorf("command %q option %q has an invalid description", name, option.Name)
+
+		grouping := option.Type == interactions.ApplicationCommandOptionTypeSubCommand ||
+			option.Type == interactions.ApplicationCommandOptionTypeSubCommandGroup
+		if grouping && option.Required {
+			return fmt.Errorf("command %q subcommand %q cannot be required", cmdName, option.Name)
+		}
+		if grouping {
+			if inSubcommand {
+				return fmt.Errorf("command %q cannot nest subcommand group %q inside subcommand", cmdName, option.Name)
+			}
+			if len(option.Options) == 0 {
+				return fmt.Errorf("command %q subcommand %q has no nested options", cmdName, option.Name)
+			}
+			nested := option.Options
+			if option.Type == interactions.ApplicationCommandOptionTypeSubCommandGroup {
+				for _, child := range nested {
+					if child.Type != interactions.ApplicationCommandOptionTypeSubCommand {
+						return fmt.Errorf("command %q group %q contains a non-subcommand option %q", cmdName, option.Name, child.Name)
+					}
+				}
+			}
+			if err := validateCommandOptions(cmdName, nested, true); err != nil {
+				return err
+			}
+			continue
+		}
+		if len(option.Options) > 0 {
+			return fmt.Errorf("command %q option %q takes nested options but is not a subcommand", cmdName, option.Name)
 		}
 	}
 	return nil

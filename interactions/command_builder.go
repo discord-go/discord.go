@@ -117,6 +117,36 @@ func (b *SlashCommandBuilder) AddOption(opt ApplicationCommandOption) *SlashComm
 	return b
 }
 
+// AddSubcommand adds a subcommand option with its own nested options:
+//
+//	NewSlashCommandBuilder("giveaway", "...").AddSubcommand(
+//		"create", "Start a new giveaway",
+//		ApplicationCommandOption{Type: Type, Name: "prize", ...},
+//	)
+func (b *SlashCommandBuilder) AddSubcommand(name, description string, options ...ApplicationCommandOption) *SlashCommandBuilder {
+	return b.AddOption(ApplicationCommandOption{
+		Type:        ApplicationCommandOptionTypeSubCommand,
+		Name:        name,
+		Description: description,
+		Options:     options,
+	})
+}
+
+// AddSubcommandGroup adds a subcommand group containing subcommands:
+//
+//	NewSlashCommandBuilder("mod", "...").AddSubcommandGroup(
+//		"cases", "Manage moderation cases",
+//		ApplicationCommandOption{Type: ApplicationCommandOptionTypeSubCommand, Name: "view", ...},
+//	)
+func (b *SlashCommandBuilder) AddSubcommandGroup(name, description string, subcommands ...ApplicationCommandOption) *SlashCommandBuilder {
+	return b.AddOption(ApplicationCommandOption{
+		Type:        ApplicationCommandOptionTypeSubCommandGroup,
+		Name:        name,
+		Description: description,
+		Options:     subcommands,
+	})
+}
+
 // SetIntegrationTypes sets the integration types (e.g. User Apps V2) for the slash command.
 // 0 = Guild Install, 1 = User Install
 func (b *SlashCommandBuilder) SetIntegrationTypes(types ...int) *SlashCommandBuilder {

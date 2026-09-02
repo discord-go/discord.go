@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -57,6 +58,82 @@ func TestRouterCommandValidationAndStableOrder(t *testing.T) {
 	}
 	if _, err := router.CommandE("ok", "", func(*InteractionContext) {}); err == nil {
 		t.Fatal("expected invalid description error")
+	}
+}
+
+// TestRouterCommandSubcommands covers registration and validation of
+// subcommand and subcommand group options.
+func TestRouterCommandSubcommands(t *testing.T) {
+	router := NewRouter()
+	handler := func(*InteractionContext) {}
+
+	// A valid subcommand tree registers and serializes.
+	cmd := router.MustCommand("giveaway", "Giveaways", handler, interactions.ApplicationCommandOption{
+		Type: interactions.ApplicationCommandOptionTypeSubCommand, Name: "create",
+		Description: "Start a giveaway",
+		Options: []interactions.ApplicationCommandOption{
+			{Type: interactions.ApplicationCommandOptionTypeString, Name: "prize", Description: "The prize"},
+			{Type: interactions.ApplicationCommandOptionTypeInteger, Name: "winners", Description: "How many", Required: true},
+		},
+	})
+	if len(cmd.Options) != 1 {
+		t.Fatalf("registered options = %d, want 1", len(cmd.Options))
+	}
+	if len(cmd.Options[0].Options) != 2 {
+		t.Fatalf("nested options = %d, want 2", len(cmd.Options[0].Options))
+	}
+	data, err := json.Marshal(cmd.Options)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !bytes.Contains(data, []byte(`"options"`)) {
+		t.Fatalf("serialized options missing nested field: %s", data)
+	}
+
+	// Required is not allowed on the subcommand itself.
+	if _, err := router.CommandE("a", "A", handler, interactions.ApplicationCommandOption{
+		Type: interactions.ApplicationCommandOptionTypeSubCommand, Name: "x", Description: "X", Required: true,
+		Options: []interactions.ApplicationCommandOption{{Type: interactions.ApplicationCommandOptionTypeString, Name: "n", Description: "N"}},
+	}); err == nil {
+		t.Fatal("expected error for required subcommand")
+	}
+
+	// A subcommand without nested options is invalid.
+	if _, err := router.CommandE("b", "B", handler, interactions.ApplicationCommandOption{
+		Type: interactions.ApplicationCommandOptionTypeSubCommand, Name: "x", Description: "X",
+	}); err == nil {
+		t.Fatal("expected error for empty subcommand")
+	}
+
+	// Duplicate nested names are rejected.
+	if _, err := router.CommandE("c", "C", handler, interactions.ApplicationCommandOption{
+		Type: interactions.ApplicationCommandOptionTypeSubCommand, Name: "x", Description: "X",
+		Options: []interactions.ApplicationCommandOption{
+			{Type: interactions.ApplicationCommandOptionTypeString, Name: "n", Description: "N"},
+			{Type: interactions.ApplicationCommandOptionTypeString, Name: "n", Description: "N2"},
+		},
+	}); err == nil {
+		t.Fatal("expected error for duplicate nested option names")
+	}
+
+	// A group whose children are not subcommands is rejected.
+	if _, err := router.CommandE("d", "D", handler, interactions.ApplicationCommandOption{
+		Type: interactions.ApplicationCommandOptionTypeSubCommandGroup, Name: "g", Description: "G",
+		Options: []interactions.ApplicationCommandOption{
+			{Type: interactions.ApplicationCommandOptionTypeString, Name: "n", Description: "N"},
+		},
+	}); err == nil {
+		t.Fatal("expected error for group containing a non-subcommand")
+	}
+
+	// A leaf option carrying nested options is rejected.
+	if _, err := router.CommandE("e", "E", handler, interactions.ApplicationCommandOption{
+		Type: interactions.ApplicationCommandOptionTypeString, Name: "s", Description: "S",
+		Options: []interactions.ApplicationCommandOption{
+			{Type: interactions.ApplicationCommandOptionTypeString, Name: "n", Description: "N"},
+		},
+	}); err == nil {
+		t.Fatal("expected error for leaf option with nested options")
 	}
 }
 
