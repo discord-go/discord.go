@@ -3,10 +3,13 @@ package guilds
 import (
 	"encoding/json"
 
+	"github.com/discord-go/discord.go/channels"
 	"github.com/discord-go/discord.go/emojis"
 	"github.com/discord-go/discord.go/permissions"
 	"github.com/discord-go/discord.go/roles"
 	"github.com/discord-go/discord.go/snowflake"
+	"github.com/discord-go/discord.go/users"
+	"github.com/discord-go/discord.go/voice"
 )
 
 // Guild represents a Discord guild (server).
@@ -54,6 +57,35 @@ type Guild struct {
 	PremiumProgressBarEnabled   bool                    `json:"premium_progress_bar_enabled"`
 	SafetyAlertsChannelID       *snowflake.ID           `json:"safety_alerts_channel_id,string"`
 	Unavailable                 bool                    `json:"unavailable"`
+
+	// GuildCreatePayload captures the extra arrays Discord sends only in
+	// the GUILD_CREATE gateway event. REST responses omit them, so these
+	// fields stay nil outside gateway hydration.
+	VoiceStates []voice.VoiceState `json:"voice_states,omitempty"`
+	Presences   []Presence         `json:"presences,omitempty"`
+	Threads     []channels.Channel `json:"threads,omitempty"`
+	// GuildChannels holds the channels array from GUILD_CREATE. Named
+	// GuildChannels because Guild already refers to this struct.
+	GuildChannels []channels.Channel `json:"channels,omitempty"`
+	// Members is the members array from GUILD_CREATE. It is only
+	// populated when the GUILD_MEMBERS intent is granted.
+	Members []users.Member `json:"members,omitempty"`
+}
+
+// Presence represents a guild member's presence update from GUILD_CREATE.
+// Only game/activity data is modeled; the full object is available on
+// PRESENCE_UPDATE events for users with the GuildPresences intent.
+type Presence struct {
+	User       users.User `json:"user"`
+	Status     string     `json:"status"`
+	Activities []Activity `json:"activities,omitempty"`
+}
+
+// Activity represents a user activity entry in a presence.
+type Activity struct {
+	Name string `json:"name"`
+	Type int    `json:"type"`
+	URL  string `json:"url,omitempty"`
 }
 
 // UnmarshalJSON unmarshals Guild, correctly handling snowflakes where the API returns null strings.

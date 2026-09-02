@@ -4,6 +4,7 @@ import (
 	"github.com/discord-go/discord.go/auditlog"
 	"github.com/discord-go/discord.go/guilds"
 	"github.com/discord-go/discord.go/snowflake"
+	"github.com/discord-go/discord.go/voice"
 )
 
 // GuildCreate represents the GUILD_CREATE event.
@@ -25,4 +26,9 @@ type GuildDelete struct {
 type GuildAuditLogEntryCreate struct {
 	auditlog.AuditLogEntry
 	GuildID snowflake.ID `json:"guild_id,string"`
+}
+
+// VoiceStateUpdate represents the VOICE_STATE_UPDATE event.
+type VoiceStateUpdate struct {
+	voice.VoiceState
 }

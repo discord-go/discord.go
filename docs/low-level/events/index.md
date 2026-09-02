@@ -14,7 +14,7 @@ dispatch, `Op` is 0, `Data` is the raw JSON object, `Seq` is the sequence, and
 `Type` is the event name. The typed wrappers are `Ready`, `GuildCreate`,
 `GuildUpdate`, `GuildDelete`, `ChannelCreate`, `ChannelUpdate`,
 `MessageCreate`, `MessageUpdate`, `MessageDelete`, `MessageReactionAdd`,
-`InteractionCreate`, and `GuildAuditLogEntryCreate`.
+`InteractionCreate`, `GuildAuditLogEntryCreate`, and `VoiceStateUpdate`.
 
 The wrappers embed the corresponding model where possible. `Ready` includes
 `V`, `User`, `Guilds` (the array of partial guild objects Discord sends at
@@ -23,6 +23,14 @@ READY time, each with `Unavailable` set to true), and `SessionID`.
 `emojis.Emoji`, and `GuildAuditLogEntryCreate` adds `GuildID`.
 `MessageCreate.UnmarshalJSON` and the embedded model unmarshalers handle
 nested components and string IDs.
+
+`GuildCreate` embeds `guilds.Guild`, which captures the gateway-only arrays
+`voice_states`, `presences`, `threads`, `channels` (as `GuildChannels`), and
+`members` when they are present in the payload. REST responses omit these
+keys, so the fields stay nil outside gateway hydration. Because the embedded
+model's `UnmarshalJSON` is promoted, a struct that embeds `GuildCreate` and
+adds sibling fields will not decode those siblings; declare the fields on a
+wrapper of `guilds.Guild` directly instead.
 
 ## Quick Start
 
@@ -86,7 +94,7 @@ The complete exported API is `Event`, `Ready` (with `V`, `User`, `Guilds`,
 and `SessionID` fields), `GuildCreate`, `GuildUpdate`, `GuildDelete`,
 `ChannelCreate`, `ChannelUpdate`, `MessageCreate` and its `UnmarshalJSON`,
 `MessageUpdate`, `MessageDelete`, `MessageReactionAdd`, `InteractionCreate`,
-and `GuildAuditLogEntryCreate`.
+`GuildAuditLogEntryCreate`, and `VoiceStateUpdate`.
 
 ## Examples
 

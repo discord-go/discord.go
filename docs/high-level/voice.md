@@ -16,6 +16,11 @@ gateway client or the shard responsible for the guild. Discord then emits
 generic `EventContext` subscriptions because the high-level package deliberately
 does not own the full voice transport.
 
+The bot also maintains a built-in voice tracker from `VOICE_STATE_UPDATE`
+dispatches. It answers "who is connected to channel X" without REST calls, and
+a typed handler is available for applications that react to joins, moves, and
+leaves. See [Observing voice states](#observing-voice-states).
+
 `LeaveVoiceChannel` is shorthand for joining with channel ID zero. A sharded bot
 routes the request using the guild ID and shard count.
 
@@ -175,6 +180,35 @@ b.OnReady(func(ctx *bot.ReadyContext) {
 })
 ```
 
+## Observing Voice States
+
+The bot tracks every `VOICE_STATE_UPDATE` it receives. The tracker is updated
+before handlers run, so queries inside a handler observe the state that
+triggered them.
+
+```go
+b.OnVoiceStateUpdateTyped(func(ctx *bot.VoiceStateContext) {
+	state := ctx.State()
+	if state.ChannelID == nil {
+		return // the user disconnected
+	}
+	count := ctx.Bot.CountInChannel(*state.ChannelID)
+	log.Printf("%s joined %s (%d connected)", state.UserID, state.ChannelID, count)
+})
+
+// Anywhere else: query without REST calls.
+channelID := b.VoiceChannelOf(guildID, userID)
+members := b.VoiceStatesInChannel(channelID)
+```
+
+`OnVoiceStateUpdateTyped` receives a decoded `voice.VoiceState`; a nil or zero
+`ChannelID` means the user left voice. `VoiceStatesInChannel`,
+`VoiceStateOf`, `VoiceChannelOf`, and `CountInChannel` read the tracker and
+never touch the network. The tracker starts empty on process start and is
+populated by live events; a bot that needs the initial occupancy of many
+channels immediately after startup should also read the `voice_states` array
+captured on `guilds.Guild` from `GUILD_CREATE`.
+
 ## API Walkthrough
 
 - `JoinVoiceChannel(guildID, channelID snowflake.ID, selfMute, selfDeaf bool) error`
@@ -183,6 +217,12 @@ b.OnReady(func(ctx *bot.ReadyContext) {
   zero channel ID and false mute/deaf flags.
 - `OnVoiceStateUpdate(func(*EventContext)) func()` subscribes to the generic
   `VOICE_STATE_UPDATE` dispatch and returns an unsubscribe function.
+- `OnVoiceStateUpdateTyped(func(*VoiceStateContext)) func()` subscribes to the
+  same dispatch with the state already decoded.
+- `VoiceStatesInChannel(channelID snowflake.ID) []voice.VoiceState`,
+  `VoiceStateOf(guildID, userID snowflake.ID) (voice.VoiceState, bool)`,
+  `VoiceChannelOf(guildID, userID snowflake.ID) snowflake.ID`, and
+  `CountInChannel(channelID snowflake.ID) int` query the built-in tracker.
 - `OnVoiceServerUpdate(func(*EventContext)) func()` does the same for
   `VOICE_SERVER_UPDATE`.
 - `EventContext.Name` contains the dispatch name, `Data` contains raw JSON,

@@ -85,6 +85,12 @@ The page covers `gateway.GatewayPayload` and the opcode constants, plus
 interaction, reaction, and audit-log event values. Heartbeat and session
 methods are in [`heartbeat.md`](heartbeat.md) and [`../gateway/`](README.md).
 
+When `Client.Cache` is set, the client hydrates the cache during dispatch:
+`GUILD_CREATE` stores the guild (including its `voice_states`, `members`,
+`channels`, `threads`, and `presences` arrays) and every channel it carries,
+`CHANNEL_CREATE` and `CHANNEL_UPDATE` store the channel, and `CHANNEL_DELETE`,
+`ROLE_DELETE`, `MESSAGE_DELETE`, and `GUILD_DELETE` evict.
+
 ## Examples
 
 The Quick Start program is complete and runnable from a local JSON payload.

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/discord-go/discord.go/cache"
+	"github.com/discord-go/discord.go/channels"
 	"github.com/discord-go/discord.go/guilds"
 	"github.com/discord-go/discord.go/internal/compression"
 	"github.com/discord-go/discord.go/snowflake"
@@ -96,6 +97,20 @@ func (c *Client) readLoop(ctx context.Context) error {
 						if gc, ok := c.Cache.(cache.GuildCache); ok {
 							gc.SetGuild(guild.ID.String(), &guild)
 						}
+						// Hydrate the channel cache from the
+						// GUILD_CREATE channels array so
+						// CachedChannel works without a REST
+						// round-trip for every channel.
+						if cc, ok := c.Cache.(cache.ChannelCache); ok {
+							for i := range guild.GuildChannels {
+								ch := guild.GuildChannels[i]
+								cc.SetChannel(ch.ID.String(), &ch)
+							}
+							for i := range guild.Threads {
+								th := guild.Threads[i]
+								cc.SetChannel(th.ID.String(), &th)
+							}
+						}
 					}
 				case "GUILD_DELETE":
 					var data struct {
@@ -114,6 +129,13 @@ func (c *Client) readLoop(ctx context.Context) error {
 							} else {
 								gc.DeleteGuild(data.ID)
 							}
+						}
+					}
+				case "CHANNEL_CREATE", "CHANNEL_UPDATE":
+					var ch channels.Channel
+					if err := json.Unmarshal(payload.Data, &ch); err == nil && ch.ID != 0 {
+						if cc, ok := c.Cache.(cache.ChannelCache); ok {
+							cc.SetChannel(ch.ID.String(), &ch)
 						}
 					}
 				case "CHANNEL_DELETE":

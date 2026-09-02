@@ -207,6 +207,9 @@ type Bot struct {
 	prefixCommands atomic.Uint64
 	slashCommands  atomic.Uint64
 	subscriptions  atomic.Uint64
+
+	// voice tracks guild voice states from VOICE_STATE_UPDATE dispatches.
+	voice *voiceTracker
 }
 
 // Option configures the Bot.
@@ -381,6 +384,7 @@ func New(token string, opts ...Option) *Bot {
 		interactionCollectors: make(map[uint64]interactionCollector),
 		messageCollectors:     make(map[uint64]messageCollector),
 		jobs:                  make(map[uint64]context.CancelFunc),
+		voice:                 newVoiceTracker(),
 	}
 	for _, opt := range opts {
 		if opt != nil {

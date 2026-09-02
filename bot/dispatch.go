@@ -12,6 +12,8 @@ import (
 	"github.com/discord-go/discord.go/events"
 	"github.com/discord-go/discord.go/gateway"
 	"github.com/discord-go/discord.go/interactions"
+	"github.com/discord-go/discord.go/snowflake"
+	"github.com/discord-go/discord.go/voice"
 )
 
 // handleRawDispatch parses a gateway dispatch, builds typed contexts, and
@@ -41,6 +43,22 @@ func (b *Bot) handleRawDispatch(data []byte) {
 	b.eventsReceived.Add(1)
 	b.dispatchRaw(event, payload.Data)
 	b.dispatchEvent(event, payload.Data)
+
+	// Track voice states before typed dispatch so handlers that query the
+	// tracker observe the state that triggered them.
+	if event == "VOICE_STATE_UPDATE" && b.voice != nil {
+		var state voice.VoiceState
+		if err := json.Unmarshal(payload.Data, &state); err == nil {
+			b.voice.apply(state)
+		}
+	} else if event == "GUILD_DELETE" && b.voice != nil {
+		var deleted struct {
+			ID snowflake.ID `json:"id,string"`
+		}
+		if err := json.Unmarshal(payload.Data, &deleted); err == nil {
+			b.voice.dropGuild(deleted.ID)
+		}
+	}
 
 	switch event {
 	case "READY":

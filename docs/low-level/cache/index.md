@@ -76,6 +76,12 @@ without limit, and use a durable or distributed implementation for state that
 must survive restarts. The interface stores `any`, so document the concrete
 type associated with each key namespace.
 
+When a gateway `Client` has a `Cache`, the library hydrates it automatically:
+`GUILD_CREATE` stores the guild and its channels, `CHANNEL_CREATE` and
+`CHANNEL_UPDATE` store the channel, and `CHANNEL_DELETE`, `ROLE_DELETE`,
+`MESSAGE_DELETE`, and `GUILD_DELETE` evict. Events outside this set do not
+write to the cache.
+
 ## Common Mistakes
 
 Do not assume expiration is proactive: an expired item can remain in the map
