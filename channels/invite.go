@@ -18,6 +18,20 @@ type Invite struct {
 	ApproximatePresenceCount int          `json:"approximate_presence_count,omitempty"`
 	ApproximateMemberCount   int          `json:"approximate_member_count,omitempty"`
 	ExpiresAt                *time.Time   `json:"expires_at,omitempty"`
+
+	// Metadata fields present on guild/channel invite listings and
+	// INVITE_CREATE/INVITE_DELETE gateway payloads. Uses is the number of
+	// times the invite has been accepted.
+	Uses         int          `json:"uses,omitempty"`
+	MaxUses      int          `json:"max_uses,omitempty"`
+	MaxAge       int          `json:"max_age,omitempty"`
+	Temporary    bool         `json:"temporary,omitempty"`
+	CreatedAt    *time.Time   `json:"created_at,omitempty"`
+	InviteType   int          `json:"type,omitempty"`
+	GuildID      snowflake.ID `json:"guild_id,string,omitempty"`
+	ChannelID    snowflake.ID `json:"channel_id,string,omitempty"`
+	InviterID    snowflake.ID `json:"inviter_id,string,omitempty"`
+	TargetUserID snowflake.ID `json:"target_user_id,string,omitempty"`
 }
 
 type InviteGuild struct {
