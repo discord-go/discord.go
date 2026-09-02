@@ -88,6 +88,52 @@ panics on invalid static setup. `Router.Validate()` can validate the whole
 registry before startup. `WithCommandSync` controls whether READY automatically
 calls `BulkOverwriteGlobalCommands` or `BulkOverwriteGuildCommands`.
 
+### Subcommands (chat input)
+
+Nested `options` on an option of type `SUB_COMMAND` (or `SUB_COMMAND_GROUP`)
+declare a subcommand tree. Discord then treats the subcommand options as
+required only for the chosen subcommand — no more flat `action:create`
+workarounds.
+
+```go
+router.Command("giveaway", "Server giveaways", func(ctx *bot.InteractionContext) {
+	switch ctx.Subcommand() {
+	case "create":
+		prize := ctx.GetStringOption("prize") // nested options resolve automatically
+		_ = prize
+	}
+}, interactions.ApplicationCommandOption{
+	Type:        interactions.ApplicationCommandOptionTypeSubCommand,
+	Name:        "create",
+	Description: "Start a new giveaway",
+	Options: []interactions.ApplicationCommandOption{
+		{Type: interactions.ApplicationCommandOptionTypeString, Name: "prize", Description: "The prize", Required: true},
+		{Type: interactions.ApplicationCommandOptionTypeInteger, Name: "winners", Description: "Winner count", Required: true},
+	},
+}, interactions.ApplicationCommandOption{
+	Type:        interactions.ApplicationCommandOptionTypeSubCommand,
+	Name:        "end",
+	Description: "End a giveaway",
+	Options: []interactions.ApplicationCommandOption{
+		{Type: interactions.ApplicationCommandOptionTypeString, Name: "id", Description: "Giveaway ID", Required: true},
+	},
+})
+```
+
+Rules enforced by the router's validator:
+
+* subcommands (and groups) must provide nested options and are never required;
+* subcommand groups may only contain subcommands (one level of grouping);
+* subcommands cannot nest inside other subcommands;
+* leaf options may not carry nested options.
+
+On the handler side, `ctx.Subcommand()` returns the selected subcommand name and
+the typed getters (`ctx.GetStringOption`, `ctx.GetUserID`, …) search nested
+subcommand options, so each subcommand can carry equally named options.
+
+The `SlashCommandBuilder` equivalents are `AddSubcommand` and
+`AddSubcommandGroup`.
+
 ## Using
 
 ### Basic: slash and context commands
