@@ -16,10 +16,12 @@ gateway client or the shard responsible for the guild. Discord then emits
 generic `EventContext` subscriptions because the high-level package deliberately
 does not own the full voice transport.
 
-The bot also maintains a built-in voice tracker from `VOICE_STATE_UPDATE`
-dispatches. It answers "who is connected to channel X" without REST calls, and
-a typed handler is available for applications that react to joins, moves, and
-leaves. See [Observing voice states](#observing-voice-states).
+The bot also maintains a built-in voice tracker. On `GUILD_CREATE` it is
+seeded from the guild's `voice_states`, then kept current from
+`VOICE_STATE_UPDATE` dispatches. It answers "who is connected to channel X"
+without REST calls, and a typed handler is available for applications that
+react to joins, moves, and leaves. See
+[Observing voice states](#observing-voice-states).
 
 `LeaveVoiceChannel` is shorthand for joining with channel ID zero. A sharded bot
 routes the request using the guild ID and shard count.
@@ -204,10 +206,10 @@ members := b.VoiceStatesInChannel(channelID)
 `OnVoiceStateUpdateTyped` receives a decoded `voice.VoiceState`; a nil or zero
 `ChannelID` means the user left voice. `VoiceStatesInChannel`,
 `VoiceStateOf`, `VoiceChannelOf`, and `CountInChannel` read the tracker and
-never touch the network. The tracker starts empty on process start and is
-populated by live events; a bot that needs the initial occupancy of many
-channels immediately after startup should also read the `voice_states` array
-captured on `guilds.Guild` from `GUILD_CREATE`.
+never touch the network. The tracker is seeded from the `voice_states` array of
+every `GUILD_CREATE` the bot receives, so counts are correct immediately after
+ready; it is then kept current by live `VOICE_STATE_UPDATE` events, including
+guilds that were already resolved before the bot connected.
 
 ## API Walkthrough
 
