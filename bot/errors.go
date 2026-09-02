@@ -24,9 +24,13 @@ var (
 type HandlerPanicError struct {
 	Event string
 	Value interface{}
+	Stack []byte
 }
 
 func (e *HandlerPanicError) Error() string {
+	if len(e.Stack) > 0 {
+		return fmt.Sprintf("handler panic during %s: %v\n%s", e.Event, e.Value, e.Stack)
+	}
 	return fmt.Sprintf("handler panic during %s: %v", e.Event, e.Value)
 }
 

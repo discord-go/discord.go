@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -348,7 +349,7 @@ func (b *Bot) invoke(event string, handler func()) {
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				b.handlerPanics.Add(1)
-				b.reportError(&HandlerPanicError{Event: event, Value: recovered})
+				b.reportError(&HandlerPanicError{Event: event, Value: recovered, Stack: debug.Stack()})
 			}
 		}()
 		handler()
