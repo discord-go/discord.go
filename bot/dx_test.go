@@ -148,13 +148,12 @@ func TestInteractionContextUser(t *testing.T) {
 
 func TestInteractionContextGuildID(t *testing.T) {
 	// Guild interaction.
-	guildID := snowflake.ID(999)
 	ic := newInteractionContext(BaseContext{}, &interactions.Interaction{
 		Type:    interactions.InteractionTypeApplicationCommand,
-		GuildID: &guildID,
+		GuildID: snowflake.ID(999),
 	})
-	if got := ic.GuildID(); got != guildID {
-		t.Errorf("expected guild ID %s, got %s", guildID, got)
+	if got := ic.GuildID(); got != 999 {
+		t.Errorf("expected guild ID 999, got %s", got)
 	}
 
 	// DM interaction — no guild ID.
@@ -167,13 +166,12 @@ func TestInteractionContextGuildID(t *testing.T) {
 }
 
 func TestInteractionContextChannelID(t *testing.T) {
-	channelID := snowflake.ID(555)
 	ic := newInteractionContext(BaseContext{}, &interactions.Interaction{
 		Type:      interactions.InteractionTypeApplicationCommand,
-		ChannelID: &channelID,
+		ChannelID: snowflake.ID(555),
 	})
-	if got := ic.ChannelID(); got != channelID {
-		t.Errorf("expected channel ID %s, got %s", channelID, got)
+	if got := ic.ChannelID(); got != 555 {
+		t.Errorf("expected channel ID 555, got %s", got)
 	}
 
 	// No channel ID.

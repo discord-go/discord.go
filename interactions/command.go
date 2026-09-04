@@ -52,7 +52,8 @@ type ApplicationCommand struct {
 	ID                       snowflake.ID               `json:"id,string,omitempty"`
 	Type                     *ApplicationCommandType    `json:"type,omitempty"`
 	ApplicationID            snowflake.ID               `json:"application_id,string,omitempty"`
-	GuildID                  *snowflake.ID              `json:"guild_id,string,omitempty"`
+	// GuildID is set for guild-scoped commands; zero for global commands.
+	GuildID                  snowflake.ID               `json:"guild_id,string,omitempty"`
 	Name                     string                     `json:"name"`
 	Description              string                     `json:"description"`
 	Options                  []ApplicationCommandOption `json:"options,omitempty"`

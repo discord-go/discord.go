@@ -24,7 +24,7 @@ func TestVoiceTrackerApplyAndQuery(t *testing.T) {
 	user := mustSnowflake(t, "42")
 	channel := mustSnowflake(t, "777")
 
-	tr.apply(voice.VoiceState{GuildID: &guild, UserID: user, ChannelID: &channel, SessionID: "s1"})
+	tr.apply(voice.VoiceState{GuildID: guild, UserID: user, ChannelID: channel, SessionID: "s1"})
 
 	if got := tr.CountInChannel(channel); got != 1 {
 		t.Fatalf("CountInChannel = %d, want 1", got)
@@ -51,8 +51,8 @@ func TestVoiceTrackerMoveAndLeave(t *testing.T) {
 	first := mustSnowflake(t, "777")
 	second := mustSnowflake(t, "888")
 
-	tr.apply(voice.VoiceState{GuildID: &guild, UserID: user, ChannelID: &first})
-	tr.apply(voice.VoiceState{GuildID: &guild, UserID: user, ChannelID: &second})
+	tr.apply(voice.VoiceState{GuildID: guild, UserID: user, ChannelID: first})
+	tr.apply(voice.VoiceState{GuildID: guild, UserID: user, ChannelID: second})
 
 	if got := tr.CountInChannel(first); got != 0 {
 		t.Fatalf("old channel count = %d, want 0 after move", got)
@@ -61,13 +61,12 @@ func TestVoiceTrackerMoveAndLeave(t *testing.T) {
 		t.Fatalf("new channel count = %d, want 1 after move", got)
 	}
 
-	tr.apply(voice.VoiceState{GuildID: &guild, UserID: user, ChannelID: nil})
+	tr.apply(voice.VoiceState{GuildID: guild, UserID: user, ChannelID: snowflake.ID(0)})
 	if got := tr.VoiceChannelOf(guild, user); !got.IsZero() {
 		t.Fatalf("VoiceChannelOf after disconnect = %s, want zero", got)
 	}
 
-	zero := snowflake.ID(0)
-	tr.apply(voice.VoiceState{GuildID: &guild, UserID: user, ChannelID: &zero})
+	tr.apply(voice.VoiceState{GuildID: guild, UserID: user, ChannelID: snowflake.ID(0)})
 	if _, ok := tr.VoiceStateOf(guild, user); ok {
 		t.Fatalf("zero channel should remove the entry")
 	}
@@ -79,7 +78,7 @@ func TestVoiceTrackerDropGuild(t *testing.T) {
 	guild := mustSnowflake(t, "123")
 	user := mustSnowflake(t, "42")
 	channel := mustSnowflake(t, "777")
-	tr.apply(voice.VoiceState{GuildID: &guild, UserID: user, ChannelID: &channel})
+	tr.apply(voice.VoiceState{GuildID: guild, UserID: user, ChannelID: channel})
 
 	tr.dropGuild(guild)
 	if got := tr.CountInChannel(channel); got != 0 {

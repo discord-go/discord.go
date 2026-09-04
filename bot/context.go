@@ -462,7 +462,7 @@ func (i *InteractionContext) IsRepliable() bool {
 
 // InGuild reports whether the interaction was received in a guild.
 func (i *InteractionContext) InGuild() bool {
-	return i.Interaction.GuildID != nil
+	return !i.Interaction.GuildID.IsZero()
 }
 
 // User returns the invoking user. In a guild interaction the user is nested
@@ -479,23 +479,15 @@ func (i *InteractionContext) User() *users.User {
 }
 
 // GuildID returns the guild ID for a guild interaction, or zero for a DM
-// interaction. It dereferences the pointer so callers do not need to check
-// nil themselves.
+// interaction.
 func (i *InteractionContext) GuildID() snowflake.ID {
-	if i.Interaction.GuildID != nil {
-		return *i.Interaction.GuildID
-	}
-	return 0
+	return i.Interaction.GuildID
 }
 
 // ChannelID returns the channel ID where the interaction occurred, or zero
-// when absent. It dereferences the pointer so callers do not need to check
-// nil themselves.
+// when absent.
 func (i *InteractionContext) ChannelID() snowflake.ID {
-	if i.Interaction.ChannelID != nil {
-		return *i.Interaction.ChannelID
-	}
-	return 0
+	return i.Interaction.ChannelID
 }
 
 // IsAutocomplete reports whether this is an autocomplete interaction.

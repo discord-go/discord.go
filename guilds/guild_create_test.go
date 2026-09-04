@@ -53,7 +53,7 @@ func TestGuildUnmarshalGuildCreatePayload(t *testing.T) {
 	if vs.SessionID != "abc" {
 		t.Errorf("VoiceStates[0].SessionID = %q, want %q", vs.SessionID, "abc")
 	}
-	if vs.ChannelID == nil || vs.ChannelID.String() != "999" {
+	if vs.ChannelID.String() != "999" {
 		t.Errorf("VoiceStates[0].ChannelID = %v, want 999", vs.ChannelID)
 	}
 

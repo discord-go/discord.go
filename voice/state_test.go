@@ -29,10 +29,10 @@ func TestVoiceState_JSON(t *testing.T) {
 		t.Fatalf("failed to unmarshal VoiceState: %v", err)
 	}
 
-	if state.GuildID == nil || *state.GuildID != snowflake.ID(41771983423143937) {
+	if state.GuildID != snowflake.ID(41771983423143937) {
 		t.Errorf("unexpected GuildID: %v", state.GuildID)
 	}
-	if state.ChannelID == nil || *state.ChannelID != snowflake.ID(157733188964188161) {
+	if state.ChannelID != snowflake.ID(157733188964188161) {
 		t.Errorf("unexpected ChannelID: %v", state.ChannelID)
 	}
 	if state.UserID != snowflake.ID(80351110224678912) {
@@ -87,11 +87,11 @@ func TestVoiceState_NilOptionalFields(t *testing.T) {
 		t.Fatalf("failed to unmarshal VoiceState: %v", err)
 	}
 
-	if state.GuildID != nil {
-		t.Errorf("expected GuildID to be nil, got %v", state.GuildID)
+	if !state.GuildID.IsZero() {
+		t.Errorf("expected GuildID to be zero, got %v", state.GuildID)
 	}
-	if state.ChannelID != nil {
-		t.Errorf("expected ChannelID to be nil, got %v", state.ChannelID)
+	if !state.ChannelID.IsZero() {
+		t.Errorf("expected ChannelID to be zero, got %v", state.ChannelID)
 	}
 	if state.Member != nil {
 		t.Error("expected Member to be nil")
@@ -120,13 +120,11 @@ func TestVoiceState_NilOptionalFields(t *testing.T) {
 }
 
 func TestVoiceState_Marshal(t *testing.T) {
-	guildID := snowflake.ID(123)
-	channelID := snowflake.ID(456)
 	ts := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	state := VoiceState{
-		GuildID:                 &guildID,
-		ChannelID:               &channelID,
+		GuildID:                 snowflake.ID(123),
+		ChannelID:               snowflake.ID(456),
 		UserID:                  snowflake.ID(789),
 		SessionID:               "session-abc",
 		Deaf:                    true,

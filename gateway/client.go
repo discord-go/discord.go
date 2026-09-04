@@ -173,12 +173,14 @@ func (c *Client) RequestGuildMembersContext(ctx context.Context, data RequestGui
 	return c.Send(ctx, GatewayPayload{Op: OpcodeRequestGuildMembers, Data: b})
 }
 
-// VoiceStateUpdateData represents the payload to join or leave a voice channel.
+// VoiceStateUpdateData represents the payload to join or leave a voice
+// channel. ChannelID is zero to disconnect; Discord requires the key present
+// with null on the wire, which the omitempty-free tag preserves.
 type VoiceStateUpdateData struct {
-	GuildID   snowflake.ID  `json:"guild_id,string"`
-	ChannelID *snowflake.ID `json:"channel_id,string"`
-	SelfMute  bool          `json:"self_mute"`
-	SelfDeaf  bool          `json:"self_deaf"`
+	GuildID   snowflake.ID `json:"guild_id,string"`
+	ChannelID snowflake.ID `json:"channel_id,string"`
+	SelfMute  bool         `json:"self_mute"`
+	SelfDeaf  bool         `json:"self_deaf"`
 }
 
 // JoinVoiceChannel sends an Opcode 4 VoiceStateUpdate.

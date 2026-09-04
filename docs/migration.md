@@ -66,8 +66,12 @@ budget with `rest.Client.BucketState(route)`.
 - **Intents replace, they do not merge.** `bot.WithIntents(...)` overrides the
   default set. An explicit list without `intents.MessageContent` silently
   empties message content for prefix commands.
-- **`Channel.GuildID` is a value, not a pointer.** DM channels carry the zero
-  value; check `GuildID.IsZero()` instead of comparing against `nil`.
+- **Guild/channel IDs on event models are values, not pointers.**
+  `Channel.GuildID`, `Message.GuildID`, `Interaction.GuildID`/`ChannelID`,
+  and `VoiceState.GuildID`/`ChannelID` are plain `snowflake.ID` values;
+  check `IsZero()` instead of comparing against `nil`. (REST request/params
+  structs keep pointers where "omit the field" and "send zero" are
+  different.)
 - **Members are cached from gateway events** (`GUILD_CREATE` with the
   GuildMembers intent, plus `GUILD_MEMBER_ADD`/`UPDATE`/`REMOVE`). REST member
   fetches also populate the cache. Permission helpers read this cache.

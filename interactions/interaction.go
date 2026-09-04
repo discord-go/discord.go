@@ -28,15 +28,18 @@ type Interaction struct {
 	Type           InteractionType   `json:"type"`
 	Data           json.RawMessage   `json:"data,omitempty"`
 	Guild          *guilds.Guild     `json:"guild,omitempty"`
-	GuildID        *snowflake.ID     `json:"guild_id,string,omitempty"`
-	Channel        *channels.Channel `json:"channel,omitempty"`
-	ChannelID      *snowflake.ID     `json:"channel_id,string,omitempty"`
-	Member         *users.Member     `json:"member,omitempty"`
-	User           *users.User       `json:"user,omitempty"`
-	Token          string            `json:"token"`
-	Version        int               `json:"version"`
-	Message        *messages.Message `json:"message,omitempty"`
-	AppPermissions string            `json:"app_permissions,omitempty"`
-	Locale         string            `json:"locale,omitempty"`
-	GuildLocale    string            `json:"guild_locale,omitempty"`
+	// GuildID is the guild the interaction was used in; zero for DMs.
+	GuildID   snowflake.ID      `json:"guild_id,string,omitempty"`
+	Channel   *channels.Channel `json:"channel,omitempty"`
+	// ChannelID is the channel the interaction was used in; zero when
+	// absent.
+	ChannelID snowflake.ID      `json:"channel_id,string,omitempty"`
+	Member    *users.Member     `json:"member,omitempty"`
+	User      *users.User       `json:"user,omitempty"`
+	Token     string            `json:"token"`
+	Version   int               `json:"version"`
+	Message   *messages.Message `json:"message,omitempty"`
+	AppPermissions string       `json:"app_permissions,omitempty"`
+	Locale         string       `json:"locale,omitempty"`
+	GuildLocale    string       `json:"guild_locale,omitempty"`
 }

@@ -21,10 +21,10 @@ func newVoiceTracker() *voiceTracker {
 	return &voiceTracker{states: make(map[string]map[string]voice.VoiceState)}
 }
 
-// apply records a VOICE_STATE_UPDATE payload. A nil ChannelID or the zero ID
-// means the user disconnected and removes their entry.
+// apply records a VOICE_STATE_UPDATE payload. A zero ChannelID means the
+// user disconnected and removes their entry.
 func (t *voiceTracker) apply(state voice.VoiceState) {
-	if state.GuildID == nil || state.GuildID.IsZero() {
+	if state.GuildID.IsZero() {
 		return
 	}
 	guildKey := state.GuildID.String()
@@ -35,7 +35,7 @@ func (t *voiceTracker) apply(state voice.VoiceState) {
 	if t.states[guildKey] == nil {
 		t.states[guildKey] = make(map[string]voice.VoiceState)
 	}
-	if state.ChannelID == nil || state.ChannelID.IsZero() {
+	if state.ChannelID.IsZero() {
 		delete(t.states[guildKey], userKey)
 		return
 	}
@@ -58,7 +58,7 @@ func (t *voiceTracker) VoiceStatesInChannel(channelID snowflake.ID) []voice.Voic
 	var out []voice.VoiceState
 	for _, guild := range t.states {
 		for _, state := range guild {
-			if state.ChannelID != nil && state.ChannelID.String() == key {
+			if state.ChannelID.String() == key {
 				out = append(out, state)
 			}
 		}
@@ -82,10 +82,10 @@ func (t *voiceTracker) VoiceStateOf(guildID, userID snowflake.ID) (voice.VoiceSt
 // the zero ID when they are not in voice.
 func (t *voiceTracker) VoiceChannelOf(guildID, userID snowflake.ID) snowflake.ID {
 	state, ok := t.VoiceStateOf(guildID, userID)
-	if !ok || state.ChannelID == nil {
+	if !ok {
 		return 0
 	}
-	return *state.ChannelID
+	return state.ChannelID
 }
 
 // CountInChannel returns how many users are connected to a channel.

@@ -10,10 +10,13 @@ import (
 // VoiceState represents a user's voice connection status, matching the
 // Discord API voice state object.
 type VoiceState struct {
-	// GuildID is the guild this voice state is for, if applicable.
-	GuildID *snowflake.ID `json:"guild_id,string,omitempty"`
-	// ChannelID is the channel the user is connected to.
-	ChannelID *snowflake.ID `json:"channel_id,string,omitempty"`
+	// GuildID is the guild this voice state is for; zero when absent
+	// (Discord omits guild_id in DM voice calls).
+	GuildID snowflake.ID `json:"guild_id,string,omitempty"`
+	// ChannelID is the channel the user is connected to; zero when the
+	// user is disconnected (a disconnect is signaled by channel_id being
+	// null on the wire).
+	ChannelID snowflake.ID `json:"channel_id,string,omitempty"`
 	// UserID is the ID of the user this voice state is for.
 	UserID snowflake.ID `json:"user_id,string"`
 	// Member is the guild member this voice state is for, if applicable.

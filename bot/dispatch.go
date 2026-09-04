@@ -280,9 +280,8 @@ func (b *Bot) handleRawDispatch(data []byte) {
 		// that changed later.
 		if b.voice != nil {
 			for _, state := range guild.VoiceStates {
-				if !guild.ID.IsZero() && state.GuildID == nil {
-					guildID := guild.ID
-					state.GuildID = &guildID
+				if !guild.ID.IsZero() && state.GuildID.IsZero() {
+					state.GuildID = guild.ID
 				}
 				b.voice.apply(state)
 			}
