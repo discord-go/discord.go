@@ -17,6 +17,14 @@ type Limiter interface {
 	Update(bucket string, info Info)
 }
 
+// StateReader is implemented by Limiters that can report the current state
+// of a bucket. The concrete limiter returned by NewLimiter implements it;
+// custom limiters may opt in.
+type StateReader interface {
+	// State returns the current state of a bucket, if known.
+	State(bucket string) (BucketState, bool)
+}
+
 type limiter struct {
 	store Store
 
@@ -122,6 +130,18 @@ func (l *limiter) Wait(ctx context.Context, bucket string) error {
 	l.store.Put(storeKey, state)
 
 	return nil
+}
+
+// State returns the current state of a bucket, if known.
+func (l *limiter) State(bucket string) (BucketState, bool) {
+	if bucket == "" {
+		return BucketState{}, false
+	}
+	storeKey := bucket
+	if hash, ok := l.routeToHash.Load(bucket); ok {
+		storeKey = hash.(string)
+	}
+	return l.store.Get(storeKey)
 }
 
 func (l *limiter) Update(bucket string, info Info) {

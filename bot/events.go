@@ -25,7 +25,7 @@ type EventContext struct {
 
 // Decode unmarshals the event data into a caller-provided value.
 func (e *EventContext) Decode(value any) error {
-	return json.Unmarshal(e.Data, value)
+	return e.BaseContext.Decode(value)
 }
 
 // Raw returns a copy of the raw event data.
@@ -105,7 +105,7 @@ func (b *Bot) dispatchEvent(name string, data json.RawMessage) {
 	if len(handlers) == 0 {
 		return
 	}
-	ctx := &EventContext{BaseContext: b.baseContext(), Name: name, Data: append(json.RawMessage(nil), data...)}
+	ctx := &EventContext{BaseContext: b.baseContextWithRaw(data), Name: name, Data: append(json.RawMessage(nil), data...)}
 	for _, subscription := range handlers {
 		b.invoke(name, func() { subscription.handler(ctx) })
 	}

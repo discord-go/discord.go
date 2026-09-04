@@ -16,6 +16,11 @@ type Client struct {
 	Limiter    ratelimit.Limiter
 	BaseURL    string
 
+	// MaxRetries caps how many times a request is retried after a 429
+	// response. Zero disables the cap (unbounded retries, the historical
+	// behavior); a positive value bounds the total number of retries.
+	MaxRetries int
+
 	invalidMu         sync.Mutex
 	invalidTimestamps [9500]time.Time
 	invalidIdx        int
@@ -64,4 +69,17 @@ func (c *Client) SetBearerToken(token string) {
 func (c *Client) SetBotToken(token string) {
 	c.token = token
 	c.AuthMode = AuthBot
+}
+
+// BucketState returns the current rate limit state for a route bucket, if
+// the client's limiter tracks it. The bucket key is the same route path used
+// internally (the request path without its query string).
+func (c *Client) BucketState(bucket string) (ratelimit.BucketState, bool) {
+	if c == nil || c.Limiter == nil {
+		return ratelimit.BucketState{}, false
+	}
+	if sr, ok := c.Limiter.(ratelimit.StateReader); ok {
+		return sr.State(bucket)
+	}
+	return ratelimit.BucketState{}, false
 }

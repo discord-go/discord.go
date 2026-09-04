@@ -10,8 +10,10 @@ import (
 
 	"github.com/discord-go/discord.go/cache"
 	"github.com/discord-go/discord.go/channels"
+	"github.com/discord-go/discord.go/emojis"
 	"github.com/discord-go/discord.go/guilds"
 	"github.com/discord-go/discord.go/internal/compression"
+	"github.com/discord-go/discord.go/roles"
 	"github.com/discord-go/discord.go/snowflake"
 	"github.com/discord-go/discord.go/users"
 )
@@ -97,6 +99,19 @@ func (c *Client) readLoop(ctx context.Context) error {
 						if gc, ok := c.Cache.(cache.GuildCache); ok {
 							gc.SetGuild(guild.ID.String(), &guild)
 						}
+						// Hydrate the member cache from the GUILD_CREATE
+						// members array so permission helpers work without a
+						// REST round-trip per member. The array is only
+						// populated when the GuildMembers intent is granted.
+						if mc, ok := c.Cache.(cache.MemberCache); ok {
+							for i := range guild.Members {
+								m := guild.Members[i]
+								if m.User == nil || m.User.ID == 0 {
+									continue
+								}
+								mc.SetMember(guild.ID.String(), m.User.ID.String(), &m)
+							}
+						}
 						// Hydrate the channel cache from the
 						// GUILD_CREATE channels array so
 						// CachedChannel works without a REST
@@ -147,12 +162,69 @@ func (c *Client) readLoop(ctx context.Context) error {
 							cc.DeleteChannel(data.ID)
 						}
 					}
-				case "ROLE_DELETE":
-					var data struct {
-						RoleID  string `json:"role_id"`
-						GuildID string `json:"guild_id"`
+				case "GUILD_UPDATE":
+					// GUILD_UPDATE carries the full guild object including
+					// roles and owner_id; refresh the cached guild so owner
+					// transfers and role changes are visible without a
+					// reconnect.
+					var guild guilds.Guild
+					if err := json.Unmarshal(payload.Data, &guild); err == nil && guild.ID != 0 {
+						if gc, ok := c.Cache.(cache.GuildCache); ok {
+							gc.SetGuild(guild.ID.String(), &guild)
+						}
 					}
-					if err := json.Unmarshal(payload.Data, &data); err == nil && data.RoleID != "" {
+				case "GUILD_ROLE_CREATE", "GUILD_ROLE_UPDATE":
+					// Merge the role into the cached guild's Roles slice so
+					// permission resolution sees new and edited roles.
+					var data struct {
+						GuildID string     `json:"guild_id"`
+						Role    roles.Role `json:"role"`
+					}
+					if err := json.Unmarshal(payload.Data, &data); err == nil && data.GuildID != "" && data.Role.ID != 0 {
+						if gc, ok := c.Cache.(cache.GuildCache); ok {
+							if cached, found := gc.GetGuild(data.GuildID); found {
+								if guild, ok := cached.(*guilds.Guild); ok {
+									merged := false
+									for i := range guild.Roles {
+										if guild.Roles[i].ID == data.Role.ID {
+											guild.Roles[i] = data.Role
+											merged = true
+											break
+										}
+									}
+									if !merged {
+										guild.Roles = append(guild.Roles, data.Role)
+									}
+									gc.SetGuild(data.GuildID, guild)
+								}
+							}
+						}
+						if rc, ok := c.Cache.(cache.RoleCache); ok {
+							rc.SetRole(data.Role.ID.String(), &data.Role)
+						}
+					}
+				case "GUILD_ROLE_DELETE":
+					// Remove the role from the cached guild's Roles slice so
+					// it stops granting permissions immediately.
+					var data struct {
+						GuildID string `json:"guild_id"`
+						RoleID  string `json:"role_id"`
+					}
+					if err := json.Unmarshal(payload.Data, &data); err == nil && data.GuildID != "" && data.RoleID != "" {
+						if gc, ok := c.Cache.(cache.GuildCache); ok {
+							if cached, found := gc.GetGuild(data.GuildID); found {
+								if guild, ok := cached.(*guilds.Guild); ok {
+									filtered := guild.Roles[:0]
+									for i := range guild.Roles {
+										if guild.Roles[i].ID.String() != data.RoleID {
+											filtered = append(filtered, guild.Roles[i])
+										}
+									}
+									guild.Roles = filtered
+									gc.SetGuild(data.GuildID, guild)
+								}
+							}
+						}
 						if rc, ok := c.Cache.(cache.RoleCache); ok {
 							rc.DeleteRole(data.RoleID)
 						}
@@ -164,6 +236,103 @@ func (c *Client) readLoop(ctx context.Context) error {
 					if err := json.Unmarshal(payload.Data, &data); err == nil && data.ID != "" {
 						if mc, ok := c.Cache.(cache.MessageCache); ok {
 							mc.DeleteMessage(data.ID)
+						}
+					}
+				case "GUILD_MEMBER_ADD":
+					var member users.Member
+					if err := json.Unmarshal(payload.Data, &member); err == nil && member.User != nil && member.User.ID != 0 {
+						if mc, ok := c.Cache.(cache.MemberCache); ok {
+							var aux struct {
+								GuildID string `json:"guild_id"`
+							}
+							if err := json.Unmarshal(payload.Data, &aux); err == nil && aux.GuildID != "" {
+								mc.SetMember(aux.GuildID, member.User.ID.String(), &member)
+							}
+						}
+					}
+				case "GUILD_MEMBER_UPDATE":
+					var member users.Member
+					if err := json.Unmarshal(payload.Data, &member); err == nil && member.User != nil && member.User.ID != 0 {
+						if mc, ok := c.Cache.(cache.MemberCache); ok {
+							var aux struct {
+								GuildID string `json:"guild_id"`
+							}
+							if err := json.Unmarshal(payload.Data, &aux); err == nil && aux.GuildID != "" {
+								mc.SetMember(aux.GuildID, member.User.ID.String(), &member)
+							}
+						}
+					}
+				case "GUILD_MEMBER_REMOVE":
+					var data struct {
+						GuildID string     `json:"guild_id"`
+						User    users.User `json:"user"`
+					}
+					if err := json.Unmarshal(payload.Data, &data); err == nil && data.GuildID != "" && data.User.ID != 0 {
+						if mc, ok := c.Cache.(cache.MemberCache); ok {
+							mc.DeleteMember(data.GuildID, data.User.ID.String())
+						}
+					}
+				case "GUILD_MEMBERS_CHUNK":
+					// Hydrate the member cache from a requested member
+					// chunk (requested via RequestGuildMembers). Each
+					// member carries its guild_id.
+					var chunk struct {
+						GuildID string         `json:"guild_id"`
+						Members []users.Member `json:"members"`
+					}
+					if err := json.Unmarshal(payload.Data, &chunk); err == nil && chunk.GuildID != "" {
+						if mc, ok := c.Cache.(cache.MemberCache); ok {
+							for i := range chunk.Members {
+								m := chunk.Members[i]
+								if m.User == nil || m.User.ID == 0 {
+									continue
+								}
+								mc.SetMember(chunk.GuildID, m.User.ID.String(), &m)
+							}
+						}
+					}
+				case "THREAD_CREATE", "THREAD_UPDATE":
+					// Threads are channels; cache them like channels so
+					// CachedChannel resolves thread IDs too.
+					var th channels.Channel
+					if err := json.Unmarshal(payload.Data, &th); err == nil && th.ID != 0 {
+						if cc, ok := c.Cache.(cache.ChannelCache); ok {
+							cc.SetChannel(th.ID.String(), &th)
+						}
+					}
+				case "THREAD_DELETE":
+					var data struct {
+						ID      string `json:"id"`
+						GuildID string `json:"guild_id"`
+					}
+					if err := json.Unmarshal(payload.Data, &data); err == nil && data.ID != "" {
+						if cc, ok := c.Cache.(cache.ChannelCache); ok {
+							cc.DeleteChannel(data.ID)
+						}
+					}
+				case "GUILD_EMOJIS_UPDATE":
+					// Refresh the cached guild's emoji array so emoji
+					// lookups stay current without a reconnect.
+					var data struct {
+						GuildID string         `json:"guild_id"`
+						Emojis  []emojis.Emoji `json:"emojis"`
+					}
+					if err := json.Unmarshal(payload.Data, &data); err == nil && data.GuildID != "" {
+						if gc, ok := c.Cache.(cache.GuildCache); ok {
+							if cached, found := gc.GetGuild(data.GuildID); found {
+								if guild, ok := cached.(*guilds.Guild); ok {
+									guild.Emojis = data.Emojis
+									gc.SetGuild(data.GuildID, guild)
+								}
+							}
+						}
+					}
+				case "USER_UPDATE":
+					// Refresh the cached user (bot's own profile changes).
+					var user users.User
+					if err := json.Unmarshal(payload.Data, &user); err == nil && user.ID != 0 {
+						if uc, ok := c.Cache.(cache.UserCache); ok {
+							uc.SetUser(user.ID.String(), &user)
 						}
 					}
 				case "PRESENCE_UPDATE":

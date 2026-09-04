@@ -99,6 +99,7 @@ because global command changes can take a while to propagate.
 ## Using The Documentation
 
 - Start with [`high-level/`](high-level/README.md) when writing application code.
+- Coming from discordgo or discord.js? Read [`migration.md`](migration.md) for the concept map.
 - Read [`high-level/commands.md`](high-level/commands.md) before registering commands.
 - Read [`high-level/interactions.md`](high-level/interactions.md) before handling buttons, menus, modals, or autocomplete.
 - Read [`low-level/rest/`](low-level/rest/README.md) when calling resource endpoints directly.

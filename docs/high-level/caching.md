@@ -95,6 +95,10 @@ the bot accepts either when the concrete type matches.
 
 Call `CachedGuild`, `CachedChannel`, `CachedUser`, `CachedMember`, or
 `CachedMessage`. Each returns a typed pointer and a boolean hit indicator.
+`CachedMemberWithPermissions(guildID, userID)` returns a `*cache.CachedMember`
+with pre-computed guild-level permissions (owner bypass, @everyone base, role
+OR, administrator shortcut). Channel overwrites are not included; layer them
+with the bot's permission helpers.
 
 ### Intermediate: cache-aside fetch
 
@@ -193,9 +197,49 @@ cache.NewMemoryCache(cache.WithMaxSize(10000))
   hydration.
 - `CachedGuild`, `CachedChannel`, `CachedUser`, `CachedMember`, and
   `CachedMessage` return typed pointers and hit booleans.
+- `CachedMemberWithPermissions(guildID, userID)` returns a member with
+  pre-computed guild-level permissions (owner bypass, `@everyone` base, role
+  OR, administrator shortcut). Channel overwrites are not included; layer
+  them with the permission helpers.
 - `FetchGuild`, `FetchChannel`, `FetchUser`, `FetchMember`, and `FetchMessage`
   accept `context.Context` and IDs, return typed pointers and errors, and set the
   corresponding cache entry after a successful REST response.
+
+## Gateway Hydration And Freshness
+
+With a cache attached, the gateway keeps entries current as events arrive:
+
+| Event | Cache effect |
+|---|---|
+| `GUILD_CREATE` | Stores the guild, hydrates channels, threads, and members (members only with the GuildMembers intent) |
+| `GUILD_UPDATE` | Refreshes the guild object (owner transfers, role changes) |
+| `GUILD_DELETE` | Marks the guild unavailable, or removes it |
+| `GUILD_ROLE_CREATE` / `GUILD_ROLE_UPDATE` | Merges the role into the cached guild's roles and the role cache |
+| `GUILD_ROLE_DELETE` | Removes the role from the cached guild's roles and the role cache, so it stops granting permissions immediately |
+| `CHANNEL_CREATE` / `CHANNEL_UPDATE` | Stores the channel |
+| `CHANNEL_DELETE` | Removes the channel |
+| `THREAD_CREATE` / `THREAD_UPDATE` | Stores the thread as a channel |
+| `THREAD_DELETE` | Removes the thread from the channel cache |
+| `GUILD_MEMBER_ADD` / `GUILD_MEMBER_UPDATE` | Stores the member |
+| `GUILD_MEMBER_REMOVE` | Removes the member |
+| `GUILD_MEMBERS_CHUNK` | Stores members from a requested chunk (`RequestGuildMembers`) |
+| `GUILD_EMOJIS_UPDATE` | Refreshes the cached guild's emoji array |
+| `USER_UPDATE` | Refreshes the cached user (bot's own profile changes) |
+| `PRESENCE_UPDATE` | Merges user/role changes into an already-cached member |
+| `MESSAGE_CREATE` | Stores the message |
+| `MESSAGE_UPDATE` | Merges the (possibly partial) update over the cached message |
+| `MESSAGE_DELETE` | Removes the message |
+
+Not cached (no cache write today): reactions, typing indicators, invites,
+voice state updates (tracked separately by the voice tracker), integration,
+webhook, and auto-moderation events. Fetch those with the `Fetch*` helpers
+when needed.
+
+Permission resolution (`MessageContext.MemberPermissions`,
+`Bot.MemberChannelPermissions*`) reads this cache, so role edits, deletions,
+and owner transfers take effect without a reconnect. Entries not covered by
+an event (for example members when the GuildMembers intent is off) resolve
+through `Fetch*` calls or `GUILD_MEMBERS_CHUNK` requests.
 
 ## Examples
 

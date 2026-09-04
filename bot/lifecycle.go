@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -107,7 +108,9 @@ func (b *Bot) Start(ctx context.Context) error {
 		}
 		client = gateway.NewClient(conn, dispatcher)
 		client.Session = gateway.NewSession()
-		client.Cache = b.cacheStore
+		if b.cacheStore != nil {
+			client.Cache = b.cacheStore
+		}
 		client.SetToken(b.token)
 		client.Intents = b.intentsVal
 		client.GatewayURL = gatewayURL
@@ -355,4 +358,10 @@ func (b *Bot) baseContext() BaseContext {
 		ctx = context.Background()
 	}
 	return BaseContext{Bot: b, rest: b.Rest, ctx: ctx, timeout: 10 * time.Second}
+}
+
+func (b *Bot) baseContextWithRaw(raw json.RawMessage) BaseContext {
+	base := b.baseContext()
+	base.raw = append(json.RawMessage(nil), raw...)
+	return base
 }

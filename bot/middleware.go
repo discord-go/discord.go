@@ -161,8 +161,10 @@ func PrefixGuildOnly() PrefixMiddleware {
 	}
 }
 
-// RequirePrefixPermissions checks cached member permissions for a prefix
-// command. Configure WithCache for this middleware to resolve members.
+// RequirePrefixPermissions checks the author's effective permissions,
+// computed from cached guild roles and channel overwrites. Configure
+// WithCache and the GuildMembers intent for this middleware to resolve
+// members; when the data is missing it fails closed.
 func RequirePrefixPermissions(perms permissions.Permission) PrefixMiddleware {
 	return func(next PrefixHandler) PrefixHandler {
 		return func(ctx *MessageContext, args []string) {
@@ -170,8 +172,7 @@ func RequirePrefixPermissions(perms permissions.Permission) PrefixMiddleware {
 				_, _ = ctx.Reply("You do not have permission to use this command.")
 				return
 			}
-			member, ok := ctx.Bot.CachedMember(ctx.GuildID, ctx.Author.ID)
-			if !ok || !member.Permissions.HasAll(perms) {
+			if !ctx.MemberPermissions().HasAll(perms) {
 				_, _ = ctx.Reply("You do not have permission to use this command.")
 				return
 			}

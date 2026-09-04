@@ -63,6 +63,7 @@ func (c *Client) request(ctx context.Context, method, path string, body any, v a
 		bucket = path[:idx]
 	}
 
+	retries := 0
 	for {
 		if err := c.checkInvalidRequests(); err != nil {
 			return err
@@ -118,19 +119,30 @@ func (c *Client) request(ctx context.Context, method, path string, body any, v a
 			if err := json.Unmarshal(respBody, &rateLimitErr); err == nil && rateLimitErr.RetryAfter > 0 {
 				waitDuration = time.Duration(rateLimitErr.RetryAfter * float64(time.Second))
 			} else if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
-				if parsed, err := strconv.ParseFloat(retryAfter, 64); err == nil {
+				if parsed, err := strconv.ParseFloat(retryAfter, 64); err == nil && parsed > 0 {
 					waitDuration = time.Duration(parsed * float64(time.Second))
 				}
 			}
-
-			if waitDuration > 0 {
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(waitDuration):
-				}
-				continue // Retry the request
+			// A 429 without any wait hint (for example a Cloudflare-fronted
+			// HTML 429) still honors the retry budget instead of falling
+			// through to a generic APIError; back off conservatively.
+			if waitDuration <= 0 {
+				waitDuration = time.Second
 			}
+			if c.MaxRetries > 0 && retries >= c.MaxRetries {
+				return &RateLimitError{
+					Bucket:     bucket,
+					RetryAfter: waitDuration,
+					Retries:    retries,
+				}
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(waitDuration):
+			}
+			retries++
+			continue // Retry the request
 		}
 
 		if resp.StatusCode >= 400 {

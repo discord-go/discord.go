@@ -176,8 +176,12 @@ _ = ctx.ReplyEmbed(embed)
 - `(*Embed).Validate() error` checks the Discord character and field limits.
 - `NewEmbedBuilder() *EmbedBuilder` creates a builder.
 - `SetTitle`, `SetDescription`, `SetURL`, `SetTimestamp`, `SetColor`,
-  `SetFooter`, `SetImage`, `SetThumbnail`, `SetAuthor`, `AddField`, and `Build`
-  configure and return an embed builder or value.
+  `SetFooter`, `SetFooterText`, `SetImage`, `SetThumbnail`, `SetAuthor`,
+  `SetAuthorName`, `AddField`, `AddInlineField`, `ClearFields`,
+  `SetTimestampNow`, `SetColorHex`, and `Build` configure and return an embed
+  builder or value. `SetFooterText` and `SetAuthorName` omit the optional icon
+  and URL arguments; `SetColorHex` accepts `#RRGGBB`, `0xRRGGBB`, or bare
+  `RRGGBB` and leaves the color unchanged on invalid input.
 - `MessageSend` contains `Content`, `Embeds`, `AllowedMentions`, `Components`,
   `Attachments`, `Flags`, `Poll`, and related message fields.
 - `NewMessageSendBuilder() *MessageSendBuilder` creates a fluent builder for

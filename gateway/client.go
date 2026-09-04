@@ -59,6 +59,7 @@ func NewClient(conn Connection, dispatcher *Dispatcher) *Client {
 	return &Client{
 		Conn:       newSynchronizedConnection(conn),
 		Dispatcher: dispatcher,
+		Cache:      cache.NewMemoryCache(),
 	}
 }
 

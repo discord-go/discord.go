@@ -192,8 +192,11 @@ if ctx.IsMessageComponent() {
 - `InteractionContext.CommandName`, `CommandType`, `CustomID`, `Suffix`,
   `ComponentType`,
   `Values`, `ModalValue`, `ModalValues`, `FocusedOption`, `Options`,
-  `Subcommand`, `SubcommandGroup`, `HasOption`, and `GetOption` inspect decoded
-  interaction data.
+  `Subcommand`, `SubcommandGroup`, `SubcommandOption`, `SubcommandOptions`,
+  `HasOption`, and `GetOption` inspect decoded interaction data.
+  `SubcommandOption` returns the selected subcommand option directly and
+  `SubcommandOptions` returns its arguments, so a subcommand's own options can
+  be read without manual traversal.
 - `User() *users.User` returns the invoking user, handling both guild
   (nested inside `Member`) and DM (top-level `User`) interactions.
   `GuildID() snowflake.ID` returns the guild ID or zero for DMs.
@@ -205,6 +208,11 @@ if ctx.IsMessageComponent() {
   a string.
 - `GetStringOption`, `GetIntOption`, `GetFloatOption`, `GetBoolOption`,
   `GetUserID`, `GetRoleID`, and `GetChannelID` return typed option values.
+  Short aliases `GetString`, `GetInt`, `GetFloat`, `GetBool`, and
+  `GetSnowflake` resolve the same options, including options nested inside
+  subcommands. `GetInt`/`GetIntOption` truncate fractional numeric values
+  toward zero (3.7 becomes 3); `GetSnowflake` preserves full 64-bit
+  precision for IDs above 2^53.
 - `IsChatInputCommand`, `IsCommand`, `IsContextMenuCommand`,
   `IsUserContextMenuCommand`, `IsMessageContextMenuCommand`, `IsRepliable`,
   `InGuild`, `IsAutocomplete`, `IsMessageComponent`, `IsButton`, `IsSelectMenu`,

@@ -15,6 +15,8 @@ import (
 	"github.com/discord-go/discord.go/interactions"
 	"github.com/discord-go/discord.go/snowflake"
 	"github.com/discord-go/discord.go/voice"
+
+	"github.com/discord-go/discord.go/cache"
 )
 
 // handleRawDispatch parses a gateway dispatch, builds typed contexts, and
@@ -92,7 +94,7 @@ func (b *Bot) handleRawDispatch(data []byte) {
 		if b.router != nil && b.commandSync.Mode != CommandSyncDisabled {
 			go b.syncCommands()
 		}
-		ctx := &ReadyContext{BaseContext: b.baseContext(), Ready: &ready}
+		ctx := &ReadyContext{BaseContext: b.baseContextWithRaw(payload.Data), Ready: &ready}
 		b.mu.RLock()
 		handlers := append([]ReadyHandler(nil), b.readyHandlers...)
 		b.mu.RUnlock()
@@ -106,10 +108,15 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse MESSAGE_CREATE: %w", err))
 			return
 		}
+		if b.cacheStore != nil {
+			if store, ok := b.cacheStore.(cache.MessageCache); ok {
+				store.SetMessage(msg.ID.String(), &msg.Message)
+			}
+		}
 		if msg.Author != nil && msg.Author.Bot {
 			return
 		}
-		ctx := &MessageContext{BaseContext: b.baseContext(), MessageCreate: &msg}
+		ctx := &MessageContext{BaseContext: b.baseContextWithRaw(payload.Data), MessageCreate: &msg}
 		b.publishMessage(ctx)
 		if b.router != nil {
 			content := b.messageCommandContent(ctx)
@@ -134,7 +141,22 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse MESSAGE_UPDATE: %w", err))
 			return
 		}
-		ctx := &MessageUpdateContext{BaseContext: b.baseContext(), MessageUpdate: &msg}
+		if b.cacheStore != nil && msg.ID != 0 {
+			if store, ok := b.cacheStore.(cache.MessageCache); ok {
+				// MESSAGE_UPDATE payloads can be partial (only changed
+				// fields); merge over the cached message when one exists.
+				if cached, found := b.CachedMessage(msg.ID); found && cached != nil {
+					merged := *cached
+					if err := json.Unmarshal(payload.Data, &merged); err == nil {
+						store.SetMessage(msg.ID.String(), &merged)
+						msg = events.MessageUpdate{Message: merged}
+					}
+				} else {
+					store.SetMessage(msg.ID.String(), &msg.Message)
+				}
+			}
+		}
+		ctx := &MessageUpdateContext{BaseContext: b.baseContextWithRaw(payload.Data), MessageUpdate: &msg}
 		b.mu.RLock()
 		handlers := append([]MessageUpdateHandler(nil), b.messageUpdate...)
 		b.mu.RUnlock()
@@ -148,7 +170,12 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse MESSAGE_DELETE: %w", err))
 			return
 		}
-		ctx := &MessageDeleteContext{BaseContext: b.baseContext(), MessageDelete: &deleted}
+		if b.cacheStore != nil && deleted.ID != 0 {
+			if store, ok := b.cacheStore.(cache.MessageCache); ok {
+				store.DeleteMessage(deleted.ID.String())
+			}
+		}
+		ctx := &MessageDeleteContext{BaseContext: b.baseContextWithRaw(payload.Data), MessageDelete: &deleted}
 		b.mu.RLock()
 		handlers := append([]MessageDeleteHandler(nil), b.messageDelete...)
 		b.mu.RUnlock()
@@ -162,7 +189,7 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse INTERACTION_CREATE: %w", err))
 			return
 		}
-		ctx := newInteractionContext(b.baseContext(), &interaction)
+		ctx := newInteractionContext(b.baseContextWithRaw(payload.Data), &interaction)
 		b.publishInteraction(ctx)
 		if b.router != nil && (interaction.Type == interactions.InteractionTypeApplicationCommand || interaction.Type == interactions.InteractionTypeApplicationCommandAutocomplete || interaction.Type == interactions.InteractionTypeMessageComponent || interaction.Type == interactions.InteractionTypeModalSubmit) {
 			b.invoke("INTERACTION_CREATE command", func() {
@@ -184,7 +211,7 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse MESSAGE_REACTION_ADD: %w", err))
 			return
 		}
-		ctx := &ReactionContext{BaseContext: b.baseContext(), MessageReactionAdd: &reaction}
+		ctx := &ReactionContext{BaseContext: b.baseContextWithRaw(payload.Data), MessageReactionAdd: &reaction}
 		b.publishReaction(ctx)
 		b.mu.RLock()
 		handlers := append([]ReactionHandler(nil), b.reactionHandlers...)
@@ -199,7 +226,7 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse CHANNEL_CREATE: %w", err))
 			return
 		}
-		ctx := &ChannelContext{BaseContext: b.baseContext(), ChannelCreate: &channel}
+		ctx := &ChannelContext{BaseContext: b.baseContextWithRaw(payload.Data), ChannelCreate: &channel}
 		b.mu.RLock()
 		handlers := append([]ChannelCreateHandler(nil), b.channelCreate...)
 		b.mu.RUnlock()
@@ -213,7 +240,7 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse CHANNEL_UPDATE: %w", err))
 			return
 		}
-		ctx := &ChannelUpdateContext{BaseContext: b.baseContext(), ChannelUpdate: &channel}
+		ctx := &ChannelUpdateContext{BaseContext: b.baseContextWithRaw(payload.Data), ChannelUpdate: &channel}
 		b.mu.RLock()
 		handlers := append([]ChannelUpdateHandler(nil), b.channelUpdate...)
 		b.mu.RUnlock()
@@ -227,7 +254,7 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse GUILD_AUDIT_LOG_ENTRY_CREATE: %w", err))
 			return
 		}
-		ctx := &GuildAuditLogEntryContext{BaseContext: b.baseContext(), GuildAuditLogEntryCreate: &entry}
+		ctx := &GuildAuditLogEntryContext{BaseContext: b.baseContextWithRaw(payload.Data), GuildAuditLogEntryCreate: &entry}
 		b.mu.RLock()
 		handlers := append([]GuildAuditLogEntryCreateHandler(nil), b.auditLogCreate...)
 		b.mu.RUnlock()
@@ -260,7 +287,7 @@ func (b *Bot) handleRawDispatch(data []byte) {
 				b.voice.apply(state)
 			}
 		}
-		ctx := &GuildContext{BaseContext: b.baseContext(), GuildCreate: &guild}
+		ctx := &GuildContext{BaseContext: b.baseContextWithRaw(payload.Data), GuildCreate: &guild}
 		b.mu.RLock()
 		handlers := append([]GuildCreateHandler(nil), b.guildCreateHandlers...)
 		b.mu.RUnlock()
@@ -274,7 +301,7 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse GUILD_UPDATE: %w", err))
 			return
 		}
-		ctx := &GuildUpdateContext{BaseContext: b.baseContext(), GuildUpdate: &guild}
+		ctx := &GuildUpdateContext{BaseContext: b.baseContextWithRaw(payload.Data), GuildUpdate: &guild}
 		b.mu.RLock()
 		handlers := append([]GuildUpdateHandler(nil), b.guildUpdateHandlers...)
 		b.mu.RUnlock()
@@ -288,7 +315,7 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.reportError(fmt.Errorf("parse GUILD_DELETE: %w", err))
 			return
 		}
-		ctx := &GuildDeleteContext{BaseContext: b.baseContext(), GuildDelete: &guild}
+		ctx := &GuildDeleteContext{BaseContext: b.baseContextWithRaw(payload.Data), GuildDelete: &guild}
 		b.mu.RLock()
 		handlers := append([]GuildDeleteHandler(nil), b.guildDeleteHandlers...)
 		b.mu.RUnlock()

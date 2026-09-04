@@ -198,6 +198,13 @@ return client.Wait()
   `OnInteraction`, `OnInteractionCreate`, `OnMessageReactionAdd`, `OnGuildCreate`,
   `OnGuildUpdate`, `OnGuildDelete`, `OnChannelCreate`, `OnChannelUpdate`,
   `OnGuildAuditLogEntryCreate`, `OnRawEvent`, and `OnError` register handlers.
+- Every typed context (for example `*bot.MessageContext`,
+  `*bot.MessageUpdateContext`, `*bot.InteractionContext`) embeds
+  `BaseContext`, which promotes two methods for reading unmodeled payload
+  fields: `Decode(value any) error` unmarshals the raw gateway payload into a
+  caller-provided value, and `Raw() json.RawMessage` returns a copy of the raw
+  payload. Use `Decode` when Discord adds a field the library does not model
+  yet instead of waiting for a library update.
 - `OnEvent` and `On` return an unsubscribe function for named dispatch events;
   `OnceEvent` and `Once` remove the handler after its first call.
 - `State`, `Done`, `Wait`, `Start`, `Run`, `RunContext`, `Stop`, `WaitReady`,

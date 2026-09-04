@@ -11,7 +11,7 @@ import (
 type Channel struct {
 	ID                            snowflake.ID      `json:"id,string"`
 	Type                          ChannelType       `json:"type"`
-	GuildID                       *snowflake.ID     `json:"guild_id,string,omitempty"`
+	GuildID                       snowflake.ID      `json:"guild_id,string,omitempty"`
 	Position                      *int              `json:"position,omitempty"`
 	PermissionOverwrites          []Overwrite       `json:"permission_overwrites,omitempty"`
 	Name                          *string           `json:"name,omitempty"`

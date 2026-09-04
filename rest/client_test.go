@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/discord-go/discord.go/ratelimit"
 )
@@ -233,5 +234,105 @@ func TestRequest_ReadAllError(t *testing.T) {
 	err := c.Request(context.Background(), "GET", "/test", nil, nil)
 	if err != io.ErrUnexpectedEOF {
 		t.Errorf("Expected io.ErrUnexpectedEOF, got %v", err)
+	}
+}
+
+func TestRequest_429RetrySuccess(t *testing.T) {
+	var attempts int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts == 1 {
+			w.Header().Set("X-RateLimit-Bucket", "test-bucket")
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write([]byte(`{"retry_after":0.001}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer ts.Close()
+
+	c := New("token", nil, &mockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			return http.DefaultClient.Do(req)
+		},
+	})
+	c.BaseURL = ts.URL
+
+	var v struct {
+		OK bool `json:"ok"`
+	}
+	if err := c.Request(context.Background(), "GET", "/test", nil, &v); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if !v.OK {
+		t.Error("Expected ok=true after retry")
+	}
+	if attempts != 2 {
+		t.Errorf("Expected 2 attempts, got %d", attempts)
+	}
+}
+
+func TestRequest_429RetryCap(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-RateLimit-Bucket", "test-bucket")
+		w.Header().Set("Retry-After", "0")
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"retry_after":0.001}`))
+	}))
+	defer ts.Close()
+
+	c := New("token", nil, &mockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			return http.DefaultClient.Do(req)
+		},
+	})
+	c.BaseURL = ts.URL
+	c.MaxRetries = 2
+
+	err := c.Request(context.Background(), "GET", "/test", nil, nil)
+	if err == nil {
+		t.Fatal("Expected RateLimitError")
+	}
+	rle, ok := err.(*RateLimitError)
+	if !ok {
+		t.Fatalf("Expected *RateLimitError, got %T", err)
+	}
+	if rle.Retries != 2 {
+		t.Errorf("Expected 2 retries, got %d", rle.Retries)
+	}
+	if rle.Bucket != "/test" {
+		t.Errorf("Expected bucket /test, got %q", rle.Bucket)
+	}
+}
+
+func TestClient_BucketState(t *testing.T) {
+	c := New("token", nil, nil)
+	if _, ok := c.BucketState("/test"); ok {
+		t.Error("Expected no state for unknown bucket")
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-RateLimit-Bucket", "test-bucket")
+		w.Header().Set("X-RateLimit-Remaining", "3")
+		w.Header().Set("X-RateLimit-Reset-After", "5")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	c.BaseURL = ts.URL
+	if err := c.Request(context.Background(), "GET", "/test", nil, nil); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	state, ok := c.BucketState("/test")
+	if !ok {
+		t.Fatal("Expected bucket state after request")
+	}
+	if state.Remaining != 3 {
+		t.Errorf("Expected remaining 3, got %d", state.Remaining)
+	}
+	if state.Reset.Before(time.Now()) {
+		t.Error("Expected reset in the future")
 	}
 }

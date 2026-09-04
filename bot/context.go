@@ -29,6 +29,25 @@ type BaseContext struct {
 	rest    *rest.Client
 	ctx     context.Context
 	timeout time.Duration
+	raw     json.RawMessage
+}
+
+// Decode unmarshals the raw event data into a caller-provided value. It is
+// available on every typed context and is useful for reading fields the
+// repository does not yet model.
+func (c *BaseContext) Decode(value any) error {
+	if c == nil {
+		return errors.New("nil context")
+	}
+	return json.Unmarshal(c.raw, value)
+}
+
+// Raw returns a copy of the raw event data.
+func (c *BaseContext) Raw() json.RawMessage {
+	if c == nil {
+		return nil
+	}
+	return append(json.RawMessage(nil), c.raw...)
 }
 
 // Context returns the run context associated with this event.
@@ -64,6 +83,70 @@ type MessageContext struct {
 // the underlying value comes from the embedded MessageCreate event.
 func (m *MessageContext) ChannelID() snowflake.ID {
 	return m.MessageCreate.ChannelID
+}
+
+// Member returns the guild member who sent the message, or nil when the
+// gateway did not include member data (for example, no GuildMembers intent,
+// or a DM channel).
+func (m *MessageContext) Member() *users.Member {
+	if m == nil || m.MessageCreate == nil {
+		return nil
+	}
+	return m.MessageCreate.Member
+}
+
+// MemberPermissions returns the sender's effective channel permissions,
+// computed from the cached guild roles and channel overwrites. Discord does
+// not populate member.permissions on gateway message events (only on
+// interaction payloads), so the value is derived from cache rather than read
+// from the event. It returns zero when the member, guild, or channel is not
+// cached; callers should treat zero as "unknown" rather than "no
+// permissions".
+func (m *MessageContext) MemberPermissions() permissions.Permission {
+	if m == nil || m.Bot == nil || m.MessageCreate == nil {
+		return 0
+	}
+	guildID := m.MessageCreate.GuildID
+	if guildID.IsZero() {
+		return 0
+	}
+	guild, ok := m.Bot.CachedGuild(guildID)
+	if !ok || guild == nil {
+		return 0
+	}
+	channel, ok := m.Bot.CachedChannel(m.ChannelID())
+	if !ok || channel == nil {
+		return 0
+	}
+	member := m.Member()
+	if member == nil {
+		if m.MessageCreate.Author == nil {
+			return 0
+		}
+		// The event carries no member data (no GuildMembers intent); fall
+		// back to a member cached from a REST fetch or a member event.
+		member, _ = m.Bot.CachedMember(guildID, m.MessageCreate.Author.ID)
+		if member == nil {
+			return 0
+		}
+	}
+	// Interaction-style payloads do carry member.permissions; prefer the
+	// computed value but fall back to the field when the channel is not
+	// cached.
+	if perms := resolveMemberPermissions(guild, channel, member); perms != 0 {
+		return perms
+	}
+	return member.Permissions
+}
+
+// BotPermissions returns the bot's permissions in this channel, resolved from
+// the cached channel and guild data when available. It returns zero when the
+// required cache entries are missing.
+func (m *MessageContext) BotPermissions() permissions.Permission {
+	if m == nil || m.Bot == nil {
+		return 0
+	}
+	return m.Bot.ChannelPermissions(m.ChannelID())
 }
 
 // Reply sends a text message to the same channel.
@@ -492,7 +575,7 @@ func (i *InteractionContext) Options() []interactions.ApplicationCommandInteract
 
 // Subcommand returns the selected subcommand name, if any.
 func (i *InteractionContext) Subcommand() string {
-	option := firstOptionOfType(i.Options(), interactions.ApplicationCommandOptionTypeSubCommand)
+	option := i.SubcommandOption()
 	if option != nil {
 		return option.Name
 	}
@@ -506,6 +589,23 @@ func (i *InteractionContext) SubcommandGroup() string {
 		return option.Name
 	}
 	return ""
+}
+
+// SubcommandOption returns the selected subcommand option, or nil if the
+// interaction did not select a subcommand.
+func (i *InteractionContext) SubcommandOption() *interactions.ApplicationCommandInteractionDataOption {
+	return firstOptionOfType(i.Options(), interactions.ApplicationCommandOptionTypeSubCommand)
+}
+
+// SubcommandOptions returns the arguments of the selected subcommand. It is
+// empty when the interaction has no subcommand or the subcommand has no
+// arguments.
+func (i *InteractionContext) SubcommandOptions() []interactions.ApplicationCommandInteractionDataOption {
+	option := i.SubcommandOption()
+	if option == nil {
+		return nil
+	}
+	return option.NestedOptions()
 }
 
 // HasOption reports whether an option exists, including nested subcommand
@@ -532,6 +632,7 @@ func (i *InteractionContext) GetStringOption(name string) string {
 }
 
 // GetIntOption returns an integer option value, or zero if absent or invalid.
+// Fractional numeric values truncate toward zero (3.7 becomes 3).
 func (i *InteractionContext) GetIntOption(name string) int64 {
 	option := i.GetOption(name)
 	if option == nil || option.Value == nil {
@@ -539,8 +640,12 @@ func (i *InteractionContext) GetIntOption(name string) int64 {
 	}
 	switch value := option.Value.(type) {
 	case json.Number:
-		result, _ := value.Int64()
-		return result
+		if result, err := value.Int64(); err == nil {
+			return result
+		}
+		// Fractional number: truncate toward zero via Float64.
+		f, _ := value.Float64()
+		return int64(f)
 	case int:
 		return int64(value)
 	case int64:
@@ -586,6 +691,36 @@ func (i *InteractionContext) GetBoolOption(name string) bool {
 	}
 	value, _ := strconv.ParseBool(fmt.Sprint(option.Value))
 	return value
+}
+
+// GetBool returns a boolean option value, or false if absent or invalid.
+// It is a shorter alias for GetBoolOption.
+func (i *InteractionContext) GetBool(name string) bool {
+	return i.GetBoolOption(name)
+}
+
+// GetString returns a string option value, or "" if absent. It is a shorter
+// alias for GetStringOption.
+func (i *InteractionContext) GetString(name string) string {
+	return i.GetStringOption(name)
+}
+
+// GetInt returns an integer option value, or 0 if absent or invalid. It is a
+// shorter alias for GetIntOption.
+func (i *InteractionContext) GetInt(name string) int64 {
+	return i.GetIntOption(name)
+}
+
+// GetFloat returns a float option value, or 0 if absent or invalid. It is a
+// shorter alias for GetFloatOption.
+func (i *InteractionContext) GetFloat(name string) float64 {
+	return i.GetFloatOption(name)
+}
+
+// GetSnowflake returns an option value as a snowflake.ID, or zero if absent
+// or invalid. It works for user, role, channel, and plain string options.
+func (i *InteractionContext) GetSnowflake(name string) snowflake.ID {
+	return i.getSnowflakeOption(name)
 }
 
 // GetUserID returns a user option as a snowflake.ID.

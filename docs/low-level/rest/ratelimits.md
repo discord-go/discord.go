@@ -16,6 +16,15 @@ then `ResetAfter`, waits with the caller context, and repeats the request. A
 custom `ratelimit.Store` can persist `BucketState` across client instances;
 the built-in memory store is process-local.
 
+`Client.MaxRetries` bounds the 429 retry loop. When set to a positive value,
+the client gives up after that many retries and returns `*RateLimitError`
+instead of retrying forever; zero (the default) keeps the historical unbounded
+behavior. Every 429 honors this budget, including responses without a usable
+`retry_after` hint (for example a Cloudflare-fronted HTML 429); in that case
+the client backs off one second between attempts. `Client.BucketState(route)`
+exposes the limiter's current state for a route so callers can inspect
+remaining budget and reset time without guessing.
+
 ## Quick Start
 
 ```go
@@ -73,8 +82,9 @@ while waiting returns the context error and does not send the request.
 
 ## API Walkthrough
 
-The REST-facing API is the `ratelimit.Limiter` interface plus `NewLimiter`;
-the underlying [`../ratelimit/`](../ratelimit/README.md) package provides
+The REST-facing API is the `ratelimit.Limiter` interface plus `NewLimiter`,
+`Client.MaxRetries`, `Client.BucketState`, and `RateLimitError`; the
+underlying [`../ratelimit/`](../ratelimit/README.md) package provides
 `Store`, `MemoryStore`, `BucketState`, `Info`, `ParseHeaders`, and all storage
 methods.
 

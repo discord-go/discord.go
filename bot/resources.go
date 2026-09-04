@@ -8,6 +8,7 @@ import (
 	"github.com/discord-go/discord.go/channels"
 	"github.com/discord-go/discord.go/guilds"
 	"github.com/discord-go/discord.go/messages"
+	"github.com/discord-go/discord.go/permissions"
 	"github.com/discord-go/discord.go/rest"
 	"github.com/discord-go/discord.go/snowflake"
 	"github.com/discord-go/discord.go/users"
@@ -110,6 +111,61 @@ func (b *Bot) CachedMember(guildID, userID snowflake.ID) (*users.Member, bool) {
 	return cachedValue[users.Member](value, ok)
 }
 
+// CachedMemberWithPermissions returns a guild member with pre-computed
+// guild-level permissions from the configured cache. It returns false when
+// the member, its guild, or the required cache capability is missing. The
+// returned permissions include the owner bypass, the @everyone base, the
+// member's role OR, and the administrator shortcut; channel overwrites are
+// not applied.
+func (b *Bot) CachedMemberWithPermissions(guildID, userID snowflake.ID) (*cache.CachedMember, bool) {
+	member, ok := b.CachedMember(guildID, userID)
+	if !ok || member == nil {
+		return nil, false
+	}
+	guild, ok := b.CachedGuild(guildID)
+	if !ok || guild == nil {
+		return nil, false
+	}
+	perms := computeGuildPermissions(guild, member)
+	return &cache.CachedMember{
+		Member:      member,
+		GuildID:     guildID,
+		Permissions: perms,
+	}, true
+}
+
+// computeGuildPermissions resolves a member's guild-level permissions
+// without channel overwrites.
+func computeGuildPermissions(guild *guilds.Guild, member *users.Member) permissions.Permission {
+	if member.User != nil && member.User.ID == guild.OwnerID {
+		return ^permissions.Permission(0)
+	}
+
+	everyone := permissions.Permission(0)
+	rolePerms := make(map[snowflake.ID]permissions.Permission, len(guild.Roles))
+	for i := range guild.Roles {
+		role := guild.Roles[i]
+		rolePerms[role.ID] = role.Permissions
+		if role.ID == guild.ID {
+			everyone = role.Permissions
+		}
+	}
+
+	base := everyone
+	memberRoles := make([]snowflake.ID, 0, len(member.Roles))
+	for _, roleID := range member.Roles {
+		if perm, ok := rolePerms[roleID]; ok {
+			base.Add(perm)
+			memberRoles = append(memberRoles, roleID)
+		}
+	}
+
+	if base.Has(permissions.Administrator) {
+		return ^permissions.Permission(0)
+	}
+	return base
+}
+
 // CachedMessage returns a message from the configured cache.
 func (b *Bot) CachedMessage(id snowflake.ID) (*messages.Message, bool) {
 	store, ok := b.cacheStore.(cache.MessageCache)
@@ -118,6 +174,114 @@ func (b *Bot) CachedMessage(id snowflake.ID) (*messages.Message, bool) {
 	}
 	value, ok := store.GetMessage(id.String())
 	return cachedValue[messages.Message](value, ok)
+}
+
+// ChannelPermissions resolves the effective permissions for the bot in a
+// channel using cached guild, channel, and member data. It returns zero when
+// the required cache entries are missing; callers should treat zero as
+// "unknown" rather than "no permissions".
+func (b *Bot) ChannelPermissions(channelID snowflake.ID) permissions.Permission {
+	return b.MemberChannelPermissionsFromCache(channelID, b.AppID())
+}
+
+// MemberChannelPermissionsFromCache resolves the effective permissions for a
+// member in a channel using cached guild, channel, and member data. It returns
+// zero when the required cache entries are missing; callers should treat zero
+// as "unknown" rather than "no permissions".
+func (b *Bot) MemberChannelPermissionsFromCache(channelID, userID snowflake.ID) permissions.Permission {
+	if b == nil {
+		return 0
+	}
+	channel, ok := b.CachedChannel(channelID)
+	if !ok || channel == nil || channel.GuildID.IsZero() {
+		return 0
+	}
+	guild, ok := b.CachedGuild(channel.GuildID)
+	if !ok || guild == nil {
+		return 0
+	}
+	member, ok := b.CachedMember(channel.GuildID, userID)
+	if !ok || member == nil {
+		return 0
+	}
+	return resolveMemberPermissions(guild, channel, member)
+}
+
+// MemberChannelPermissions resolves the effective permissions for a member in
+// a channel using cached guild, channel, and member data. It returns zero when
+// the required cache entries are missing.
+func (b *Bot) MemberChannelPermissions(guildID, channelID, userID snowflake.ID) permissions.Permission {
+	if b == nil {
+		return 0
+	}
+	channel, ok := b.CachedChannel(channelID)
+	if !ok || channel == nil {
+		return 0
+	}
+	guild, ok := b.CachedGuild(guildID)
+	if !ok || guild == nil {
+		return 0
+	}
+	member, ok := b.CachedMember(guildID, userID)
+	if !ok || member == nil {
+		return 0
+	}
+	return resolveMemberPermissions(guild, channel, member)
+}
+
+func resolveMemberPermissions(guild *guilds.Guild, channel *channels.Channel, member *users.Member) permissions.Permission {
+	// Guild owner bypasses all permission checks.
+	if member.User != nil && member.User.ID == guild.OwnerID {
+		return ^permissions.Permission(0)
+	}
+
+	// The @everyone role is the guild ID.
+	everyone := permissions.Permission(0)
+	rolePerms := make(map[snowflake.ID]permissions.Permission, len(guild.Roles))
+	for i := range guild.Roles {
+		role := guild.Roles[i]
+		rolePerms[role.ID] = role.Permissions
+		if role.ID == guild.ID {
+			everyone = role.Permissions
+		}
+	}
+
+	// Base permissions: @everyone plus all of the member's roles.
+	base := everyone
+	memberRoles := make([]snowflake.ID, 0, len(member.Roles))
+	for _, roleID := range member.Roles {
+		if perm, ok := rolePerms[roleID]; ok {
+			base.Add(perm)
+		}
+		memberRoles = append(memberRoles, roleID)
+	}
+
+	overwrites := make([]permissions.Overwrite, 0, len(channel.PermissionOverwrites))
+	for i := range channel.PermissionOverwrites {
+		ow := channel.PermissionOverwrites[i]
+		overwrites = append(overwrites, permissions.Overwrite{
+			ID:    ow.ID,
+			Type:  ow.Type,
+			Allow: ow.Allow,
+			Deny:  ow.Deny,
+		})
+	}
+
+	var memberID snowflake.ID
+	if member.User != nil {
+		memberID = member.User.ID
+	}
+	return permissions.Calculate(memberID, guild.ID, guild.OwnerID, everyone, memberRoles, rolePermsValues(rolePerms, memberRoles), overwrites)
+}
+
+func rolePermsValues(rolePerms map[snowflake.ID]permissions.Permission, memberRoles []snowflake.ID) []permissions.Permission {
+	values := make([]permissions.Permission, 0, len(memberRoles))
+	for _, roleID := range memberRoles {
+		if perm, ok := rolePerms[roleID]; ok {
+			values = append(values, perm)
+		}
+	}
+	return values
 }
 
 // FetchGuild fetches a guild and updates the configured cache.

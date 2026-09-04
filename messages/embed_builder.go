@@ -46,12 +46,19 @@ func (b *EmbedBuilder) SetColor(color int) *EmbedBuilder {
 	return b
 }
 
-// SetFooter sets the footer of the embed.
+// SetFooter sets the footer of the embed. The icon URL is optional; pass an
+// empty string to omit it.
 func (b *EmbedBuilder) SetFooter(text, iconURL string) *EmbedBuilder {
 	b.embed.Footer = &EmbedFooter{
 		Text:    text,
 		IconURL: iconURL,
 	}
+	return b
+}
+
+// SetFooterText sets the footer text of the embed without an icon.
+func (b *EmbedBuilder) SetFooterText(text string) *EmbedBuilder {
+	b.embed.Footer = &EmbedFooter{Text: text}
 	return b
 }
 
@@ -71,13 +78,20 @@ func (b *EmbedBuilder) SetThumbnail(url string) *EmbedBuilder {
 	return b
 }
 
-// SetAuthor sets the author of the embed.
+// SetAuthor sets the author of the embed. The URL and icon URL are optional;
+// pass empty strings to omit them.
 func (b *EmbedBuilder) SetAuthor(name, url, iconURL string) *EmbedBuilder {
 	b.embed.Author = &EmbedAuthor{
 		Name:    name,
 		URL:     url,
 		IconURL: iconURL,
 	}
+	return b
+}
+
+// SetAuthorName sets the author name of the embed without a URL or icon.
+func (b *EmbedBuilder) SetAuthorName(name string) *EmbedBuilder {
+	b.embed.Author = &EmbedAuthor{Name: name}
 	return b
 }
 
@@ -91,7 +105,63 @@ func (b *EmbedBuilder) AddField(name, value string, inline bool) *EmbedBuilder {
 	return b
 }
 
+// AddInlineField adds a field to the embed with inline set to true.
+func (b *EmbedBuilder) AddInlineField(name, value string) *EmbedBuilder {
+	return b.AddField(name, value, true)
+}
+
+// ClearFields removes all fields from the embed.
+func (b *EmbedBuilder) ClearFields() *EmbedBuilder {
+	b.embed.Fields = nil
+	return b
+}
+
+// SetTimestampNow sets the embed timestamp to the current time.
+func (b *EmbedBuilder) SetTimestampNow() *EmbedBuilder {
+	return b.SetTimestamp(time.Now())
+}
+
+// SetColorHex parses a hex color string such as "#5865F2" or "0x5865F2" and
+// sets the embed color. Invalid input leaves the color unchanged and returns
+// the builder for chaining.
+func (b *EmbedBuilder) SetColorHex(hex string) *EmbedBuilder {
+	if color, ok := parseHexColor(hex); ok {
+		b.embed.Color = color
+	}
+	return b
+}
+
 // Build returns the constructed Embed.
 func (b *EmbedBuilder) Build() Embed {
 	return b.embed
+}
+
+// parseHexColor converts "#RRGGBB" or "0xRRGGBB" into an RGB integer.
+func parseHexColor(hex string) (int, bool) {
+	if len(hex) == 0 {
+		return 0, false
+	}
+	if hex[0] == '#' {
+		hex = hex[1:]
+	} else if len(hex) > 2 && hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X') {
+		hex = hex[2:]
+	}
+	if len(hex) != 6 {
+		return 0, false
+	}
+	var color int
+	for _, c := range hex {
+		color <<= 4
+		switch {
+		case c >= '0' && c <= '9':
+			color |= int(c - '0')
+		case c >= 'a' && c <= 'f':
+			color |= int(c-'a') + 10
+		case c >= 'A' && c <= 'F':
+			color |= int(c-'A') + 10
+		default:
+			return 0, false
+		}
+	}
+	return color, true
 }

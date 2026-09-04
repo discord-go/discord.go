@@ -1,6 +1,23 @@
 package rest
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
+
+// RateLimitError is returned when a request exhausts the client's retry
+// budget. It carries the bucket, the final retry-after duration, and the
+// number of retries already performed. A caller that receives it should
+// wait at least RetryAfter before attempting the request again.
+type RateLimitError struct {
+	Bucket     string
+	RetryAfter time.Duration
+	Retries    int
+}
+
+func (e *RateLimitError) Error() string {
+	return fmt.Sprintf("rate limited after %d retries (bucket %s): retry after %s", e.Retries, e.Bucket, e.RetryAfter)
+}
 
 // APIError represents an error returned by the Discord API.
 type APIError struct {

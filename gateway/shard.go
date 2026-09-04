@@ -84,6 +84,7 @@ func NewShardManager(token string, numShards int, gatewayIntents intents.Intent)
 		shardDelay:      ShardDelay,
 		Dispatcher:      NewDispatcher(),
 		identifyTracker: NewIdentifyTracker(),
+		cache:           cache.NewMemoryCache(),
 	}
 }
 
@@ -116,10 +117,13 @@ func (sm *ShardManager) SetCompression(enabled bool) {
 	sm.mu.Unlock()
 }
 
-// SetCache enables shared cache hydration for all shards.
+// SetCache enables shared cache hydration for all shards. Passing nil keeps
+// the default per-manager memory cache.
 func (sm *ShardManager) SetCache(store cache.Cache) {
 	sm.mu.Lock()
-	sm.cache = store
+	if store != nil {
+		sm.cache = store
+	}
 	sm.mu.Unlock()
 }
 

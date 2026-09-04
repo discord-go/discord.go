@@ -192,6 +192,52 @@ router.Command("ban", "Ban a member", handleBan).
 - `InteractionContext.MemberPermissions()` and `BotPermissions()` expose the
   permissions used by custom policy code.
 
+## Permission Cheat Sheet
+
+All flags live in `permissions/constants.go` as `1 << n` bitfields. The most
+common ones:
+
+| Constant | Bit | Decimal | Meaning |
+|---|---|---|---|
+| `CreateInstantInvite` | 0 | 1 | Create invites |
+| `KickMembers` | 1 | 2 | Kick |
+| `BanMembers` | 2 | 4 | Ban |
+| `Administrator` | 3 | 8 | All permissions, ignores overwrites |
+| `ManageChannels` | 4 | 16 | Create/edit/delete channels |
+| `ManageGuild` | 5 | 32 | Server settings |
+| `AddReactions` | 6 | 64 | React to messages |
+| `ViewAuditLog` | 7 | 128 | Read audit log |
+| `ViewChannel` | 10 | 1024 | See the channel |
+| `SendMessages` | 11 | 2048 | Send messages |
+| `ManageMessages` | 13 | 8192 | Delete/pin others' messages |
+| `EmbedLinks` | 14 | 16384 | Embeds render |
+| `AttachFiles` | 15 | 32768 | Upload files |
+| `ReadMessageHistory` | 16 | 65536 | Read older messages |
+| `MentionEveryone` | 17 | 131072 | @everyone / @here |
+| `Connect` | 20 | 1048576 | Join voice |
+| `Speak` | 21 | 2097152 | Talk in voice |
+| `ManageRoles` | 28 | 268435456 | Edit roles (below own top role) |
+| `ManageWebhooks` | 29 | 536870912 | Manage webhooks |
+| `ModerateMembers` | 40 | 1099511627776 | Timeout members |
+
+Full list: `permissions/constants.go`. Compose flags with
+`permissions.Build(permissions.SendMessages, permissions.ManageMessages)` and
+test with `perms.Has(one)` / `perms.HasAll(several)`.
+
+How effective permissions resolve (matching Discord's documented algorithm,
+implemented in `permissions.Calculate` and `bot.resolveMemberPermissions`):
+
+1. Guild owner: all permissions.
+2. Base: `@everyone` role permissions OR'd with the member's roles.
+3. If base includes `Administrator`: all permissions, channel overwrites are
+   ignored.
+4. Channel role overwrites: deny then allow for the roles the member has.
+5. Member-specific overwrites: applied last, over role overwrites.
+
+`MessageContext.MemberPermissions()` and `Bot.MemberChannelPermissions*` run
+this pipeline from cached data; `InteractionContext.MemberPermissions()` reads
+the value Discord includes in interaction payloads.
+
 ## Examples
 
 - [Moderation](../examples/commands/moderation.md)
