@@ -19,7 +19,7 @@ func TestMessageContextMemberPermissions(t *testing.T) {
 	channelID := snowflake.ID(200)
 	userID := snowflake.ID(300)
 
-	everyone := permissions.Permission(1 << 10)    // ViewChannel
+	everyone := permissions.Permission(1 << 10)     // ViewChannel
 	modRole := permissions.Permission(1<<5 | 1<<11) // ManageGuild | SendMessages
 
 	b := New("token", WithCache(cache.NewMemoryCache()))
@@ -82,7 +82,7 @@ func TestChannelPermissionsResolution(t *testing.T) {
 	userID := snowflake.ID(300)
 	botID := snowflake.ID(400)
 
-	everyone := permissions.Permission(1 << 11) // SendMessages
+	everyone := permissions.Permission(1 << 11)     // SendMessages
 	modRole := permissions.Permission(1<<5 | 1<<11) // ManageGuild | SendMessages
 
 	b := New("token", WithCache(cache.NewMemoryCache()))

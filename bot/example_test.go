@@ -35,6 +35,7 @@ func ExampleNew() {
 		log.Fatal(err)
 	}
 }
+
 // Reading command options with the short Get* helpers.
 func ExampleInteractionContext_GetBool() {
 	// Inside a command handler registered with router.Command:
