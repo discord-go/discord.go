@@ -16,7 +16,7 @@ import (
     "github.com/discord-go/discord.go/permissions"
 )
 func register(r *bot.Router) {
-    r.Command("lookup", "Look up a user", func(c *bot.InteractionContext) { _ = c.Reply(c.GetUserID("user").String()) }, interactions.ApplicationCommandOption{Type: interactions.ApplicationCommandOptionTypeUser, Name: "user", Description: "Target", Required: true}).RequirePermissions(permissions.ManageGuild).Cooldown(time.Second).Use(bot.Validate(func(c *bot.InteractionContext) error { if !c.InGuild() { return errors.New("guild only") }; return nil }))
+    r.Command("lookup", "Look up a user", func(c *bot.InteractionContext) { _ = c.Reply(c.OptionUser("user").String()) }, interactions.ApplicationCommandOption{Type: interactions.ApplicationCommandOptionTypeUser, Name: "user", Description: "Target", Required: true}).RequirePermissions(permissions.ManageGuild).Cooldown(time.Second).Use(bot.Validate(func(c *bot.InteractionContext) error { if !c.InGuild() { return errors.New("guild only") }; return nil }))
 }
 ```
 

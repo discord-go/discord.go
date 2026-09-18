@@ -603,17 +603,23 @@ func (i *InteractionContext) SubcommandOptions() []interactions.ApplicationComma
 // HasOption reports whether an option exists, including nested subcommand
 // options.
 func (i *InteractionContext) HasOption(name string) bool {
-	return i.GetOption(name) != nil
+	return i.Option(name) != nil
 }
 
-// GetOption returns a specific option by name, searching nested options too.
-func (i *InteractionContext) GetOption(name string) *interactions.ApplicationCommandInteractionDataOption {
+// Option returns the named option, searching nested subcommand options too.
+// It returns nil when the option is absent.
+func (i *InteractionContext) Option(name string) *interactions.ApplicationCommandInteractionDataOption {
 	return findOption(i.Options(), name)
 }
 
-// GetStringOption returns a string option value, or an empty string if absent.
-func (i *InteractionContext) GetStringOption(name string) string {
-	option := i.GetOption(name)
+// Deprecated: GetOption is an alias for Option.
+func (i *InteractionContext) GetOption(name string) *interactions.ApplicationCommandInteractionDataOption {
+	return i.Option(name)
+}
+
+// OptionString returns a string option value, or an empty string if absent.
+func (i *InteractionContext) OptionString(name string) string {
+	option := i.Option(name)
 	if option == nil || option.Value == nil {
 		return ""
 	}
@@ -623,10 +629,15 @@ func (i *InteractionContext) GetStringOption(name string) string {
 	return fmt.Sprint(option.Value)
 }
 
-// GetIntOption returns an integer option value, or zero if absent or invalid.
+// Deprecated: GetStringOption is an alias for OptionString.
+func (i *InteractionContext) GetStringOption(name string) string {
+	return i.OptionString(name)
+}
+
+// OptionInt returns an integer option value, or zero if absent or invalid.
 // Fractional numeric values truncate toward zero (3.7 becomes 3).
-func (i *InteractionContext) GetIntOption(name string) int64 {
-	option := i.GetOption(name)
+func (i *InteractionContext) OptionInt(name string) int64 {
+	option := i.Option(name)
 	if option == nil || option.Value == nil {
 		return 0
 	}
@@ -652,9 +663,14 @@ func (i *InteractionContext) GetIntOption(name string) int64 {
 	}
 }
 
-// GetFloatOption returns a numeric option value, or zero if absent or invalid.
-func (i *InteractionContext) GetFloatOption(name string) float64 {
-	option := i.GetOption(name)
+// Deprecated: GetIntOption is an alias for OptionInt.
+func (i *InteractionContext) GetIntOption(name string) int64 {
+	return i.OptionInt(name)
+}
+
+// OptionFloat returns a numeric option value, or zero if absent or invalid.
+func (i *InteractionContext) OptionFloat(name string) float64 {
+	option := i.Option(name)
 	if option == nil || option.Value == nil {
 		return 0
 	}
@@ -672,9 +688,14 @@ func (i *InteractionContext) GetFloatOption(name string) float64 {
 	}
 }
 
-// GetBoolOption returns a boolean option value, or false if absent or invalid.
-func (i *InteractionContext) GetBoolOption(name string) bool {
-	option := i.GetOption(name)
+// Deprecated: GetFloatOption is an alias for OptionFloat.
+func (i *InteractionContext) GetFloatOption(name string) float64 {
+	return i.OptionFloat(name)
+}
+
+// OptionBool returns a boolean option value, or false if absent or invalid.
+func (i *InteractionContext) OptionBool(name string) bool {
+	option := i.Option(name)
 	if option == nil || option.Value == nil {
 		return false
 	}
@@ -685,53 +706,36 @@ func (i *InteractionContext) GetBoolOption(name string) bool {
 	return value
 }
 
-// GetBool returns a boolean option value, or false if absent or invalid.
-// It is a shorter alias for GetBoolOption.
+// Deprecated: GetBoolOption is an alias for OptionBool.
+func (i *InteractionContext) GetBoolOption(name string) bool {
+	return i.OptionBool(name)
+}
+
+// Deprecated: GetBool is an alias for OptionBool.
 func (i *InteractionContext) GetBool(name string) bool {
-	return i.GetBoolOption(name)
+	return i.OptionBool(name)
 }
 
-// GetString returns a string option value, or "" if absent. It is a shorter
-// alias for GetStringOption.
+// Deprecated: GetString is an alias for OptionString.
 func (i *InteractionContext) GetString(name string) string {
-	return i.GetStringOption(name)
+	return i.OptionString(name)
 }
 
-// GetInt returns an integer option value, or 0 if absent or invalid. It is a
-// shorter alias for GetIntOption.
+// Deprecated: GetInt is an alias for OptionInt.
 func (i *InteractionContext) GetInt(name string) int64 {
-	return i.GetIntOption(name)
+	return i.OptionInt(name)
 }
 
-// GetFloat returns a float option value, or 0 if absent or invalid. It is a
-// shorter alias for GetFloatOption.
+// Deprecated: GetFloat is an alias for OptionFloat.
 func (i *InteractionContext) GetFloat(name string) float64 {
-	return i.GetFloatOption(name)
+	return i.OptionFloat(name)
 }
 
-// GetSnowflake returns an option value as a snowflake.ID, or zero if absent
-// or invalid. It works for user, role, channel, and plain string options.
-func (i *InteractionContext) GetSnowflake(name string) snowflake.ID {
-	return i.getSnowflakeOption(name)
-}
-
-// GetUserID returns a user option as a snowflake.ID.
-func (i *InteractionContext) GetUserID(name string) snowflake.ID {
-	return i.getSnowflakeOption(name)
-}
-
-// GetRoleID returns a role option as a snowflake.ID.
-func (i *InteractionContext) GetRoleID(name string) snowflake.ID {
-	return i.getSnowflakeOption(name)
-}
-
-// GetChannelID returns a channel option as a snowflake.ID.
-func (i *InteractionContext) GetChannelID(name string) snowflake.ID {
-	return i.getSnowflakeOption(name)
-}
-
-func (i *InteractionContext) getSnowflakeOption(name string) snowflake.ID {
-	option := i.GetOption(name)
+// OptionSnowflake returns an option value as a snowflake.ID, or zero if
+// absent or invalid. It works for user, role, channel, and plain string
+// options.
+func (i *InteractionContext) OptionSnowflake(name string) snowflake.ID {
+	option := i.Option(name)
 	if option == nil || option.Value == nil {
 		return 0
 	}
@@ -748,6 +752,41 @@ func (i *InteractionContext) getSnowflakeOption(name string) snowflake.ID {
 	}
 	id, _ := snowflake.Parse(value)
 	return id
+}
+
+// OptionUser returns a user option as a snowflake.ID.
+func (i *InteractionContext) OptionUser(name string) snowflake.ID {
+	return i.OptionSnowflake(name)
+}
+
+// OptionRole returns a role option as a snowflake.ID.
+func (i *InteractionContext) OptionRole(name string) snowflake.ID {
+	return i.OptionSnowflake(name)
+}
+
+// OptionChannel returns a channel option as a snowflake.ID.
+func (i *InteractionContext) OptionChannel(name string) snowflake.ID {
+	return i.OptionSnowflake(name)
+}
+
+// Deprecated: GetSnowflake is an alias for OptionSnowflake.
+func (i *InteractionContext) GetSnowflake(name string) snowflake.ID {
+	return i.OptionSnowflake(name)
+}
+
+// Deprecated: GetUserID is an alias for OptionUser.
+func (i *InteractionContext) GetUserID(name string) snowflake.ID {
+	return i.OptionUser(name)
+}
+
+// Deprecated: GetRoleID is an alias for OptionRole.
+func (i *InteractionContext) GetRoleID(name string) snowflake.ID {
+	return i.OptionRole(name)
+}
+
+// Deprecated: GetChannelID is an alias for OptionChannel.
+func (i *InteractionContext) GetChannelID(name string) snowflake.ID {
+	return i.OptionChannel(name)
 }
 
 // Reply sends a public response to the interaction.

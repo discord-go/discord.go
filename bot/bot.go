@@ -215,10 +215,57 @@ type Bot struct {
 // Option configures the Bot.
 type Option func(*Bot)
 
-// WithIntents sets the gateway intents for the bot.
-// Defaults to Guilds | GuildMessages | MessageContent.
+// DefaultIntents returns the gateway intents a Bot requests when no intent
+// options are configured: Guilds, GuildMessages, and MessageContent.
+func DefaultIntents() intents.Intent {
+	return intents.Guilds | intents.GuildMessages | intents.MessageContent
+}
+
+// privilegedIntents are the intents that must be enabled in the Discord
+// developer portal before the gateway accepts them.
+var privilegedIntents = []struct {
+	value intents.Intent
+	name  string
+}{
+	{intents.GuildMembers, "GuildMembers"},
+	{intents.GuildPresences, "GuildPresences"},
+	{intents.MessageContent, "MessageContent"},
+}
+
+// WithIntents adds the given intents to the default set (DefaultIntents), so
+// privileged intents are never dropped by accident. Calling it multiple times
+// unions the sets. To replace the default set entirely, for example to opt
+// out of MessageContent, use WithIntentsExclusive.
 func WithIntents(i intents.Intent) Option {
-	return func(b *Bot) { b.intentsVal = i }
+	return func(b *Bot) { b.intentsVal |= i }
+}
+
+// WithIntentsExclusive replaces the default intent set entirely.
+//
+// Every privileged intent that is dropped by the replacement (GuildMembers,
+// GuildPresences, MessageContent) is logged, because the gateway then
+// silently stops delivering its events; most notably, message content
+// arrives empty without MessageContent. No warning is logged for intents
+// that were not enabled before the replacement.
+func WithIntentsExclusive(i intents.Intent) Option {
+	return func(b *Bot) {
+		b.warnDroppedPrivilegedIntents(i)
+		b.intentsVal = i
+	}
+}
+
+// warnDroppedPrivilegedIntents logs a warning for each privileged intent that
+// the current configuration enables but the replacement drops.
+func (b *Bot) warnDroppedPrivilegedIntents(replacement intents.Intent) {
+	for _, privileged := range privilegedIntents {
+		if b.intentsVal&privileged.value == 0 || replacement&privileged.value != 0 {
+			continue
+		}
+		b.logger.Printf(
+			"bot: WithIntentsExclusive replaces the default intents without the privileged %s intent; the gateway will stop delivering its events (message content arrives empty without MessageContent). Re-add it to the requested set, or use WithIntents to extend the defaults.",
+			privileged.name,
+		)
+	}
 }
 
 // WithPrefix sets the prefix for text commands. An empty prefix disables
@@ -370,7 +417,7 @@ func WithInteractionTimeout(d time.Duration) Option {
 func New(token string, opts ...Option) *Bot {
 	b := &Bot{
 		token:      token,
-		intentsVal: intents.Guilds | intents.GuildMessages | intents.MessageContent,
+		intentsVal: DefaultIntents(),
 		prefix:     "!",
 		gatewayURL: "wss://gateway.discord.gg/?v=10&encoding=json",
 		logger:     log.Default(),

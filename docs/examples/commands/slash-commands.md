@@ -33,7 +33,7 @@ Try `/hello`, `/userinfo`, `/kick`, or `/serverinfo` after the READY log appears
 
 ## Explanation
 
-`router.Command` takes a lower-case name, a non-empty description, a handler, and zero or more `interactions.ApplicationCommandOption` values. The handler uses `GetStringOption`, `GetIntOption`, `GetBoolOption`, and `GetUserID` rather than decoding raw interaction JSON.
+`router.Command` takes a lower-case name, a non-empty description, a handler, and zero or more `interactions.ApplicationCommandOption` values. The handler uses `OptionString`, `OptionInt`, `OptionBool`, and `OptionUser` rather than decoding raw interaction JSON.
 
 The example uses `bot.GuildOnly()` and `bot.RequirePermissions(permissions.KickMembers)` as per-command middleware. `ctx.Defer()` acknowledges a slow interaction, after which `ctx.Followup` sends the result. A handler must not attempt a second initial response after `Reply` or `Defer`; the context returns `bot.ErrInteractionAlreadyResponded` for that mistake.
 

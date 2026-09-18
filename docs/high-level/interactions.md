@@ -46,7 +46,7 @@ func main() {
 
 	router := bot.NewRouter()
 	router.Command("echo", "Echo text", func(ctx *bot.InteractionContext) {
-		if err := ctx.Reply(ctx.GetStringOption("text")); err != nil {
+		if err := ctx.Reply(ctx.OptionString("text")); err != nil {
 			log.Printf("reply: %v", err)
 		}
 	}, interactions.ApplicationCommandOption{
@@ -138,7 +138,7 @@ responsive for trivial handlers.
 Why: option values are decoded through `json.Number` and may be nested under
 subcommands.
 
-Pros: `GetIntOption`, `GetFloatOption`, and ID helpers avoid repeated decoding.
+Pros: `OptionInt`, `OptionFloat`, and ID helpers avoid repeated decoding.
 
 Cons: invalid or absent values return zero values, so use `HasOption` when that
 distinction matters.
@@ -193,7 +193,7 @@ if ctx.IsMessageComponent() {
   `ComponentType`,
   `Values`, `ModalValue`, `ModalValues`, `FocusedOption`, `Options`,
   `Subcommand`, `SubcommandGroup`, `SubcommandOption`, `SubcommandOptions`,
-  `HasOption`, and `GetOption` inspect decoded interaction data.
+  `HasOption`, and `Option` inspect decoded interaction data.
   `SubcommandOption` returns the selected subcommand option directly and
   `SubcommandOptions` returns its arguments, so a subcommand's own options can
   be read without manual traversal.
@@ -206,12 +206,12 @@ if ctx.IsMessageComponent() {
   `FocusedOptionString() string` returns the focused autocomplete option's
   value as a string, or empty when no option is focused or the value is not
   a string.
-- `GetStringOption`, `GetIntOption`, `GetFloatOption`, `GetBoolOption`,
-  `GetUserID`, `GetRoleID`, and `GetChannelID` return typed option values.
+- `OptionString`, `OptionInt`, `OptionFloat`, `OptionBool`,
+  `OptionUser`, `OptionRole`, and `OptionChannel` return typed option values.
   Short aliases `GetString`, `GetInt`, `GetFloat`, `GetBool`, and
-  `GetSnowflake` resolve the same options, including options nested inside
-  subcommands. `GetInt`/`GetIntOption` truncate fractional numeric values
-  toward zero (3.7 becomes 3); `GetSnowflake` preserves full 64-bit
+  `OptionSnowflake` resolve the same options, including options nested inside
+  subcommands. `GetInt`/`OptionInt` truncate fractional numeric values
+  toward zero (3.7 becomes 3); `OptionSnowflake` preserves full 64-bit
   precision for IDs above 2^53.
 - `IsChatInputCommand`, `IsCommand`, `IsContextMenuCommand`,
   `IsUserContextMenuCommand`, `IsMessageContextMenuCommand`, `IsRepliable`,

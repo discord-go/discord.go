@@ -133,8 +133,8 @@ func main() {
 // ────────────────────────────────────────────────────────────────────────────
 
 func handleBan(ctx *bot.InteractionContext) {
-	userID := ctx.GetUserID("user")
-	reason := ctx.GetStringOption("reason")
+	userID := ctx.OptionUser("user")
+	reason := ctx.OptionString("reason")
 	if reason == "" {
 		reason = "No reason provided"
 	}
@@ -169,8 +169,8 @@ func handleBan(ctx *bot.InteractionContext) {
 }
 
 func handleKick(ctx *bot.InteractionContext) {
-	userID := ctx.GetUserID("user")
-	reason := ctx.GetStringOption("reason")
+	userID := ctx.OptionUser("user")
+	reason := ctx.OptionString("reason")
 	if reason == "" {
 		reason = "No reason provided"
 	}
@@ -199,9 +199,9 @@ func handleKick(ctx *bot.InteractionContext) {
 }
 
 func handleTimeout(ctx *bot.InteractionContext) {
-	userID := ctx.GetUserID("user")
-	minutes := ctx.GetIntOption("duration")
-	reason := ctx.GetStringOption("reason")
+	userID := ctx.OptionUser("user")
+	minutes := ctx.OptionInt("duration")
+	reason := ctx.OptionString("reason")
 	if reason == "" {
 		reason = "No reason provided"
 	}
@@ -245,7 +245,7 @@ func handleTimeout(ctx *bot.InteractionContext) {
 }
 
 func handleUnban(ctx *bot.InteractionContext) {
-	userID := ctx.GetUserID("user")
+	userID := ctx.OptionUser("user")
 
 	if err := ctx.Defer(); err != nil {
 		return

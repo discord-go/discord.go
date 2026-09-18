@@ -28,7 +28,6 @@ import (
 	"log"
 
 	"github.com/discord-go/discord.go/bot"
-	"github.com/discord-go/discord.go/intents"
 )
 
 func main() {
@@ -42,9 +41,6 @@ func main() {
 			log.Printf("reply: %v", err)
 		}
 	})
-	if config.Intents == 0 {
-		config.Intents = intents.Guilds
-	}
 	b := bot.NewFromConfig(config, bot.WithRouter(router))
 	if err := b.Run(); err != nil {
 		log.Fatal(err)
@@ -52,9 +48,10 @@ func main() {
 }
 ```
 
-Run with `DISCORD_TOKEN=... BOT_PREFIX=! go run .`. The explicit default intent
-in the example avoids relying on the constructor's broader default when using a
-configuration value.
+Run with `DISCORD_TOKEN=... BOT_PREFIX=! go run .`. An unset `Intents`
+keeps the constructor defaults (`bot.DefaultIntents`); a non-zero value
+replaces them entirely, and `NewFromConfig` logs a warning when the
+replacement drops a privileged intent such as `MessageContent`.
 
 ## Creating/Configuration
 
@@ -90,13 +87,41 @@ Load a base JSON config, then override fields from a deployment environment or
 append functional options for infrastructure concerns. Avoid silently replacing
 a secure token with an empty environment variable.
 
+## Intents
+
+`bot.New` starts from `bot.DefaultIntents()`: `Guilds | GuildMessages |
+MessageContent`. Two options control the final set:
+
+- `WithIntents(intents.Intent)` adds to the defaults. Calling it multiple
+  times unions the sets, so a bot that requests more events never loses the
+  defaults by accident.
+- `WithIntentsExclusive(intents.Intent)` replaces the defaults entirely. Use
+  it to opt out of `MessageContent` or to pin an exact set. Every privileged
+  intent the replacement drops (`GuildMembers`, `GuildPresences`,
+  `MessageContent`) is logged, because the gateway then stops delivering its
+  events without returning an error; message content arrives empty without
+  `MessageContent`.
+
+A non-zero `Config.Intents` (JSON `intents`, env `BOT_INTENTS`) replaces the
+defaults the same way `WithIntentsExclusive` does.
+
+```go
+// Defaults plus voice tracking and member events.
+b := bot.New(token, bot.WithIntents(intents.GuildVoiceStates|intents.GuildMembers))
+
+// Exactly these intents, nothing else (logs when MessageContent is lost).
+b = bot.New(token, bot.WithIntentsExclusive(intents.Guilds))
+```
+
 ## Common Patterns
 
 - Validate the token explicitly before `NewFromConfig` or `Run`. `Start`
   returns `ErrInvalidToken` if the token does not have three dot-separated
   segments.
 - Use guild command sync in a development config and global sync in production.
-- Keep intent defaults close to the feature that needs them.
+- Keep intent declarations close to the feature that needs them; extend the
+  defaults with `WithIntents` and replace them only with
+  `WithIntentsExclusive`.
 - Use `WithRESTClient`, `WithLogger`, and `WithErrorHandler` as options after
   loading application config.
 - Document which configuration source wins when multiple sources are used.
@@ -170,9 +195,10 @@ if err != nil {
 - `CommandSyncConfig` contains `Mode`, `GuildID`, and `Timeout`.
 - `CommandSyncGlobal`, `CommandSyncGuild`, and `CommandSyncDisabled` select
   automatic global, guild, or no synchronization.
-- `WithPrefix`, `WithBotName`, `WithMentionTriggers`, `WithIntents`,
-  `WithShards`, `WithGatewayCompression`, `WithPresence`, and
-  `WithCommandSync` are the equivalent direct options.
+- `WithPrefix`, `WithBotName`, `WithMentionTriggers`, `WithShards`,
+  `WithGatewayCompression`, `WithPresence`, and `WithCommandSync` are the
+  equivalent direct options. `WithIntents` adds to the default intents and
+  `WithIntentsExclusive` replaces them (see [Intents](#intents)).
 
 ## Examples
 

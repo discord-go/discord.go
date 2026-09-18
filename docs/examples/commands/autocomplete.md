@@ -14,7 +14,7 @@ import (
 )
 func register(r *bot.Router) {
     r.Command("search", "Search records", func(c *bot.InteractionContext) { _ = c.Reply("search") }, interactions.ApplicationCommandOption{Type: interactions.ApplicationCommandOptionTypeString, Name: "query", Description: "Search text", Autocomplete: true})
-    r.Autocomplete("search", func(c *bot.InteractionContext) { _ = c.Autocomplete(interactions.ApplicationCommandOptionChoice{Name: c.GetStringOption("query"), Value: c.GetStringOption("query")}) })
+    r.Autocomplete("search", func(c *bot.InteractionContext) { _ = c.Autocomplete(interactions.ApplicationCommandOptionChoice{Name: c.OptionString("query"), Value: c.OptionString("query")}) })
 }
 ```
 

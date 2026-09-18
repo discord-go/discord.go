@@ -36,22 +36,22 @@ func ExampleNew() {
 	}
 }
 
-// Reading command options with the short Get* helpers.
-func ExampleInteractionContext_GetBool() {
+// Reading command options with the Option* accessors.
+func ExampleInteractionContext_OptionBool() {
 	// Inside a command handler registered with router.Command:
 	//
 	//   router.Command("lock", "Lock the channel", func(ctx *bot.InteractionContext) {
-	//       notify := ctx.GetBool("notify")          // bool option
-	//       reason := ctx.GetString("reason")        // string option
-	//       target := ctx.GetSnowflake("channel")    // snowflake option
+	//       notify := ctx.OptionBool("notify")       // bool option
+	//       reason := ctx.OptionString("reason")     // string option
+	//       target := ctx.OptionChannel("channel")   // channel option as snowflake.ID
 	//       _ = notify
 	//       _ = reason
 	//       _ = target
 	//   })
 	//
-	// GetBool, GetString, GetInt, GetFloat, and GetSnowflake are short
-	// aliases for the Get*Option family and resolve options nested inside
-	// subcommands.
-	fmt.Println("aliases resolve nested subcommand options")
-	// Output: aliases resolve nested subcommand options
+	// OptionBool, OptionString, OptionInt, OptionFloat, and OptionSnowflake
+	// resolve options nested inside subcommands. The former Get* names
+	// (GetBool, GetString, Get*Option) remain as deprecated aliases.
+	fmt.Println("accessors resolve nested subcommand options")
+	// Output: accessors resolve nested subcommand options
 }

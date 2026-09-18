@@ -37,7 +37,7 @@ The source is the authoritative runnable example. The production adjustments bel
 
 ## Explanation
 
-Permission middleware checks the invoking member, but Discord still enforces the bot's own permissions and role hierarchy. Both checks matter. `ctx.GetUserID("user")` returns a `snowflake.ID`, and `ctx.GuildID()` returns a `snowflake.ID` (zero for DMs); `GuildOnly` prevents commands from running outside a guild.
+Permission middleware checks the invoking member, but Discord still enforces the bot's own permissions and role hierarchy. Both checks matter. `ctx.OptionUser("user")` returns a `snowflake.ID`, and `ctx.GuildID()` returns a `snowflake.ID` (zero for DMs); `GuildOnly` prevents commands from running outside a guild.
 
 The source defers before each REST request. Its `rest.WithReason(context.Background(), reason)` call demonstrates audit reasons; a production service should derive that context from a bounded operation context instead of using an unbounded background context.
 
@@ -45,7 +45,7 @@ The source defers before each REST request. Its `rest.WithReason(context.Backgro
 
 - Register a guild-only command with `router.Command(...).Use(bot.GuildOnly())`.
 - Add `bot.RequirePermissions` for the invoker and `bot.RequireBotPermissions` for the bot.
-- Read target IDs with `GetUserID` and reasons with `GetStringOption`.
+- Read target IDs with `OptionUser` and reasons with `OptionString`.
 - Call `ctx.Defer()` before the REST operation.
 - Send success or failure with `Followup` or `FollowupEmbed`.
 

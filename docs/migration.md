@@ -63,9 +63,10 @@ budget with `rest.Client.BucketState(route)`.
 
 ## Common Gotchas
 
-- **Intents replace, they do not merge.** `bot.WithIntents(...)` overrides the
-  default set. An explicit list without `intents.MessageContent` silently
-  empties message content for prefix commands.
+- **Intent sets: merge by default, replace explicitly.** `bot.WithIntents(...)`
+  adds to the default set, so `intents.MessageContent` is never dropped by
+  accident. `bot.WithIntentsExclusive(...)` replaces the defaults and logs
+  every dropped privileged intent.
 - **Guild/channel IDs on event models are values, not pointers.**
   `Channel.GuildID`, `Message.GuildID`, `Interaction.GuildID`/`ChannelID`,
   and `VoiceState.GuildID`/`ChannelID` are plain `snowflake.ID` values;
@@ -78,5 +79,43 @@ budget with `rest.Client.BucketState(route)`.
 - **Interaction responses are one-shot.** After `Reply` or `Defer`, use the
   followup/edit methods (`EditReply`, `Followup`), never a second `Reply`.
 - **Option values are exact.** Snowflake options decode as strings, so IDs
-  above 2^53 keep full precision; `ctx.GetSnowflake("target")` returns a
+  above 2^53 keep full precision; `ctx.OptionSnowflake("target")` returns a
   `snowflake.ID` directly.
+
+## Upgrading to v0.14.0
+
+### WithIntents merges into the defaults
+
+`bot.WithIntents` used to replace the default intent set
+(`Guilds | GuildMessages | MessageContent`), so a call that omitted
+`MessageContent` silently emptied message content. It now unions the given
+intents with `bot.DefaultIntents()`, and multiple calls union with each other.
+To replace the defaults entirely, for example to opt out of `MessageContent`,
+use `bot.WithIntentsExclusive`; it logs a warning for every privileged intent
+(`GuildMembers`, `GuildPresences`, `MessageContent`) the replacement drops. A
+non-zero `bot.Config.Intents` keeps its exact-set meaning and gains the same
+warning.
+
+Bots that already passed the full default set explicitly see no change. Bots
+that relied on `WithIntents` to narrow the defaults must switch to
+`WithIntentsExclusive`.
+
+### Option accessors renamed to Option*
+
+`InteractionContext` option readers are named after what they read:
+`OptionString`, `OptionInt`, `OptionFloat`, `OptionBool`, `OptionSnowflake`,
+`OptionUser`, `OptionRole`, `OptionChannel`, and `Option` for the raw option.
+The previous names remain as deprecated aliases, so existing code compiles
+unchanged:
+
+| Deprecated alias | Replacement |
+|---|---|
+| `GetStringOption`, `GetString` | `OptionString` |
+| `GetIntOption`, `GetInt` | `OptionInt` |
+| `GetFloatOption`, `GetFloat` | `OptionFloat` |
+| `GetBoolOption`, `GetBool` | `OptionBool` |
+| `GetSnowflake` | `OptionSnowflake` |
+| `GetUserID` | `OptionUser` |
+| `GetRoleID` | `OptionRole` |
+| `GetChannelID` | `OptionChannel` |
+| `GetOption` | `Option` |

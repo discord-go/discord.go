@@ -105,7 +105,7 @@ _, err := ctx.Followup("The operation finished.")
   application-owned component routes.
 - Use `Bot.OnInteraction` when every interaction needs observation or a custom
   dispatch layer.
-- Use `ctx.Options`, `GetStringOption`, `GetIntOption`, `GetUserID`, and related
+- Use `ctx.Options`, `OptionString`, `OptionInt`, `OptionUser`, and related
   helpers for command data.
 - Use `ctx.FocusedOption` and `ctx.Autocomplete` for autocomplete handlers.
 

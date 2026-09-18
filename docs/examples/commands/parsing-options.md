@@ -9,12 +9,12 @@ Interaction option values arrive from Discord's JSON payload. `InteractionContex
 ```go
 package main
 import "github.com/discord-go/discord.go/bot"
-func handle(c *bot.InteractionContext) { name := c.GetStringOption("name"); count := c.GetIntOption("count"); target := c.GetUserID("target"); _ = c.Reply(name + " " + target.String() + " " + string(rune(count))) }
+func handle(c *bot.InteractionContext) { name := c.OptionString("name"); count := c.OptionInt("count"); target := c.OptionUser("target"); _ = c.Reply(name + " " + target.String() + " " + string(rune(count))) }
 ```
 
 ## API Walkthrough
 
-Use `GetStringOption`, `GetIntOption`, `GetFloatOption`, `GetBoolOption`, `GetUserID`, `GetRoleID`, `GetChannelID`, `GetOption`, `HasOption`, `Subcommand`, and `FocusedOption`. Missing values return zero values; use `HasOption` when zero is meaningful.
+Use `OptionString`, `OptionInt`, `OptionFloat`, `OptionBool`, `OptionUser`, `OptionRole`, `OptionChannel`, `Option`, `HasOption`, `Subcommand`, and `FocusedOption`. Missing values return zero values; use `HasOption` when zero is meaningful. The previous `Get*` names (`GetStringOption`, `GetIntOption`, `GetUserID`, `GetChannelID`, and friends) still compile as deprecated aliases.
 
 ## Common Mistakes
 

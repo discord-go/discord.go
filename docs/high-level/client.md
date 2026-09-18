@@ -66,7 +66,9 @@ application installed with the `bot` and `applications.commands` scopes.
 The constructor is `bot.New(token string, opts ...bot.Option) *bot.Bot`.
 Common options are:
 
-- `WithIntents(intents.Intent)` sets gateway subscriptions.
+- `WithIntents(intents.Intent)` adds gateway subscriptions to the default set
+  (`bot.DefaultIntents`); `WithIntentsExclusive(intents.Intent)` replaces the
+  defaults entirely and logs every dropped privileged intent.
 - `WithPrefix(string)`, `WithBotName(string)`, and `WithMentionTriggers(bool)`
   control text-command triggers.
 - `WithRouter(*bot.Router)` attaches slash, prefix, and component routing.

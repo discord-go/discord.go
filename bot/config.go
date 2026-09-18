@@ -16,10 +16,13 @@ import (
 // load the token from a secrets manager and set it via Config.Token before
 // calling NewFromConfig. Never commit a config file containing a token.
 type Config struct {
-	Token           string             `json:"token,omitempty"`
-	Prefix          string             `json:"prefix,omitempty"`
-	BotName         string             `json:"bot_name,omitempty"`
-	MentionTriggers bool               `json:"mention_triggers,omitempty"`
+	Token           string `json:"token,omitempty"`
+	Prefix          string `json:"prefix,omitempty"`
+	BotName         string `json:"bot_name,omitempty"`
+	MentionTriggers bool   `json:"mention_triggers,omitempty"`
+	// Intents is the complete intent set requested from the gateway. When
+	// non-zero it replaces the library defaults entirely (see
+	// WithIntentsExclusive); dropping a privileged intent is logged.
 	Intents         intents.Intent     `json:"intents,omitempty"`
 	Shards          int                `json:"shards,omitempty"`
 	AutomaticShards bool               `json:"automatic_shards,omitempty"`
@@ -73,7 +76,10 @@ func NewFromConfig(config Config, opts ...Option) *Bot {
 		opts = append(opts, WithMentionTriggers(true))
 	}
 	if config.Intents != 0 {
-		opts = append(opts, WithIntents(config.Intents))
+		// A configured intents value is a complete replacement of the
+		// default set, matching the pre-v0.14 config semantics; a dropped
+		// privileged intent is logged by WithIntentsExclusive.
+		opts = append(opts, WithIntentsExclusive(config.Intents))
 	}
 	if config.AutomaticShards || config.Shards > 0 {
 		opts = append(opts, WithShards(config.Shards))

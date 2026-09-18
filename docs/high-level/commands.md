@@ -43,7 +43,7 @@ func main() {
 
 	router := bot.NewRouter()
 	router.Command("hello", "Greet a person", func(ctx *bot.InteractionContext) {
-		name := ctx.GetStringOption("name")
+		name := ctx.OptionString("name")
 		if name == "" {
 			name = "friend"
 		}
@@ -99,7 +99,7 @@ workarounds.
 router.Command("giveaway", "Server giveaways", func(ctx *bot.InteractionContext) {
 	switch ctx.Subcommand() {
 	case "create":
-		prize := ctx.GetStringOption("prize") // nested options resolve automatically
+		prize := ctx.OptionString("prize") // nested options resolve automatically
 		_ = prize
 	}
 }, interactions.ApplicationCommandOption{
@@ -130,7 +130,7 @@ Rules enforced by the router's validator:
 * leaf options may not carry nested options.
 
 On the handler side, `ctx.Subcommand()` returns the selected subcommand name and
-the typed getters (`ctx.GetStringOption`, `ctx.GetUserID`, …) search nested
+the typed getters (`ctx.OptionString`, `ctx.OptionUser`, …) search nested
 subcommand options, so each subcommand can carry equally named options.
 
 The `SlashCommandBuilder` equivalents are `AddSubcommand` and

@@ -52,7 +52,7 @@ func main() {
 
 	router := bot.NewRouter()
 	router.Command("user-cache", "Inspect a cached user", func(ctx *bot.InteractionContext) {
-		userID := ctx.GetUserID("user")
+		userID := ctx.OptionUser("user")
 		if userID == 0 {
 			_ = ctx.ReplyEphemeral("A user is required.")
 			return

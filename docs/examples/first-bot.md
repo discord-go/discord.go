@@ -93,7 +93,7 @@ Add a command with options. Options are passed as variadic
 
 ```go
 router.Command("greet", "Greet someone", func(ctx *bot.InteractionContext) {
-    name := ctx.GetStringOption("name")
+    name := ctx.OptionString("name")
     if name == "" {
         name = "friend"
     }

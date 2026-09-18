@@ -5,7 +5,7 @@
 // 1. Creating a Router with bot.NewRouter()
 // 2. Registering multiple slash commands with options (string, user, integer, boolean)
 // 3. Global middleware vs. per-command middleware (bot.RequirePermissions, bot.GuildOnly)
-// 4. Reading interaction options (ctx.GetStringOption, ctx.GetUserID, ctx.GetIntOption, ctx.GetBoolOption)
+// 4. Reading interaction options (ctx.OptionString, ctx.OptionUser, ctx.OptionInt, ctx.OptionBool)
 // 5. Responding to interactions (ctx.Reply, ctx.ReplyEphemeral, ctx.ReplyEmbed)
 // 6. Deferring responses and using followups (ctx.Defer, ctx.Followup)
 // 7. Auto slash command registration by attaching the router to the bot instance
@@ -157,7 +157,7 @@ func main() {
 // and responding publicly using ctx.Reply().
 func handleHello(ctx *bot.InteractionContext) {
 	// 5. Reading string, integer, and boolean options
-	name := ctx.GetStringOption("name")
+	name := ctx.OptionString("name")
 	if name == "" {
 		if u := ctx.User(); u != nil {
 			name = u.Username
@@ -166,8 +166,8 @@ func handleHello(ctx *bot.InteractionContext) {
 		}
 	}
 
-	shout := ctx.GetBoolOption("shout")
-	count := ctx.GetIntOption("count")
+	shout := ctx.OptionBool("shout")
+	count := ctx.OptionInt("count")
 
 	greeting := fmt.Sprintf("Hello, %s! 👋", name)
 	if shout {
@@ -195,7 +195,7 @@ func handleHello(ctx *bot.InteractionContext) {
 }
 
 // handleUserInfo demonstrates deferring interaction responses with ctx.Defer(),
-// reading user options with ctx.GetUserID(), and following up with ctx.Followup().
+// reading user options with ctx.OptionUser(), and following up with ctx.Followup().
 func handleUserInfo(ctx *bot.InteractionContext) {
 	// 7. Deferring response to show a "bot is thinking..." status
 	if err := ctx.Defer(); err != nil {
@@ -203,8 +203,8 @@ func handleUserInfo(ctx *bot.InteractionContext) {
 		return
 	}
 
-	// 5. Reading user option as a snowflake ID with ctx.GetUserID()
-	targetID := ctx.GetUserID("user")
+	// 5. Reading user option as a snowflake ID with ctx.OptionUser()
+	targetID := ctx.OptionUser("user")
 	if targetID == 0 {
 		if u := ctx.User(); u != nil {
 			targetID = u.ID
@@ -222,8 +222,8 @@ func handleUserInfo(ctx *bot.InteractionContext) {
 // and responding ephemerally with ctx.ReplyEphemeral().
 func handleKick(ctx *bot.InteractionContext) {
 	// 5. Reading user option and string option
-	targetID := ctx.GetUserID("user")
-	reason := ctx.GetStringOption("reason")
+	targetID := ctx.OptionUser("user")
+	reason := ctx.OptionString("reason")
 	if reason == "" {
 		reason = "No reason provided"
 	}

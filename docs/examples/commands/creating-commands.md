@@ -45,11 +45,11 @@ func main() {
 
 	router := bot.NewRouter()
 	router.MustCommand("greet", "Greet a person", func(ctx *bot.InteractionContext) {
-		name := strings.TrimSpace(ctx.GetStringOption("name"))
+		name := strings.TrimSpace(ctx.OptionString("name"))
 		if name == "" {
 			name = "friend"
 		}
-		count := ctx.GetIntOption("count")
+		count := ctx.OptionInt("count")
 		if count < 1 {
 			count = 1
 		}
@@ -57,7 +57,7 @@ func main() {
 			count = 3
 		}
 		message := fmt.Sprintf("Hello, %s!", name)
-		if ctx.GetBoolOption("shout") {
+		if ctx.OptionBool("shout") {
 			message = strings.ToUpper(message)
 		}
 		for i := int64(1); i < count; i++ {
@@ -85,8 +85,8 @@ Pass a lower-case name, a non-empty description, a handler, and zero or more opt
 
 ## Common Patterns
 
-- Read optional strings with `GetStringOption` and apply a deliberate default.
-- Read IDs with `GetUserID`, `GetRoleID`, or `GetChannelID` and verify they are non-zero.
+- Read optional strings with `OptionString` and apply a deliberate default.
+- Read IDs with `OptionUser`, `OptionRole`, or `OptionChannel` and verify they are non-zero.
 - Clamp numeric options after reading them, even when the UI has limits.
 - Use choices for small, fixed sets of string values.
 - Use `InCategory` to label commands for help menus and `Cooldown` for per-user throttling.
@@ -116,7 +116,7 @@ router.Command("greet", "Greet a person", handler)
 ### Incorrect
 
 ```go
-count := ctx.GetIntOption("count")
+count := ctx.OptionInt("count")
 for i := int64(0); i < count; i++ {
 	// potentially unbounded user-controlled work
 }
@@ -125,7 +125,7 @@ for i := int64(0); i < count; i++ {
 ### Correct
 
 ```go
-count := ctx.GetIntOption("count")
+count := ctx.OptionInt("count")
 if count < 1 {
 	count = 1
 }
@@ -142,8 +142,8 @@ The corrected code bounds application work even if a command payload is malforme
 - `router.CommandE` returns validation errors immediately.
 - `router.MustCommand` is a startup-time validation helper.
 - `interactions.ApplicationCommandOption` describes option type, name, description, and required state.
-- `ctx.GetStringOption`, `GetIntOption`, and `GetBoolOption` read typed values.
-- `ctx.GetUserID`, `GetRoleID`, and `GetChannelID` parse snowflake-valued options.
+- `ctx.OptionString`, `OptionInt`, and `OptionBool` read typed values.
+- `ctx.OptionUser`, `OptionRole`, and `OptionChannel` parse snowflake-valued options.
 - `ctx.CommandName`, `Options`, `Subcommand`, and `TargetID` expose interaction metadata.
 
 ## Examples

@@ -58,7 +58,7 @@ func main() {
 
 	router := bot.NewRouter()
 	router.Command("format", "Show Discord formatting examples", func(ctx *bot.InteractionContext) {
-		userID := ctx.GetUserID("user")
+		userID := ctx.OptionUser("user")
 		if userID == 0 {
 			_ = ctx.ReplyEphemeral("A valid user is required.")
 			return

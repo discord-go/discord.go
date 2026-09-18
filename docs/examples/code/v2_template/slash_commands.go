@@ -92,7 +92,7 @@ func registerSlashCommands(router *bot.Router, config templateConfig) {
 	})
 
 	router.Command("menu", "Demonstrates multiple select menu types", func(ctx *bot.InteractionContext) {
-		selected := ctx.GetStringOption("type")
+		selected := ctx.OptionString("type")
 		var menu components.Component
 		switch selected {
 		case "channel":
