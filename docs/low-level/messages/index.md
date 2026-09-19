@@ -69,9 +69,11 @@ Use `MessageSend` for normal channel creation and `EditMessageParams` from
 REST for edits. Pointer slices in edit parameters distinguish "leave as is"
 from "replace with an empty list." `MessageReference` supports replies and
 cross-channel references. `AllowedMentions` can parse everyone, roles, or
-users, or allow explicit role/user IDs; set `RepliedUser` deliberately. The
-role and user ID slices in `AllowedMentions`, like `StickerIDs`, marshal as
-string snowflakes automatically.
+users, or allow explicit role/user IDs; set `RepliedUser` deliberately. A
+`parse` value is mutually exclusive with its matching ID array: combining
+`parse: ["users"]` with a `users` list is rejected by Discord with `50035`.
+The role and user ID slices in `AllowedMentions`, like `StickerIDs`, marshal
+as string snowflakes automatically.
 
 ## Using Embeds And Attachments
 

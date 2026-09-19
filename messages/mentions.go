@@ -17,6 +17,11 @@ const (
 
 // AllowedMentions represents the allowed mentions object.
 type AllowedMentions struct {
+	// Parse lists mention types to allow broadly. Each value is mutually
+	// exclusive with its matching ID array: Discord rejects
+	// parse:["users"] combined with a users list (and likewise roles)
+	// with 50035 MESSAGE_ALLOWED_MENTIONS_PARSE_EXCLUSIVE. Use one or
+	// the other, never both.
 	Parse       []AllowedMentionType `json:"parse,omitempty"`
 	Roles       []snowflake.ID       `json:"roles,omitempty"`
 	Users       []snowflake.ID       `json:"users,omitempty"`
