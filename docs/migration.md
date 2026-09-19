@@ -119,3 +119,18 @@ unchanged:
 | `GetRoleID` | `OptionRole` |
 | `GetChannelID` | `OptionChannel` |
 | `GetOption` | `Option` |
+
+## Upgrading to v0.14.1
+
+`snowflake.ID` now marshals as a JSON **string**, matching the Discord wire
+format. Previously any ID inside a JSON request body serialized as a number,
+which Discord rejected with `50035 Invalid Form Body`; the first visible case
+was `allowed_mentions.users`, where mention-whitelisted messages such as
+reminder pings never delivered. Request payloads built from
+`AllowedMentions.Users`/`Roles`, `StickerIDs`, and any other `snowflake.ID`
+body field are now sent correctly.
+
+If you marshal library structs into your own JSON storage and parse the ID
+fields back as numbers, switch to `snowflake.Parse` or the `,string` tag;
+stored numeric IDs continue to decode through existing `,string`-tagged
+fields.
