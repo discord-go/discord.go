@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -28,7 +29,19 @@ type APIError struct {
 }
 
 func (e *APIError) Error() string {
-	return fmt.Sprintf("discord api error: %d (http %d): %s", e.Code, e.HTTPStatus, e.Message)
+	// R3VOKE PATCH (2026-09-20): append Discord's field-level error
+	// details when present. The Errors map was already decoded from the
+	// response body but dropped from the rendered message, which reduced
+	// 50035 "Invalid Form Body" to a top-level string with no pointer to
+	// the offending field — making command-tree sync failures
+	// undiagnosable from logs alone.
+	msg := fmt.Sprintf("discord api error: %d (http %d): %s", e.Code, e.HTTPStatus, e.Message)
+	if len(e.Errors) > 0 {
+		if details, err := json.Marshal(e.Errors); err == nil {
+			msg += ": " + string(details)
+		}
+	}
+	return msg
 }
 
 // CaptchaError represents a CAPTCHA challenge from the Discord API.
