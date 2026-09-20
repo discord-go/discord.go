@@ -134,3 +134,22 @@ If you marshal library structs into your own JSON storage and parse the ID
 fields back as numbers, switch to `snowflake.Parse` or the `,string` tag;
 stored numeric IDs continue to decode through existing `,string`-tagged
 fields.
+
+## Upgrading to v0.14.2
+
+Command trees with subcommand groups now pass the router's validator.
+Previously `validateCommandOptions` recursed into a group's children with
+`inSubcommand = true`, so the subcommands a group must contain were rejected
+with "cannot nest subcommand group inside subcommand" — registering any tree
+that used groups (for example `/app incidents list`) failed before a single
+request reached Discord. The documented rules are unchanged; the enforcement
+now matches them.
+
+`rest.APIError.Error()` now renders Discord's field-level error details.
+`APIError.Errors` was already decoded from the response body but was dropped
+from the rendered message, so a `50035 Invalid Form Body` logged only the
+top-level text. Error strings now carry a JSON suffix naming the offending
+field, for example
+`discord api error: 50035 (http 400): Invalid Form Body: {"0":{"options":...}}`.
+If your tests assert exact `APIError.Error()` output, allow for the suffix
+(it is absent when Discord returns no `errors` object).
