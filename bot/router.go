@@ -738,7 +738,18 @@ func validateCommandOptions(cmdName string, options []interactions.ApplicationCo
 				}
 			}
 			if len(option.Options) > 0 {
-				if err := validateCommandOptions(cmdName, option.Options, true); err != nil {
+				// R3VOKE PATCH (2026-09-20): recurse with inSubcommand=true
+				// only when entering a SUBCOMMAND's own options. The
+				// previous unconditional `true` also marked a subcommand
+				// GROUP's direct children — which are subcommands by
+				// definition (enforced above) — as "inside a subcommand",
+				// so any tree containing a subcommand group failed
+				// validation with "cannot nest subcommand group inside
+				// subcommand". A group's children must be validated at
+				// the group level; a subcommand's children are validated
+				// with inSubcommand=true (nesting is forbidden there).
+				nested := option.Type == interactions.ApplicationCommandOptionTypeSubCommand
+				if err := validateCommandOptions(cmdName, option.Options, nested); err != nil {
 					return err
 				}
 			}
