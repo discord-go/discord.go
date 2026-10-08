@@ -153,3 +153,72 @@ field, for example
 `discord api error: 50035 (http 400): Invalid Form Body: {"0":{"options":...}}`.
 If your tests assert exact `APIError.Error()` output, allow for the suffix
 (it is absent when Discord returns no `errors` object).
+
+## Upgrading to v0.15.0
+
+### Request attachments use AttachmentParams
+
+Discord documents attachment metadata separately for requests and responses.
+Request payloads now use `messages.AttachmentParams` — the attachment request
+structure with `id`, `filename`, `title`, `description`, `duration_secs`,
+`waveform`, and `is_spoiler` — instead of the response-only
+`messages.Attachment`, which carried `url`, `proxy_url`, `size`, and
+`content_type`. Three fields changed type, so they are compile-time breaks:
+
+| Field | Before | After |
+|---|---|---|
+| `rest.EditMessageParams.Attachments` | `*[]messages.Attachment` | `*[]messages.AttachmentParams` |
+| `rest.ExecuteWebhookParams.Attachments` | `[]messages.Attachment` | `[]messages.AttachmentParams` |
+| `interactions.InteractionCallbackData.Attachments` | `[]messages.Attachment` | `[]messages.AttachmentParams` |
+
+`rest.AttachmentMetadata` returns `[]messages.AttachmentParams` (it builds one
+descriptor per uploaded file, from the file index and name), and
+`ExecuteWebhookParamsBuilder.AddAttachment` takes a
+`messages.AttachmentParams`. Decoding responses is unchanged —
+`messages.Message.Attachments` is still `[]messages.Attachment` — and
+`messages.AttachmentSend` still describes new multipart uploads in
+`messages.MessageSend`. References to existing files keep working with a
+partial descriptor such as `messages.AttachmentParams{ID: id}`; only the
+`filename` field was carried over from the old literals.
+
+### Channel.Flags is a bitfield
+
+`channels.Channel.Flags` is now `*channels.ChannelFlags` rather than `*int`,
+with named constants `ChannelFlagPinned` (1 << 1),
+`ChannelFlagRequireTag` (1 << 4), `ChannelFlagHideMediaDownloadOptions`
+(1 << 15), `ChannelFlagObfuscated` (1 << 17), and `ChannelFlagIsSpoilerChannel`
+(1 << 21). `ChannelFlags.Has` and `Channel.IsObfuscated` replace manual
+shift arithmetic, and the wire values are unchanged, so persisted flags decode
+as before. Obfuscated channels — a channel Discord redacts when the bot lacks
+`VIEW_CHANNEL`, effective November 16, 2026 — are detected with
+`IsObfuscated()` rather than by the `___hidden___` name.
+
+### Base attachment limit raised to 20 MiB
+
+`rest.MaxAttachmentSizeNone` is now 20 MiB (was 8 MiB), matching Discord's
+raised default upload limit. `rest.ValidateFilesSize` therefore accepts
+payloads it previously rejected; tighten your own limits only if you relied on
+the old ceiling.
+
+### Additions that need no migration
+
+- `ListGuildsParams.Shard` sends the `shard` query parameter that large
+  sharding applications must include on `GET /users/@me/guilds`.
+- Invite target users: `CreateInviteParams.TargetUserIDs` plus
+  `GetInviteTargetUsers`, `AddInviteTargetUser`, `RemoveInviteTargetUser`,
+  `BulkAddInviteTargetUsers`, `BulkDeleteInviteTargetUsers`,
+  `UpdateInviteTargetUsers` (CSV upload), and `GetInviteTargetUsersJobStatus`.
+- Gateway opcode 43: `RequestChannelInfo`/`RequestChannelInfoContext` with
+  `RequestChannelInfoData`, answered by the `Channel Info` dispatch
+  (`events.ChannelInfo`), with `VOICE_CHANNEL_STATUS_UPDATE` and
+  `VOICE_CHANNEL_START_TIME_UPDATE` events and the matching bot handlers
+  `OnChannelInfo`, `OnVoiceChannelStatusUpdate`, and
+  `OnVoiceChannelStartTimeUpdate`. The values are ephemeral and are never on
+  the channel object.
+- Identify capabilities: `gateway.CapabilityChannelObfuscation` (1 << 15) via
+  `Client.Capabilities`, `ShardManager.SetCapabilities`,
+  `bot.WithGatewayCapabilities`, `bot.Config.GatewayCapabilities`, or
+  `BOT_GATEWAY_CAPABILITIES`.
+- Audit log actions `VOICE_CHANNEL_STATUS_UPDATE` (192) and
+  `VOICE_CHANNEL_STATUS_DELETE` (193), with `OptionalAuditEntryInfo.Status`.
+- `channels.Channel.AppPermissions` on interaction `resolved` channels.
