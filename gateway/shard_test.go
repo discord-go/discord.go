@@ -113,3 +113,28 @@ func TestShardManager_ConnectionFactoryError(t *testing.T) {
 		t.Fatal("Expected error when connection factory returns error")
 	}
 }
+
+func TestShardManager_SetCapabilities(t *testing.T) {
+	sm := NewShardManager("fake-token", 2, intents.Guilds)
+	sm.shardDelay = time.Millisecond
+	sm.SetConnectionFactory(func(shardID ShardID) (Connection, error) {
+		return &shardMockConnection{closed: make(chan struct{})}, nil
+	})
+	sm.SetCapabilities(CapabilityChannelObfuscation)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := sm.Start(ctx); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer func() { _ = sm.Shutdown(context.Background()) }()
+
+	client := sm.Shard(0)
+	if client == nil {
+		t.Fatal("expected shard 0")
+	}
+	if client.Capabilities != CapabilityChannelObfuscation {
+		t.Errorf("shard capabilities = %d, want %d", client.Capabilities, CapabilityChannelObfuscation)
+	}
+}

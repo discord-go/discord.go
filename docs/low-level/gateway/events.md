@@ -24,6 +24,14 @@ Discord's flag; and DISPATCH updates session/cache state before handler calls.
 `Client.Compressed` enables the repository's Gateway compression stream for
 the configured connection.
 
+Dispatch names are normally upper case, but the 2026 `Channel Info` event is
+mixed case; generic subscriptions registered with `On`/`OnEvent` match the
+name case-insensitively. Three newer events carry voice channel state that is
+absent from the channel object: `ChannelInfo` (the answer to opcode 43), 
+`VoiceChannelStatusUpdate`, and `VoiceChannelStartTimeUpdate`. The identify
+`Capabilities` bitfield, including `CapabilityChannelObfuscation`, is
+documented in [`index.md`](index.md).
+
 ## Quick Start
 
 ```go
@@ -52,10 +60,13 @@ func main() {
 ## Using Control Payloads
 
 Construct a `GatewayPayload` with an opcode and marshaled data for identify,
-resume, presence, voice state, or member requests. `Client.Send` enforces the
+resume, presence, voice state, member requests, or channel-info requests.
+`Client.Send` enforces the
 4096-byte payload limit and a 120-per-minute send window. Heartbeat payloads
 are normally owned by `Heartbeater`; do not create a second loop for the same
-connection.
+connection. For opcode 43 prefer `RequestChannelInfo` /
+`RequestChannelInfoContext`, which build the payload and serialize
+`RequestChannelInfoData` for you.
 
 ## Common Patterns
 
@@ -82,7 +93,8 @@ connection path.
 
 The page covers `gateway.GatewayPayload` and the opcode constants, plus
 `events.Event` and typed wrappers such as `Ready`, message, channel, guild,
-interaction, reaction, and audit-log event values. Heartbeat and session
+interaction, reaction, and audit-log event values — including `ChannelInfo`,
+`VoiceChannelStatusUpdate`, and `VoiceChannelStartTimeUpdate`. Heartbeat and session
 methods are in [`heartbeat.md`](heartbeat.md) and [`../gateway/`](README.md).
 
 When `Client.Cache` is set, the client hydrates the cache during dispatch:

@@ -195,11 +195,17 @@ return client.Wait()
   `WithRouter`, `WithRESTClient`, `WithCache`, `WithStore`, `WithLogger`,
   `WithErrorHandler`, `WithGatewayURL`, `WithConnectionFactory`,
   `WithMaxHandlerConcurrency`, `WithCommandSync`, `WithCommandSyncDisabled`,
-  and `WithGuildCommandSync` return `bot.Option` values.
+  `WithGatewayCapabilities`, and `WithGuildCommandSync` return `bot.Option`
+  values.
 - `bot.Bot.OnReady`, `OnMessageCreate`, `OnMessageUpdate`, `OnMessageDelete`,
   `OnInteraction`, `OnInteractionCreate`, `OnMessageReactionAdd`, `OnGuildCreate`,
   `OnGuildUpdate`, `OnGuildDelete`, `OnChannelCreate`, `OnChannelUpdate`,
-  `OnGuildAuditLogEntryCreate`, `OnRawEvent`, and `OnError` register handlers.
+  `OnChannelInfo`, `OnVoiceChannelStatusUpdate`,
+  `OnVoiceChannelStartTimeUpdate`, `OnGuildAuditLogEntryCreate`, `OnRawEvent`,
+  and `OnError` register handlers. The channel-info trio covers the 2026
+  ephemeral voice channel fields: `OnChannelInfo` receives the reply to a
+  `RequestChannelInfo` (opcode 43) call, and the two voice handlers receive
+  the live status and session-start-time changes.
 - Every typed context (for example `*bot.MessageContext`,
   `*bot.MessageUpdateContext`, `*bot.InteractionContext`) embeds
   `BaseContext`, which promotes two methods for reading unmodeled payload

@@ -34,6 +34,19 @@ Use `messages.MessageSend`, `GetMessagesParams`, and `EditMessageParams`.
 `GenerateTranscript` combines both and returns a `File` for upload.
 `StringPtr` is a convenience helper for `*string` parameter fields.
 
+Invite target users (added to the API in August 2026) restrict who may see
+and accept an invite. `CreateInviteParams.TargetUserIDs` passes up to 1000
+IDs at creation; after creation use `GetInviteTargetUsers` (CSV-backed, it
+returns parsed `[]snowflake.ID`), `AddInviteTargetUser`,
+`RemoveInviteTargetUser`, `BulkAddInviteTargetUsers`,
+`BulkDeleteInviteTargetUsers`, and `UpdateInviteTargetUsers`, which uploads
+the `target_users_file` CSV and replaces the whole list. Because that
+replace is processed asynchronously, poll `GetInviteTargetUsersJobStatus`
+with `InviteTargetUsersJobStatus` until `Status` reaches
+`InviteTargetUsersJobStatusCompleted`. The in-place endpoints require the
+caller to be the inviter or to hold `MANAGE_GUILD`; the CSV list and job
+status also allow `VIEW_AUDIT_LOG`.
+
 ### Guilds, Members, And Roles
 
 Guild methods create, fetch, modify, leave, delete, prune, preview, widget,
@@ -45,6 +58,13 @@ remove role, and voice-state operations. `AddGuildMemberRole` and
 `BulkBanGuildMembers` bans up to 200 users in a single request and returns
 `BulkBanResult` with `BannedUsers` and `FailedUsers` ID lists. Role position
 and channel position methods accept `RolePosition` and `GuildChannelPosition`.
+
+`GetCurrentUserGuilds` lists the guilds the current user (or bot) is in.
+Applications using large bot sharding must set `ListGuildsParams.Shard` to
+their shard index (`0` through `max_concurrency - 1` from `GetGatewayBot`);
+Discord returns `400 Bad Request` when the `shard` query param is omitted for
+those applications. Apps that are not using large bot sharding leave `Shard`
+nil and are unaffected.
 
 ### Threads And Archives
 
@@ -120,7 +140,11 @@ actions with audit logging.
 Global and guild application commands have different scopes. Message bulk
 delete accepts 2-100 IDs. An edit's attachments list is a replacement list,
 not an additive patch. Interaction follow-ups use an interaction token rather
-than the bot Authorization header.
+than the bot Authorization header. Do not poll
+`UpdateInviteTargetUsers` with `GetInviteTargetUsers` in a tight loop; the
+CSV upload is asynchronous, so wait on `GetInviteTargetUsersJobStatus` and
+expect `total_users`/`processed_users` counters plus `error_message` on
+failure.
 
 ## API Walkthrough
 

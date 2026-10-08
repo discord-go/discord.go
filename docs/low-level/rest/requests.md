@@ -72,7 +72,10 @@ Pass `nil` for body on GET and DELETE requests. Pass `nil` for target when the
 endpoint returns no useful body. Use a typed response target for JSON and let
 model custom unmarshalers handle components and snowflakes. Use
 `errors.As(err, &apiErr)` to inspect `Code`, `Message`, `Errors`, and
-`HTTPStatus`.
+`HTTPStatus`. Endpoints that return a non-standard error body (for example
+invite target-user CSV validation, which answers with
+`{"target_users_file": [...]}`) keep that body in `APIError.Message` instead
+of surfacing an empty message.
 
 ## Best Practices
 

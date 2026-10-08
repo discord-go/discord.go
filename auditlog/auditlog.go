@@ -80,6 +80,11 @@ const (
 	AUTO_MODERATION_USER_COMMUNICATION_DISABLED AuditLogEvent = 145
 	CREATOR_MONETIZATION_REQUEST_CREATED        AuditLogEvent = 150
 	CREATOR_MONETIZATION_TERMS_ACCEPTED         AuditLogEvent = 151
+	// Voice channel status actions were added with the voice channel status
+	// feature (2026): 192 records the new status in Options.Status, 193
+	// records the clearing of a status.
+	VOICE_CHANNEL_STATUS_UPDATE AuditLogEvent = 192
+	VOICE_CHANNEL_STATUS_DELETE AuditLogEvent = 193
 )
 
 // OptionalAuditEntryInfo represents optional information in an audit log entry.
@@ -94,6 +99,7 @@ type OptionalAuditEntryInfo struct {
 	MembersRemoved                string       `json:"members_removed,omitempty"`
 	MessageID                     snowflake.ID `json:"message_id,omitempty,string"`
 	RoleName                      string       `json:"role_name,omitempty"`
+	Status                        string       `json:"status,omitempty"`
 	Type                          string       `json:"type,omitempty"`
 	IntegrationType               string       `json:"integration_type,omitempty"`
 }

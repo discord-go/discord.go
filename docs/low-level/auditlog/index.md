@@ -17,8 +17,10 @@ target ID, optional actor ID, an `AuditLogEvent` action type, optional
 the changed key. The API may omit changes entirely.
 
 `OptionalAuditEntryInfo` contains endpoint-specific values such as channel,
-message, role, application, deletion count, AutoMod rule name, and integration
-type. Its fields are strings or snowflakes according to Discord's response;
+message, role, application, deletion count, AutoMod rule name, integration
+type, and `Status` (the new voice channel status carried by
+`VOICE_CHANNEL_STATUS_UPDATE` entries). Its fields are strings or snowflakes
+according to Discord's response;
 do not assume every field is populated for every action.
 
 ## Quick Start
@@ -47,7 +49,12 @@ func main() {
 
 The exported action constants cover guild, channel, member, role, invite,
 webhook, emoji, message, integration, stage, sticker, scheduled-event,
-thread, command-permission, AutoMod, and creator-monetization actions. Use the
+thread, command-permission, AutoMod, creator-monetization, and voice-status
+actions. `VOICE_CHANNEL_STATUS_UPDATE` (192) and
+`VOICE_CHANNEL_STATUS_DELETE` (193) were added for the voice channel status
+feature; the entry that sets a status carries the value in
+`Options.Status`, while a delete entry records that the status was cleared.
+Use the
 constant names rather than numeric literals when filtering application logic.
 `TargetID` is a `*string` because Discord can return null and because some
 target identifiers are not snowflakes. `UserID` is a nullable snowflake.
@@ -77,7 +84,8 @@ the target ID as a user ID without checking the action type.
 
 The exported API is `AuditLog`, `AuditLogEntry`, `AuditLogChange`,
 `OptionalAuditEntryInfo`, and `AuditLogEvent` with all action constants from
-`GUILD_UPDATE` through the creator-monetization actions. There are no
+`GUILD_UPDATE` through the creator-monetization actions and the
+`VOICE_CHANNEL_STATUS_UPDATE`/`VOICE_CHANNEL_STATUS_DELETE` pair. There are no
 constructors or methods. Transport and reason helpers live in [`../rest/`](../rest/README.md).
 
 ## Examples

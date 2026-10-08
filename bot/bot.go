@@ -52,6 +52,16 @@ type ChannelCreateHandler func(ctx *ChannelContext)
 // ChannelUpdateHandler is called on CHANNEL_UPDATE events.
 type ChannelUpdateHandler func(ctx *ChannelUpdateContext)
 
+// VoiceChannelStatusUpdateHandler is called on VOICE_CHANNEL_STATUS_UPDATE events.
+type VoiceChannelStatusUpdateHandler func(ctx *VoiceChannelStatusUpdateContext)
+
+// VoiceChannelStartTimeUpdateHandler is called on VOICE_CHANNEL_START_TIME_UPDATE events.
+type VoiceChannelStartTimeUpdateHandler func(ctx *VoiceChannelStartTimeUpdateContext)
+
+// ChannelInfoHandler is called on the "Channel Info" event, Discord's answer
+// to a Request Channel Info (opcode 43).
+type ChannelInfoHandler func(ctx *ChannelInfoContext)
+
 // GuildAuditLogEntryCreateHandler is called on GUILD_AUDIT_LOG_ENTRY_CREATE events.
 type GuildAuditLogEntryCreateHandler func(ctx *GuildAuditLogEntryContext)
 
@@ -124,6 +134,7 @@ type Bot struct {
 
 	token           string
 	intentsVal      intents.Intent
+	gatewayCaps     gateway.Capability
 	prefix          string
 	botName         string
 	mentionTriggers bool
@@ -160,6 +171,9 @@ type Bot struct {
 	guildDeleteHandlers []GuildDeleteHandler
 	channelCreate       []ChannelCreateHandler
 	channelUpdate       []ChannelUpdateHandler
+	channelInfo         []ChannelInfoHandler
+	voiceChannelStatus  []VoiceChannelStatusUpdateHandler
+	voiceChannelStart   []VoiceChannelStartTimeUpdateHandler
 	auditLogCreate      []GuildAuditLogEntryCreateHandler
 	rawHandlers         []RawEventHandler
 	errorHandlers       []ErrorHandler
@@ -287,6 +301,16 @@ func WithMentionTriggers(enabled bool) Option {
 // WithGatewayCompression enables Discord's zlib-stream gateway compression.
 func WithGatewayCompression(enabled bool) Option {
 	return func(b *Bot) { b.compression = enabled }
+}
+
+// WithGatewayCapabilities sets the Identify capabilities bitfield. This is
+// separate from intents: capabilities opt the connection into gateway
+// behaviors. The only documented capability today is
+// gateway.CapabilityChannelObfuscation (1 << 15), a temporary testing opt-in
+// that delivers obfuscated metadata for channels the bot cannot view;
+// obfuscation applies to all bots automatically from November 16, 2026.
+func WithGatewayCapabilities(caps gateway.Capability) Option {
+	return func(b *Bot) { b.gatewayCaps |= caps }
 }
 
 // WithPresence configures a presence that is sent after READY and reapplied

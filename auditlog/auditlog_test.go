@@ -64,3 +64,59 @@ func TestAuditLogJSON(t *testing.T) {
 		t.Errorf("Expected reason 'because', got %s", al.AuditLogEntries[0].Reason)
 	}
 }
+
+func TestVoiceChannelStatusAuditLogEvents(t *testing.T) {
+	if VOICE_CHANNEL_STATUS_UPDATE != 192 {
+		t.Errorf("VOICE_CHANNEL_STATUS_UPDATE = %d, want 192", VOICE_CHANNEL_STATUS_UPDATE)
+	}
+	if VOICE_CHANNEL_STATUS_DELETE != 193 {
+		t.Errorf("VOICE_CHANNEL_STATUS_DELETE = %d, want 193", VOICE_CHANNEL_STATUS_DELETE)
+	}
+	if VOICE_CHANNEL_STATUS_UPDATE == VOICE_CHANNEL_STATUS_DELETE {
+		t.Error("update and delete events must be distinct")
+	}
+}
+
+func TestOptionalAuditEntryInfoStatus(t *testing.T) {
+	data := []byte(`{
+		"target_id": "100",
+		"changes": [{"key": "status", "old_value": "afk", "new_value": "in a meeting"}],
+		"user_id": "42",
+		"id": "900",
+		"action_type": 192,
+		"options": {"channel_id": "100", "status": "in a meeting"},
+		"reason": "status change"
+	}`)
+
+	var entry AuditLogEntry
+	if err := json.Unmarshal(data, &entry); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if entry.ActionType != VOICE_CHANNEL_STATUS_UPDATE {
+		t.Errorf("action_type = %d", entry.ActionType)
+	}
+	if entry.Options == nil {
+		t.Fatal("options = nil")
+	}
+	if entry.Options.Status != "in a meeting" {
+		t.Errorf("status = %q", entry.Options.Status)
+	}
+
+	raw, err := json.Marshal(entry.Options)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if string(raw) != `{"channel_id":"100","status":"in a meeting"}` {
+		t.Errorf("options json = %s", raw)
+	}
+}
+
+func TestOptionalAuditEntryInfoStatusOmittedWhenEmpty(t *testing.T) {
+	raw, err := json.Marshal(OptionalAuditEntryInfo{RoleName: "admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != `{"role_name":"admin"}` {
+		t.Errorf("json = %s", raw)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/discord-go/discord.go/gateway"
 	"github.com/discord-go/discord.go/intents"
 )
 
@@ -23,12 +24,13 @@ type Config struct {
 	// Intents is the complete intent set requested from the gateway. When
 	// non-zero it replaces the library defaults entirely (see
 	// WithIntentsExclusive); dropping a privileged intent is logged.
-	Intents         intents.Intent     `json:"intents,omitempty"`
-	Shards          int                `json:"shards,omitempty"`
-	AutomaticShards bool               `json:"automatic_shards,omitempty"`
-	Compression     bool               `json:"compression,omitempty"`
-	Presence        *PresenceUpdate    `json:"presence,omitempty"`
-	CommandSync     *CommandSyncConfig `json:"command_sync,omitempty"`
+	Intents             intents.Intent     `json:"intents,omitempty"`
+	GatewayCapabilities int                `json:"gateway_capabilities,omitempty"`
+	Shards              int                `json:"shards,omitempty"`
+	AutomaticShards     bool               `json:"automatic_shards,omitempty"`
+	Compression         bool               `json:"compression,omitempty"`
+	Presence            *PresenceUpdate    `json:"presence,omitempty"`
+	CommandSync         *CommandSyncConfig `json:"command_sync,omitempty"`
 }
 
 // LoadConfig loads bot settings from a JSON file.
@@ -59,6 +61,9 @@ func ConfigFromEnv() Config {
 	if value, err := strconv.Atoi(os.Getenv("BOT_SHARDS")); err == nil {
 		config.Shards = value
 	}
+	if value, err := strconv.Atoi(os.Getenv("BOT_GATEWAY_CAPABILITIES")); err == nil {
+		config.GatewayCapabilities = value
+	}
 	config.AutomaticShards, _ = strconv.ParseBool(os.Getenv("BOT_AUTOMATIC_SHARDS"))
 	config.Compression, _ = strconv.ParseBool(os.Getenv("BOT_GATEWAY_COMPRESSION"))
 	return config
@@ -80,6 +85,9 @@ func NewFromConfig(config Config, opts ...Option) *Bot {
 		// default set, matching the pre-v0.14 config semantics; a dropped
 		// privileged intent is logged by WithIntentsExclusive.
 		opts = append(opts, WithIntentsExclusive(config.Intents))
+	}
+	if config.GatewayCapabilities != 0 {
+		opts = append(opts, WithGatewayCapabilities(gateway.Capability(config.GatewayCapabilities)))
 	}
 	if config.AutomaticShards || config.Shards > 0 {
 		opts = append(opts, WithShards(config.Shards))

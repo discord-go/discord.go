@@ -19,9 +19,11 @@ the body. Large files therefore have a memory cost.
 `files[1]`, and so on. `RequestMultipartNoAuth` omits Authorization.
 `RequestMultipartForm` writes ordinary fields and uses `files[0]` for the
 single-file default; `RequestMultipartFormNamedFile` lets the caller select a
-field name such as `file`. `AttachmentMetadata` returns descriptors with
+field name such as `file`. `AttachmentMetadata` returns
+`[]messages.AttachmentParams` — Discord's attachment request structure — with
 sequential IDs starting at zero and each filename. `ValidateFilesSize` checks
-each file against 8 MiB, 25 MiB, 50 MiB, or 100 MiB for tiers 0, 1, 2, or 3.
+each file against 20 MiB, 25 MiB, 50 MiB, or 100 MiB for tiers 0, 1, 2, or 3;
+Discord raised the base (tier 0) limit from 8 MiB to 20 MiB.
 
 ## Quick Start
 
@@ -68,8 +70,9 @@ method.
 ## Common Patterns
 
 For edits, send every attachment that should remain. Discord removes omitted
-attachments from the message. Validate each byte slice before building files;
-unknown premium tiers use the base 8 MiB limit. Use named file fields only when
+attachments from the message, so a partial descriptor (`{"id": "..."}` only)
+keeps an existing file. Validate each byte slice before building files;
+unknown premium tiers use the base 20 MiB limit. Use named file fields only when
 the endpoint documentation requires them.
 
 ## Best Practices

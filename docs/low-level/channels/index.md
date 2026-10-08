@@ -18,6 +18,31 @@ channel variants. Thread information is split between `ThreadMetadata` and
 `ThreadMember`; forum configuration uses `ForumTag`, `DefaultReaction`, and
 the available/applied tag fields.
 
+`Flags` is a `*ChannelFlags` bitfield with named constants instead of raw
+shifts: `ChannelFlagPinned` (1 << 1), `ChannelFlagRequireTag` (1 << 4),
+`ChannelFlagHideMediaDownloadOptions` (1 << 15),
+`ChannelFlagObfuscated` (1 << 17), and `ChannelFlagIsSpoilerChannel`
+(1 << 21). `Channel.IsObfuscated` reports the obfuscation flag without
+inspecting any other field. `AppPermissions` carries the bot's computed
+permissions when the channel comes from interaction `resolved` data (added
+July 2026); it is distinct from the top-level `Interaction.AppPermissions`.
+
+### Obfuscated Channels
+
+Starting November 16, 2026, `GET /guilds/{guild.id}/channels` omits channels
+the bot cannot `VIEW_CHANNEL`, and the Gateway redacts those channels: `name`
+becomes `"___hidden___"`, other sensitive fields are nulled or reduced, the
+`ChannelFlagObfuscated` flag is set, and `permission_overwrites` holds a
+single overwrite denying `VIEW_CHANNEL` for the guild's `@everyone` role.
+`id`, `type`, `position`, and `parent_id` are never obfuscated. When the bot
+gains access, Discord dispatches a `CHANNEL_UPDATE` with the full data. Until
+then, treat every field except those four as unreliable and surface the
+condition with `IsObfuscated` rather than by matching on `name`. Gateway
+delivery of obfuscated payloads can be tested early by sending the
+`gateway.CapabilityChannelObfuscation` (1 << 15) identify capability; see
+[`../gateway/events.md`](../gateway/events.md). Interaction payloads are
+built through a separate path and are never obfuscated.
+
 `Invite` may contain an `InviteGuild`, channel, inviter, target user or
 application, approximate counts, and expiry. Guild invite listings and the
 `INVITE_CREATE` / `INVITE_DELETE` gateway payloads also carry metadata:
@@ -77,17 +102,21 @@ explicitly when necessary.
 ## Common Mistakes
 
 Channel type 10 is an announcement thread, not a normal announcement channel.
-`Position` and `Flags` are optional. `Invite.Channel` is a pointer and may be
+`Position` and `Flags` are optional. Do not detect an obfuscated channel by
+its `___hidden___` name or by missing topic/member counts; check
+`IsObfuscated` instead, and expect `GetGuildChannels` to omit channels the
+bot cannot view. `Invite.Channel` is a pointer and may be
 missing in partial responses. This package does not calculate effective
 permissions or fetch messages.
 
 ## API Walkthrough
 
 The exported types are `Channel`, `ChannelType` and all constants,
+`ChannelFlags` and the `ChannelFlag*` constants, `Channel.IsObfuscated`,
 `Overwrite` (with `permissions.Permission` for `Allow` and `Deny`),
 `ThreadMetadata`, `ThreadMember`, `ForumTag`, `DefaultReaction`, `Invite`,
 `InviteGuild`, `Application`, and `Webhook`. There are no constructors
-or methods.
+or methods beyond `ChannelFlags.Has` and `Channel.IsObfuscated`.
 
 ## Examples
 

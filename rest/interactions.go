@@ -110,7 +110,7 @@ func withAttachmentMetadata(response interactions.InteractionResponse, files []F
 		return response
 	}
 	data := *response.Data
-	data.Attachments = append(append([]messages.Attachment(nil), data.Attachments...), AttachmentMetadata(files)...)
+	data.Attachments = append(append([]messages.AttachmentParams(nil), data.Attachments...), AttachmentMetadata(files)...)
 	response.Data = &data
 	return response
 }
@@ -121,7 +121,7 @@ func withEditAttachmentMetadata(params EditMessageParams, files []File) EditMess
 	}
 	attachments := AttachmentMetadata(files)
 	if params.Attachments != nil {
-		attachments = append(append([]messages.Attachment(nil), (*params.Attachments)...), attachments...)
+		attachments = append(append([]messages.AttachmentParams(nil), (*params.Attachments)...), attachments...)
 	}
 	params.Attachments = &attachments
 	return params

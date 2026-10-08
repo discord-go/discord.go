@@ -60,6 +60,14 @@ func main() {
 Presence updates require a running gateway. The activity `Type` is the integer
 Discord activity type; `0` is the usual playing activity.
 
+Incoming `PRESENCE_UPDATE` payloads changed in September 2026: Discord may
+omit the user's custom status (activity type `4`) for privacy, and a payload
+can therefore arrive with an empty or reduced `Activities` slice. Read
+presences defensively — never require a type `4` activity to be present, and
+fall back to `Status` and `ClientStatus` when deciding how to render another
+user. The same applies when a custom status is sent back later in the list;
+it is simply absent rather than zeroed.
+
 ## Creating/Configuration
 
 `bot.Activity` contains `Name`, `Type`, and optional `URL`.
@@ -158,9 +166,30 @@ _ = b.SetPresence(ctx, bot.PresenceUpdate{
 })
 ```
 
+Incorrect: assuming every received presence carries the user's custom status.
+
+```go
+custom := ctx.Activities[0]
+if custom.Type == 4 { /* render the status */ }
+```
+
+Correct: treat the custom status (type `4`) as optional since Discord started
+omitting it for privacy in September 2026, and check `len(ctx.Activities)`
+first.
+
+```go
+for _, activity := range ctx.Activities {
+	if activity.Type == 4 {
+		/* render the status, if present */
+	}
+}
+```
+
 ## API Walkthrough
 
-- `Activity` has `Name`, `Type`, and `URL` fields.
+- `Activity` has `Name`, `Type`, and `URL` fields. Received activities may
+  omit the custom status (type `4`) since Discord's September 2026 privacy
+  change.
 - `PresenceUpdate` has `Since *int64`, `Activities []Activity`, `Status`, and
   `AFK` fields.
 - `WithPresence(PresenceUpdate) bot.Option` stores an initial presence.

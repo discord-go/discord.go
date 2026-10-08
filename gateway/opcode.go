@@ -15,4 +15,8 @@ const (
 	OpcodeInvalidSession      Opcode = 9
 	OpcodeHello               Opcode = 10
 	OpcodeHeartbeatACK        Opcode = 11
+	// OpcodeRequestChannelInfo asks Discord for a Channel Info event carrying
+	// ephemeral per-channel values (voice channel status, voice start time)
+	// that are not present on the channel object (opcode 43, added 2026).
+	OpcodeRequestChannelInfo Opcode = 43
 )

@@ -35,7 +35,7 @@ type InteractionCallbackData struct {
 	AllowedMentions *messages.AllowedMentions        `json:"allowed_mentions,omitempty"`
 	Flags           int                              `json:"flags,omitempty"`
 	Components      []components.Component           `json:"components,omitempty"`
-	Attachments     []messages.Attachment            `json:"attachments,omitempty"`
+	Attachments     []messages.AttachmentParams      `json:"attachments,omitempty"`
 	Choices         []ApplicationCommandOptionChoice `json:"choices,omitempty"`
 	CustomID        string                           `json:"custom_id,omitempty"`
 	Title           string                           `json:"title,omitempty"`

@@ -21,7 +21,7 @@ type ModifyChannelParams struct {
 	ParentID                      *snowflake.ID              `json:"parent_id,string,omitempty"`
 	RTCRegion                     *string                    `json:"rtc_region,omitempty"`
 	VideoQualityMode              *channels.VideoQualityMode `json:"video_quality_mode,omitempty"`
-	Flags                         *int                       `json:"flags,omitempty"`
+	Flags                         *channels.ChannelFlags     `json:"flags,omitempty"`
 	AvailableTags                 *[]channels.ForumTag       `json:"available_tags,omitempty"`
 	AppliedTags                   *[]string                  `json:"applied_tags,omitempty"`
 	DefaultReactionEmoji          *channels.DefaultReaction  `json:"default_reaction_emoji,omitempty"`
@@ -62,13 +62,13 @@ func (p GetMessagesParams) QueryString() string {
 
 // EditMessageParams contains the parameters for editing a message.
 type EditMessageParams struct {
-	Content         *string                   `json:"content,omitempty"`
-	Embeds          *[]messages.Embed         `json:"embeds,omitempty"`
-	Components      *[]components.Component   `json:"components,omitempty"`
-	Attachments     *[]messages.Attachment    `json:"attachments,omitempty"`
-	Flags           *int                      `json:"flags,omitempty"`
-	AllowedMentions *messages.AllowedMentions `json:"allowed_mentions,omitempty"`
-	Poll            *messages.Poll            `json:"poll,omitempty"`
+	Content         *string                      `json:"content,omitempty"`
+	Embeds          *[]messages.Embed            `json:"embeds,omitempty"`
+	Components      *[]components.Component      `json:"components,omitempty"`
+	Attachments     *[]messages.AttachmentParams `json:"attachments,omitempty"`
+	Flags           *int                         `json:"flags,omitempty"`
+	AllowedMentions *messages.AllowedMentions    `json:"allowed_mentions,omitempty"`
+	Poll            *messages.Poll               `json:"poll,omitempty"`
 }
 
 // CreateInviteParams contains the parameters for creating a channel invite.
@@ -80,7 +80,12 @@ type CreateInviteParams struct {
 	TargetType          *int          `json:"target_type,omitempty"`
 	TargetUserID        *snowflake.ID `json:"target_user_id,string,omitempty"`
 	TargetApplicationID *snowflake.ID `json:"target_application_id,string,omitempty"`
-	RoleIDs             snowflake.IDs `json:"role_ids,omitempty"`
+	// TargetUserIDs sets the users able to see and accept the invite,
+	// max 1000. It is mutually exclusive with a target_users_file upload
+	// (the multipart form variant); see UpdateInviteTargetUsers for the
+	// CSV path.
+	TargetUserIDs snowflake.IDs `json:"target_user_ids,omitempty"`
+	RoleIDs       snowflake.IDs `json:"role_ids,omitempty"`
 }
 
 // GetAnswerVotersParams contains the query parameters for retrieving poll answer voters.

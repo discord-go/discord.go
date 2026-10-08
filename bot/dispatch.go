@@ -248,6 +248,48 @@ func (b *Bot) handleRawDispatch(data []byte) {
 			b.invoke("CHANNEL_UPDATE", func() { handler(ctx) })
 		}
 
+	case "Channel Info":
+		var info events.ChannelInfo
+		if err := json.Unmarshal(payload.Data, &info); err != nil {
+			b.reportError(fmt.Errorf("parse Channel Info: %w", err))
+			return
+		}
+		ctx := &ChannelInfoContext{BaseContext: b.baseContextWithRaw(payload.Data), ChannelInfo: &info}
+		b.mu.RLock()
+		handlers := append([]ChannelInfoHandler(nil), b.channelInfo...)
+		b.mu.RUnlock()
+		for _, handler := range handlers {
+			b.invoke("Channel Info", func() { handler(ctx) })
+		}
+
+	case "VOICE_CHANNEL_STATUS_UPDATE":
+		var status events.VoiceChannelStatusUpdate
+		if err := json.Unmarshal(payload.Data, &status); err != nil {
+			b.reportError(fmt.Errorf("parse VOICE_CHANNEL_STATUS_UPDATE: %w", err))
+			return
+		}
+		ctx := &VoiceChannelStatusUpdateContext{BaseContext: b.baseContextWithRaw(payload.Data), VoiceChannelStatusUpdate: &status}
+		b.mu.RLock()
+		handlers := append([]VoiceChannelStatusUpdateHandler(nil), b.voiceChannelStatus...)
+		b.mu.RUnlock()
+		for _, handler := range handlers {
+			b.invoke("VOICE_CHANNEL_STATUS_UPDATE", func() { handler(ctx) })
+		}
+
+	case "VOICE_CHANNEL_START_TIME_UPDATE":
+		var startTime events.VoiceChannelStartTimeUpdate
+		if err := json.Unmarshal(payload.Data, &startTime); err != nil {
+			b.reportError(fmt.Errorf("parse VOICE_CHANNEL_START_TIME_UPDATE: %w", err))
+			return
+		}
+		ctx := &VoiceChannelStartTimeUpdateContext{BaseContext: b.baseContextWithRaw(payload.Data), VoiceChannelStartTimeUpdate: &startTime}
+		b.mu.RLock()
+		handlers := append([]VoiceChannelStartTimeUpdateHandler(nil), b.voiceChannelStart...)
+		b.mu.RUnlock()
+		for _, handler := range handlers {
+			b.invoke("VOICE_CHANNEL_START_TIME_UPDATE", func() { handler(ctx) })
+		}
+
 	case "GUILD_AUDIT_LOG_ENTRY_CREATE":
 		var entry events.GuildAuditLogEntryCreate
 		if err := json.Unmarshal(payload.Data, &entry); err != nil {

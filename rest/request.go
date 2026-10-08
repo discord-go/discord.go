@@ -47,6 +47,30 @@ func (c *Client) RequestNoAuth(ctx context.Context, method, path string, body an
 }
 
 func (c *Client) request(ctx context.Context, method, path string, body any, v any, authenticate bool) error {
+	return c.requestWithDecoder(ctx, method, path, body, authenticate, func(respBody []byte) error {
+		if v != nil && len(respBody) > 0 {
+			return json.Unmarshal(respBody, v)
+		}
+		return nil
+	})
+}
+
+// requestRaw performs an authenticated request and returns the response body
+// verbatim instead of JSON-decoding it. Discord returns CSV for a small
+// number of routes such as GET /invites/{code}/target-users.
+func (c *Client) requestRaw(ctx context.Context, method, path string, body any) ([]byte, error) {
+	var raw []byte
+	err := c.requestWithDecoder(ctx, method, path, body, true, func(respBody []byte) error {
+		raw = respBody
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return raw, nil
+}
+
+func (c *Client) requestWithDecoder(ctx context.Context, method, path string, body any, authenticate bool, decode func([]byte) error) error {
 	requestURL := c.BaseURL + path
 
 	var reqBodyBytes []byte
@@ -155,6 +179,13 @@ func (c *Client) request(ctx context.Context, method, path string, body any, v a
 			var apiErr APIError
 			if err := json.Unmarshal(respBody, &apiErr); err == nil {
 				apiErr.HTTPStatus = resp.StatusCode
+				// Some endpoints (for example invite target-user CSV
+				// validation) return a bare object with Discord's standard
+				// error envelope keys absent; keep the body visible instead
+				// of reporting an empty message.
+				if apiErr.Message == "" && apiErr.Code == 0 {
+					apiErr.Message = strings.TrimSpace(string(respBody))
+				}
 				return &apiErr
 			}
 			return &APIError{
@@ -163,10 +194,6 @@ func (c *Client) request(ctx context.Context, method, path string, body any, v a
 			}
 		}
 
-		if v != nil && len(respBody) > 0 {
-			return json.Unmarshal(respBody, v)
-		}
-
-		return nil
+		return decode(respBody)
 	}
 }

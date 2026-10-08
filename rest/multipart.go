@@ -18,7 +18,6 @@ import (
 	"github.com/discord-go/discord.go/json"
 	"github.com/discord-go/discord.go/messages"
 	"github.com/discord-go/discord.go/ratelimit"
-	"github.com/discord-go/discord.go/snowflake"
 )
 
 // File represents a file attachment to be uploaded.
@@ -46,18 +45,21 @@ func FileFromBytes(name string, content []byte) File {
 }
 
 // AttachmentMetadata returns the attachment descriptors required in the JSON
-// payload for the supplied multipart files.
-func AttachmentMetadata(files []File) []messages.Attachment {
-	attachments := make([]messages.Attachment, 0, len(files))
+// payload for the supplied multipart files. Discord matches them to the
+// uploaded files by index, so the descriptors use AttachmentParams rather
+// than the response-only Attachment object.
+func AttachmentMetadata(files []File) []messages.AttachmentParams {
+	attachments := make([]messages.AttachmentParams, 0, len(files))
 	for index, file := range files {
-		attachments = append(attachments, messages.Attachment{ID: snowflake.ID(index), Filename: file.Name})
+		attachments = append(attachments, messages.NewAttachmentParams(index, file.Name))
 	}
 	return attachments
 }
 
-// Max attachment sizes by premium tier
+// Max attachment sizes by premium tier. Discord raised the default (no
+// boost) upload limit from 8 MiB to 20 MiB.
 const (
-	MaxAttachmentSizeNone  = 8 * 1024 * 1024
+	MaxAttachmentSizeNone  = 20 * 1024 * 1024
 	MaxAttachmentSizeTier1 = 25 * 1024 * 1024
 	MaxAttachmentSizeTier2 = 50 * 1024 * 1024
 	MaxAttachmentSizeTier3 = 100 * 1024 * 1024
@@ -168,6 +170,9 @@ func (c *Client) requestMultipartForm(ctx context.Context, method, path string, 
 		var apiErr APIError
 		if err := json.Unmarshal(responseBody, &apiErr); err == nil {
 			apiErr.HTTPStatus = resp.StatusCode
+			if apiErr.Message == "" && apiErr.Code == 0 {
+				apiErr.Message = strings.TrimSpace(string(responseBody))
+			}
 			return &apiErr
 		}
 		return &APIError{HTTPStatus: resp.StatusCode, Message: string(responseBody)}
@@ -288,6 +293,9 @@ func (c *Client) requestMultipart(ctx context.Context, method, path string, payl
 			var apiErr APIError
 			if err := json.Unmarshal(respBody, &apiErr); err == nil {
 				apiErr.HTTPStatus = resp.StatusCode
+				if apiErr.Message == "" && apiErr.Code == 0 {
+					apiErr.Message = strings.TrimSpace(string(respBody))
+				}
 				return &apiErr
 			}
 			return &APIError{

@@ -22,18 +22,18 @@ type ModifyWebhookParams struct {
 
 // ExecuteWebhookParams contains the parameters for executing a webhook.
 type ExecuteWebhookParams struct {
-	Content         string                    `json:"content,omitempty"`
-	Username        string                    `json:"username,omitempty"`
-	AvatarURL       string                    `json:"avatar_url,omitempty"`
-	TTS             bool                      `json:"tts,omitempty"`
-	Embeds          []messages.Embed          `json:"embeds,omitempty"`
-	Components      []components.Component    `json:"components,omitempty"`
-	Flags           int                       `json:"flags,omitempty"`
-	Attachments     []messages.Attachment     `json:"attachments,omitempty"`
-	ThreadName      string                    `json:"thread_name,omitempty"`
-	AppliedTags     []string                  `json:"applied_tags,omitempty"`
-	Poll            *messages.Poll            `json:"poll,omitempty"`
-	AllowedMentions *messages.AllowedMentions `json:"allowed_mentions,omitempty"`
+	Content         string                      `json:"content,omitempty"`
+	Username        string                      `json:"username,omitempty"`
+	AvatarURL       string                      `json:"avatar_url,omitempty"`
+	TTS             bool                        `json:"tts,omitempty"`
+	Embeds          []messages.Embed            `json:"embeds,omitempty"`
+	Components      []components.Component      `json:"components,omitempty"`
+	Flags           int                         `json:"flags,omitempty"`
+	Attachments     []messages.AttachmentParams `json:"attachments,omitempty"`
+	ThreadName      string                      `json:"thread_name,omitempty"`
+	AppliedTags     []string                    `json:"applied_tags,omitempty"`
+	Poll            *messages.Poll              `json:"poll,omitempty"`
+	AllowedMentions *messages.AllowedMentions   `json:"allowed_mentions,omitempty"`
 }
 
 // ExecuteWebhookParamsBuilder provides a fluent API for constructing
@@ -102,7 +102,7 @@ func (b *ExecuteWebhookParamsBuilder) SetFlags(flags int) *ExecuteWebhookParamsB
 }
 
 // AddAttachment adds an attachment metadata entry.
-func (b *ExecuteWebhookParamsBuilder) AddAttachment(attachment messages.Attachment) *ExecuteWebhookParamsBuilder {
+func (b *ExecuteWebhookParamsBuilder) AddAttachment(attachment messages.AttachmentParams) *ExecuteWebhookParamsBuilder {
 	b.params.Attachments = append(b.params.Attachments, attachment)
 	return b
 }

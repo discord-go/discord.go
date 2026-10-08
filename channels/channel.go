@@ -36,7 +36,8 @@ type Channel struct {
 	Member                        *ThreadMember     `json:"member,omitempty"`
 	DefaultAutoArchiveDuration    *int              `json:"default_auto_archive_duration,omitempty"`
 	Permissions                   *string           `json:"permissions,omitempty"`
-	Flags                         *int              `json:"flags,omitempty"`
+	AppPermissions                *string           `json:"app_permissions,omitempty"`
+	Flags                         *ChannelFlags     `json:"flags,omitempty"`
 	TotalMessageSent              *int              `json:"total_message_sent,omitempty"`
 	AvailableTags                 []ForumTag        `json:"available_tags,omitempty"`
 	AppliedTags                   []string          `json:"applied_tags,omitempty"`

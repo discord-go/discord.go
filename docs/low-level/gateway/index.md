@@ -71,6 +71,27 @@ payloads; a zero channel ID in `JoinVoiceChannel` means leave the channel.
 Context-accepting variants `RequestGuildMembersContext` and
 `JoinVoiceChannelContext` allow cancellation of the underlying gateway send.
 
+`Identify` carries an optional `Capabilities` bitfield, exposed on the client
+as `Client.Capabilities`. The only bit documented so far is
+`CapabilityChannelObfuscation` (`1 << 15`), which opts the session in to
+receiving obfuscated channel payloads for testing before Discord's
+November 16, 2026 rollout; `bot.WithGatewayCapabilities` and
+`bot.Config.GatewayCapabilities` set it from the high-level entry point, and
+`ShardManager.SetCapabilities` applies it to every shard. Capabilities are
+unioned across shards, never replaced by whichever shard starts last.
+
+### Request Channel Info
+
+Voice channel status and voice session start time are ephemeral: they are
+not fields on the channel object. `RequestChannelInfo` (opcode 43, added
+2026) requests them with `RequestChannelInfoData{GuildID, Fields}`, where
+`Fields` uses the `ChannelInfoFieldStatus` and `ChannelInfoFieldVoiceStartTime`
+constants, and Discord answers with a `Channel Info` dispatch carrying
+`ChannelInfoEntry` values per channel. `RequestChannelInfoContext` is the
+context-accepting variant. The live changes arrive as
+`VOICE_CHANNEL_STATUS_UPDATE` and `VOICE_CHANNEL_START_TIME_UPDATE`
+events; see [`events.md`](events.md).
+
 ## Using Sessions And Errors
 
 After READY, store the session ID and resume URL in `Session`. `CanResume` is
@@ -107,12 +128,14 @@ without fixing authentication or intents.
 
 The public API includes `Connection`, `Client`, `NewClient`, `Start`, `Send`,
 `SetToken`, `RequestGuildMembers`, `RequestGuildMembersContext`,
+`RequestChannelInfo`, `RequestChannelInfoContext`,
 `JoinVoiceChannel`, `JoinVoiceChannelContext`, `Dispatcher` and its methods,
-`GatewayPayload`, `Opcode` and constants, `Identify`, `IdentifyProperties`,
+`GatewayPayload`, `Opcode` and constants including `OpcodeRequestChannelInfo`,
+`Identify`, `IdentifyProperties`, `Capability` and `CapabilityChannelObfuscation`,
 `Resume`, `Session` and its methods, `IdentifyTracker`, close-code constants,
 `ShardManager`, and the Gateway error values. `HelloData`,
-`RequestGuildMembersData`, `VoiceStateUpdateData`, `SessionStartLimit`, and
-`ShardID` are the supporting payload types.
+`RequestGuildMembersData`, `RequestChannelInfoData`, `VoiceStateUpdateData`,
+`SessionStartLimit`, and `ShardID` are the supporting payload types.
 
 ## Examples
 

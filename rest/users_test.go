@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/discord-go/discord.go/snowflake"
@@ -118,6 +119,49 @@ func TestGetCurrentUserGuilds(t *testing.T) {
 	c.BaseURL = ts.URL
 
 	guilds, err := c.GetCurrentUserGuilds(context.Background(), ListGuildsParams{})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(guilds) != 1 || guilds[0].ID.String() != "789" {
+		t.Errorf("Expected 1 guild with id 789, got %v", guilds)
+	}
+}
+
+func TestListGuildsParamsQueryString(t *testing.T) {
+	shard := 3
+	qs := ListGuildsParams{Limit: 10, WithCounts: true, Shard: &shard}.QueryString()
+	for _, want := range []string{"?limit=10", "with_counts=true", "shard=3"} {
+		if !strings.Contains(qs, want) {
+			t.Errorf("Expected query string %q to contain %q", qs, want)
+		}
+	}
+	if got := (ListGuildsParams{}).QueryString(); got != "" {
+		t.Errorf("Expected empty query string for zero params, got %q", got)
+	}
+}
+
+func TestGetCurrentUserGuildsWithShard(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/users/@me/guilds" {
+			t.Errorf("Unexpected path: %s", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("shard"); got != "2" {
+			t.Errorf("Expected shard=2 query param, got %q", got)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[{"id":"789","name":"guild1"}]`))
+	}))
+	defer ts.Close()
+
+	c := New("token", nil, &mockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			return http.DefaultClient.Do(req)
+		},
+	})
+	c.BaseURL = ts.URL
+
+	shard := 2
+	guilds, err := c.GetCurrentUserGuilds(context.Background(), ListGuildsParams{Shard: &shard})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

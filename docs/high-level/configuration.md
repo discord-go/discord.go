@@ -56,18 +56,22 @@ replacement drops a privileged intent such as `MessageContent`.
 ## Creating/Configuration
 
 `bot.Config` fields are `Token`, `Prefix`, `BotName`, `MentionTriggers`,
-`Intents`, `Shards`, `AutomaticShards`, `Compression`, `Presence`, and
-`CommandSync`.
+`Intents`, `GatewayCapabilities`, `Shards`, `AutomaticShards`, `Compression`,
+`Presence`, and `CommandSync`.
 
 JSON uses `token`, `prefix`, `bot_name`, `mention_triggers`, `intents`,
-`shards`, `automatic_shards`, `compression`, `presence`, and `command_sync`.
+`gateway_capabilities`, `shards`, `automatic_shards`, `compression`,
+`presence`, and `command_sync`.
 `CommandSyncConfig.Mode` is numeric JSON because it is a Go integer enum; use
 `0` for global, `1` for guild, and `2` for disabled.
 
 Environment names are `TOKEN` or `DISCORD_TOKEN`, `BOT_PREFIX`, `BOT_NAME`,
-`BOT_MENTION_TRIGGERS`, `BOT_INTENTS`, `BOT_SHARDS`, `BOT_AUTOMATIC_SHARDS`, and
+`BOT_MENTION_TRIGGERS`, `BOT_INTENTS`, `BOT_GATEWAY_CAPABILITIES`,
+`BOT_SHARDS`, `BOT_AUTOMATIC_SHARDS`, and
 `BOT_GATEWAY_COMPRESSION`. Boolean values use Go's `strconv.ParseBool` forms;
-intents are decimal bitfields.
+intents and gateway capabilities are decimal bitfields (`GatewayCapabilities`
+holds `gateway.Capability` bits such as `CapabilityChannelObfuscation`,
+`1 << 15`).
 
 ## Using
 
@@ -186,7 +190,7 @@ if err != nil {
 ## API Walkthrough
 
 - `Config` is the JSON/environment value object with token, trigger, intent,
-  shard, compression, presence, and command-sync fields.
+  gateway-capability, shard, compression, presence, and command-sync fields.
 - `LoadConfig(path string) (Config, error)` reads a JSON file.
 - `ConfigFromEnv() Config` reads the documented environment variables and returns
   zero values for missing or unparsable optional fields.
@@ -196,7 +200,8 @@ if err != nil {
 - `CommandSyncGlobal`, `CommandSyncGuild`, and `CommandSyncDisabled` select
   automatic global, guild, or no synchronization.
 - `WithPrefix`, `WithBotName`, `WithMentionTriggers`, `WithShards`,
-  `WithGatewayCompression`, `WithPresence`, and `WithCommandSync` are the
+  `WithGatewayCompression`, `WithGatewayCapabilities`, `WithPresence`, and
+  `WithCommandSync` are the
   equivalent direct options. `WithIntents` adds to the default intents and
   `WithIntentsExclusive` replaces them (see [Intents](#intents)).
 

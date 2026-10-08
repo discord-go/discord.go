@@ -67,12 +67,28 @@ payload. Log the numeric bitfield at startup, but never log the token. Treat
 intent changes as deployment configuration changes because they alter cache
 completeness and event volume.
 
+### Privileged intent review (June 10, 2026)
+
+Discord now gates privileged intents (`GuildMembers`, `GuildPresences`,
+`MessageContent`) on a **user** count rather than a server count. Below
+10,000 users the intents are toggled on in the Developer Portal as before;
+at 10,000 users or more the application must apply for Privileged Intent
+access, where the old rule was 100 servers. Granted access must be reapplied
+for once per year to keep it, an application may keep joining servers while a
+review is pending, and App Verification and Privileged Intent review are now
+separate submissions. None of this is visible to `Intent.Has`: a rejected or
+lapsed review shows up as close code 4014 or as event families that simply
+never arrive, so monitor identify failures and re-verify annually rather than
+discovering an expired grant in production.
+
 ## Common Mistakes
 
 `Has` is a bit test for any supplied bit, not a portal permission check. Adding
 an intent in code cannot bypass Discord approval. Do not request all intents
 just to make a cache appear complete; REST fallback is safer for data that is
-not delivered.
+not delivered. Do not plan privileged-intent access around the retired
+"100 servers" rule or assume a prior approval is permanent; both changed in
+June 2026.
 
 ## API Walkthrough
 

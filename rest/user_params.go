@@ -15,6 +15,13 @@ type ListGuildsParams struct {
 	After      snowflake.ID `json:"-"`
 	Limit      int          `json:"-"`
 	WithCounts bool         `json:"-"`
+	// Shard restricts the result to the guilds stored on the given shard.
+	// Applications using large bot sharding must set it: Discord returns
+	// 400 Bad Request when the shard query param is omitted for those
+	// applications (September 2026 breaking change). Valid values are 0
+	// through max_concurrency-1, as advertised by Get Gateway Bot. Leave
+	// nil when not using large bot sharding.
+	Shard *int `json:"-"`
 }
 
 // QueryString builds the query string for ListGuildsParams.
@@ -35,6 +42,10 @@ func (p ListGuildsParams) QueryString() string {
 	}
 	if p.WithCounts {
 		q += sep + "with_counts=true"
+		sep = "&"
+	}
+	if p.Shard != nil {
+		q += sep + "shard=" + itoa(*p.Shard)
 	}
 	return q
 }

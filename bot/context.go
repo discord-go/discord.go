@@ -1137,6 +1137,25 @@ type ChannelUpdateContext struct {
 	*events.ChannelUpdate
 }
 
+// ChannelInfoContext wraps the "Channel Info" event that answers a Request
+// Channel Info (opcode 43).
+type ChannelInfoContext struct {
+	BaseContext
+	*events.ChannelInfo
+}
+
+// VoiceChannelStatusUpdateContext wraps a VOICE_CHANNEL_STATUS_UPDATE event.
+type VoiceChannelStatusUpdateContext struct {
+	BaseContext
+	*events.VoiceChannelStatusUpdate
+}
+
+// VoiceChannelStartTimeUpdateContext wraps a VOICE_CHANNEL_START_TIME_UPDATE event.
+type VoiceChannelStartTimeUpdateContext struct {
+	BaseContext
+	*events.VoiceChannelStartTimeUpdate
+}
+
 // GuildAuditLogEntryContext wraps a GUILD_AUDIT_LOG_ENTRY_CREATE event.
 type GuildAuditLogEntryContext struct {
 	BaseContext

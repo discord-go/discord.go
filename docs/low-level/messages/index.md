@@ -78,10 +78,16 @@ as string snowflakes automatically.
 ## Using Embeds And Attachments
 
 `Embed` contains `EmbedFooter`, `EmbedImage`, `EmbedVideo`, `EmbedProvider`,
-`EmbedAuthor`, and `EmbedField`. `Attachment` is a received attachment;
+`EmbedAuthor`, and `EmbedField`. `Attachment` is a received attachment, with
+the `url`, `proxy_url`, `size`, and `content_type` fields Discord fills in;
+`AttachmentParams` is the request structure for Message Create and Edit (and
+the webhook and interaction equivalents) with only `id`, `filename`,
+`title`, `description`, `duration_secs`, `waveform`, and `is_spoiler`.
 `AttachmentSend` is the descriptor for an upload and uses a string file ID.
-The REST multipart helpers create the actual `files[n]` parts. For an edit,
-include every attachment that should remain.
+The REST multipart helpers create the actual `files[n]` parts and
+`rest.AttachmentMetadata` builds the matching `AttachmentParams` entries. For
+an edit, include every attachment that should remain; a descriptor carrying
+only an `id` keeps an existing file.
 
 ## Using Polls And Reactions
 

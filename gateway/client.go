@@ -31,8 +31,12 @@ type Client struct {
 
 	token   string
 	Intents intents.Intent
-	Shard   []int
-	Cache   cache.Cache
+	// Capabilities is the Identify capabilities bitfield. It opts the
+	// connection into gateway behaviors such as
+	// CapabilityChannelObfuscation; zero omits the field.
+	Capabilities Capability
+	Shard        []int
+	Cache        cache.Cache
 
 	ConnFactory func(url string) (Connection, error)
 	GatewayURL  string
@@ -171,6 +175,39 @@ func (c *Client) RequestGuildMembersContext(ctx context.Context, data RequestGui
 		return err
 	}
 	return c.Send(ctx, GatewayPayload{Op: OpcodeRequestGuildMembers, Data: b})
+}
+
+// Channel info fields Discord accepts in RequestChannelInfoData.
+const (
+	ChannelInfoFieldStatus         = "status"
+	ChannelInfoFieldVoiceStartTime = "voice_start_time"
+)
+
+// RequestChannelInfoData represents the data for a Request Channel Info
+// payload (opcode 43). Voice channel status and voice session start time are
+// ephemeral and are never included on the channel object, so this command is
+// the only way to read them; Discord answers with a "Channel Info" dispatch
+// event. Fields lists the values to fetch, for example
+// ChannelInfoFieldStatus and ChannelInfoFieldVoiceStartTime.
+type RequestChannelInfoData struct {
+	GuildID snowflake.ID `json:"guild_id,string"`
+	Fields  []string     `json:"fields,omitempty"`
+}
+
+// RequestChannelInfo requests the ephemeral channel fields for a guild using
+// the background context.
+func (c *Client) RequestChannelInfo(data RequestChannelInfoData) error {
+	return c.RequestChannelInfoContext(context.Background(), data)
+}
+
+// RequestChannelInfoContext requests the ephemeral channel fields for a
+// guild, allowing cancellation of the underlying gateway send.
+func (c *Client) RequestChannelInfoContext(ctx context.Context, data RequestChannelInfoData) error {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return c.Send(ctx, GatewayPayload{Op: OpcodeRequestChannelInfo, Data: b})
 }
 
 // VoiceStateUpdateData represents the payload to join or leave a voice

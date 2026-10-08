@@ -45,17 +45,24 @@ err := restClient.ExecuteWebhook(ctx, webhookID, webhookToken, true, params)
 
 ## Executing with Attachments
 
-Use multipart upload for file attachments:
+Use multipart upload for file attachments. `ExecuteWebhookParams.Attachments`
+holds the request descriptors (`messages.AttachmentParams`) and the files are
+passed separately in the same order:
 
 ```go
 params := rest.ExecuteWebhookParams{
     Content: "Here is a file",
-    Attachments: []rest.Attachment{
-        {Filename: "report.pdf", Reader: fileReader},
+    Attachments: []messages.AttachmentParams{
+        messages.NewAttachmentParams(0, "report.pdf"),
     },
 }
-err := restClient.ExecuteWebhookWithFiles(ctx, webhookID, webhookToken, true, params)
+files := []rest.File{{Name: "report.pdf", Reader: fileReader}}
+err := restClient.ExecuteWebhookWithFiles(ctx, webhookID, webhookToken, params, files, rest.ExecuteWebhookOptions{Wait: true})
 ```
+
+The helpers append the descriptors for you: `AttachmentMetadata` derives one
+`messages.AttachmentParams` per file from its index and filename, so
+`Attachments` can be left empty when every file is new.
 
 ## Editing a Webhook Message
 

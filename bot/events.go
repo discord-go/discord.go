@@ -87,16 +87,20 @@ func (b *Bot) removeEventSubscription(name string, id uint64) {
 }
 
 func (b *Bot) dispatchEvent(name string, data json.RawMessage) {
+	// Subscriptions are stored under the uppercased name; some newer events
+	// such as "Channel Info" are not all-caps on the wire, so normalize the
+	// lookup while keeping the original name on the context.
+	key := strings.ToUpper(name)
 	b.mu.Lock()
-	handlers := append([]eventSubscription(nil), b.eventHandlers[name]...)
+	handlers := append([]eventSubscription(nil), b.eventHandlers[key]...)
 	for _, subscription := range handlers {
 		if !subscription.once {
 			continue
 		}
-		current := b.eventHandlers[name]
+		current := b.eventHandlers[key]
 		for index, candidate := range current {
 			if candidate.id == subscription.id {
-				b.eventHandlers[name] = append(current[:index], current[index+1:]...)
+				b.eventHandlers[key] = append(current[:index], current[index+1:]...)
 				break
 			}
 		}
@@ -134,6 +138,39 @@ func (b *Bot) OnChannelUpdate(handler ChannelUpdateHandler) {
 	}
 	b.mu.Lock()
 	b.channelUpdate = append(b.channelUpdate, handler)
+	b.mu.Unlock()
+}
+
+// OnChannelInfo registers a handler for the "Channel Info" event Discord
+// sends in answer to a Request Channel Info (opcode 43).
+func (b *Bot) OnChannelInfo(handler ChannelInfoHandler) {
+	if handler == nil {
+		return
+	}
+	b.mu.Lock()
+	b.channelInfo = append(b.channelInfo, handler)
+	b.mu.Unlock()
+}
+
+// OnVoiceChannelStatusUpdate registers a handler for
+// VOICE_CHANNEL_STATUS_UPDATE events.
+func (b *Bot) OnVoiceChannelStatusUpdate(handler VoiceChannelStatusUpdateHandler) {
+	if handler == nil {
+		return
+	}
+	b.mu.Lock()
+	b.voiceChannelStatus = append(b.voiceChannelStatus, handler)
+	b.mu.Unlock()
+}
+
+// OnVoiceChannelStartTimeUpdate registers a handler for
+// VOICE_CHANNEL_START_TIME_UPDATE events.
+func (b *Bot) OnVoiceChannelStartTimeUpdate(handler VoiceChannelStartTimeUpdateHandler) {
+	if handler == nil {
+		return
+	}
+	b.mu.Lock()
+	b.voiceChannelStart = append(b.voiceChannelStart, handler)
 	b.mu.Unlock()
 }
 

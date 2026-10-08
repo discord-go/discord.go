@@ -92,6 +92,7 @@ func (b *Bot) Start(ctx context.Context) error {
 		manager.SetCache(b.cacheStore)
 		manager.SetGatewayURL(gatewayURL)
 		manager.SetCompression(b.compression)
+		manager.SetCapabilities(b.gatewayCaps)
 		manager.SetConnectionURLFactory(func(target string, _ gateway.ShardID) (gateway.Connection, error) {
 			return connect(target)
 		})
@@ -113,6 +114,7 @@ func (b *Bot) Start(ctx context.Context) error {
 		}
 		client.SetToken(b.token)
 		client.Intents = b.intentsVal
+		client.Capabilities = b.gatewayCaps
 		client.GatewayURL = gatewayURL
 		client.ConnFactory = connect
 	}

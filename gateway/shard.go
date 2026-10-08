@@ -48,6 +48,7 @@ type ShardManager struct {
 	connURLFactory func(url string, shardID ShardID) (Connection, error)
 	gatewayURL     string
 	compressed     bool
+	capabilities   Capability
 
 	// shardDelay controls the delay between shard startups.
 	// Defaults to ShardDelay; can be overridden for testing.
@@ -114,6 +115,14 @@ func (sm *ShardManager) SetGatewayURL(url string) {
 func (sm *ShardManager) SetCompression(enabled bool) {
 	sm.mu.Lock()
 	sm.compressed = enabled
+	sm.mu.Unlock()
+}
+
+// SetCapabilities sets the Identify capabilities bitfield sent by every
+// shard, for example CapabilityChannelObfuscation.
+func (sm *ShardManager) SetCapabilities(caps Capability) {
+	sm.mu.Lock()
+	sm.capabilities = caps
 	sm.mu.Unlock()
 }
 
@@ -279,6 +288,7 @@ func (sm *ShardManager) Start(ctx context.Context) error {
 			client.Compressed = sm.compressed
 			client.SetToken(sm.token)
 			client.Intents = sm.intents
+			client.Capabilities = sm.capabilities
 			client.Shard = shardID.ToIdentifyShard()
 			client.IdentifyTracker = sm.identifyTracker
 			client.ConnFactory = func(url string) (Connection, error) {

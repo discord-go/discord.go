@@ -450,9 +450,10 @@ func (c *Client) readLoop(ctx context.Context) error {
 // sendIdentify sends an Identify (op 2) payload to the gateway.
 func (c *Client) sendIdentify() error {
 	identify := Identify{
-		Token:   c.token,
-		Intents: c.Intents,
-		Shard:   c.Shard,
+		Token:        c.token,
+		Intents:      c.Intents,
+		Shard:        c.Shard,
+		Capabilities: c.Capabilities,
 		Properties: IdentifyProperties{
 			OS:      "linux",
 			Browser: "discord.go",
