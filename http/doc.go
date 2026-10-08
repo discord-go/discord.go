@@ -4,4 +4,4 @@ package http
 
 // Version is the library version. It is included in the default User-Agent
 // header sent with REST requests so Discord can identify the library.
-const Version = "0.14.2-blend"
+const Version = "0.15.0-rumi"
