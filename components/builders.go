@@ -184,6 +184,10 @@ func (b *SelectOptionBuilder) SetDescription(value string) *SelectOptionBuilder 
 	b.option.Description = value
 	return b
 }
+func (b *SelectOptionBuilder) SetEmoji(value interface{}) *SelectOptionBuilder {
+	b.option.Emoji = value
+	return b
+}
 func (b *SelectOptionBuilder) SetDefault(value bool) *SelectOptionBuilder {
 	b.option.Default = value
 	return b

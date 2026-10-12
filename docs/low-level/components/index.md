@@ -62,8 +62,10 @@ func main() {
 `SetDisabled`; styles are Primary, Secondary, Success, Danger, Link, and
 Premium. `ActionRowBuilder.AddComponents` accepts any `Component`. String
 selects use `StringSelectBuilder.AddOptions`, which accepts `SelectOption` or
-`*SelectOptionBuilder`; option builders expose label, value, description, and
-default. User, role, mentionable, and channel select builders expose custom ID,
+`*SelectOptionBuilder`; option builders expose label, value, description,
+emoji, and default. `SetEmoji` takes a JSON-compatible emoji object, such as
+`map[string]interface{}{"name": "✅"}` for a Unicode emoji. User, role,
+mentionable, and channel select builders expose custom ID,
 placeholder, min/max values, disabled, and channel types where applicable.
 The `SetCustomId` spelling and `*MenuBuilder` aliases are compatibility names
 for the same methods and types.

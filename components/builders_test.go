@@ -62,3 +62,27 @@ func TestComponentsV2BuildersAndNestedUnmarshal(t *testing.T) {
 		t.Fatalf("decoded container = %#v", components[4])
 	}
 }
+func TestSelectOptionBuilderSetEmoji(t *testing.T) {
+	emoji := map[string]interface{}{
+		"name": "check",
+		"id":   "123456789012345678",
+	}
+	option := NewSelectOptionBuilder().
+		SetLabel("Confirm").
+		SetValue("confirm").
+		SetEmoji(emoji).
+		Build()
+
+	encoded, err := json.Marshal(option)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if got := decoded["emoji"]; got == nil {
+		t.Fatal("emoji was not included in the select option JSON")
+	}
+}
