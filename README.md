@@ -94,8 +94,12 @@ Start with the [high-level guides](docs/high-level/) for application code or
 the [low-level guides](docs/low-level/) for protocol and REST work. Runnable
 examples are organized under [docs/examples/](docs/examples/).
 
+Upgrading from an earlier version? The [migration guide](docs/migration.md)
+has the concept map and the breaking changes for each release.
+
 API reference is available on
-[pkg.go.dev](https://pkg.go.dev/github.com/discord-go/discord.go).
+[pkg.go.dev](https://pkg.go.dev/github.com/discord-go/discord.go), and release
+notes on the [releases page](https://github.com/discord-go/discord.go/releases).
 
 See the [FAQ](docs/faq.md) and [Troubleshooting](docs/examples/troubleshooting.md)
 pages for common questions and solutions.
@@ -103,6 +107,9 @@ pages for common questions and solutions.
 ## Development
 
 ```bash
+# CI fails if any tracked Go file is unformatted
+test -z "$(gofmt -l $(git ls-files '*.go'))"
+
 go test ./...
 go test -race ./...
 go vet ./...
