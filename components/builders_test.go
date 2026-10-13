@@ -62,3 +62,84 @@ func TestComponentsV2BuildersAndNestedUnmarshal(t *testing.T) {
 		t.Fatalf("decoded container = %#v", components[4])
 	}
 }
+func TestSelectOptionBuilderEmojiWireFormat(t *testing.T) {
+	unicode := NewSelectOptionBuilder().
+		SetLabel("Development").
+		SetValue("dev").
+		SetEmoji(map[string]interface{}{"name": "✅"}).
+		Build()
+	custom := NewSelectOptionBuilder().
+		SetLabel("Staging").
+		SetValue("stage").
+		SetEmoji(map[string]interface{}{"id": "123456789012345678", "name": "check"}).
+		Build()
+	plain := NewSelectOptionBuilder().
+		SetLabel("Production").
+		SetValue("prod").
+		Build()
+
+	for _, tc := range []struct {
+		name string
+		opt  SelectOption
+		want string
+	}{
+		{
+			name: "unicode emoji",
+			opt:  unicode,
+			want: `{"label":"Development","value":"dev","emoji":{"name":"✅"}}`,
+		},
+		{
+			name: "custom emoji",
+			opt:  custom,
+			want: `{"label":"Staging","value":"stage","emoji":{"id":"123456789012345678","name":"check"}}`,
+		},
+		{
+			name: "no emoji omits the field",
+			opt:  plain,
+			want: `{"label":"Production","value":"prod"}`,
+		},
+	} {
+		got, err := json.Marshal(tc.opt)
+		if err != nil {
+			t.Fatalf("%s: marshal: %v", tc.name, err)
+		}
+		if string(got) != tc.want {
+			t.Errorf("%s: got %s, want %s", tc.name, got, tc.want)
+		}
+	}
+
+	menu := NewStringSelectBuilder().
+		SetCustomID("select:environment").
+		AddOptions(unicode, custom, plain).
+		Build()
+	encoded, err := json.Marshal(menu)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"type":3,"custom_id":"select:environment","options":[` +
+		`{"label":"Development","value":"dev","emoji":{"name":"✅"}},` +
+		`{"label":"Staging","value":"stage","emoji":{"id":"123456789012345678","name":"check"}},` +
+		`{"label":"Production","value":"prod"}]}`
+	if string(encoded) != want {
+		t.Errorf("select menu: got %s, want %s", encoded, want)
+	}
+
+	var decoded StringSelect
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if len(decoded.Options) != 3 {
+		t.Fatalf("decoded %d options, want 3", len(decoded.Options))
+	}
+	first, ok := decoded.Options[0].Emoji.(map[string]interface{})
+	if !ok || first["name"] != "✅" {
+		t.Errorf("unicode emoji round-trip = %#v", decoded.Options[0].Emoji)
+	}
+	second, ok := decoded.Options[1].Emoji.(map[string]interface{})
+	if !ok || second["id"] != "123456789012345678" || second["name"] != "check" {
+		t.Errorf("custom emoji round-trip = %#v", decoded.Options[1].Emoji)
+	}
+	if decoded.Options[2].Emoji != nil {
+		t.Errorf("option without emoji decoded %#v, want nil", decoded.Options[2].Emoji)
+	}
+}

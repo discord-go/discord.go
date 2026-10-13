@@ -198,7 +198,7 @@ button := components.NewButtonBuilder().
   `AddItems`, `AddItemBuilders`, `SetCustomID`, `SetCustomId`, `SetLabel`,
   `SetURL`, `SetStyle`, `SetDisabled`, `SetPlaceholder`, `SetChannelTypes`,
   `SetMinValues`, `SetMaxValues`, `SetLabel`, `SetValue`, `SetDescription`,
-  `SetDefault`, `SetRequired`, `SetMinLength`, `SetMaxLength`,
+  `SetEmoji`, `SetDefault`, `SetRequired`, `SetMinLength`, `SetMaxLength`,
   `AddOptions`, `AddComponents`, `AddTextDisplayComponents`,
   `AddTextDisplayBuilders`, `SetThumbnailAccessory`, `SetButtonAccessory`,
   `SetAccentColor`, `AddMediaGalleryComponents`, `AddSectionComponents`,
@@ -208,7 +208,9 @@ button := components.NewButtonBuilder().
   `SetCustomID`, `SetCustomId`, `SetTitle`, `AddComponents`, and `Build`.
 - `SelectOption` has `Label`, `Value`, `Description`, `Emoji`, and `Default`
   fields. `NewSelectOption(label, value string) SelectOption` is a convenience
-  constructor for the common label+value case.
+  constructor for the common label+value case. `SelectOptionBuilder.SetEmoji`
+  accepts a JSON-compatible emoji object, such as
+  `map[string]interface{}{"name": "✅"}` for a Unicode emoji.
 - `Unmarshal([]byte) (Component, error)` decodes supported component JSON and
   recursively handles nested children.
 - `ChannelSelectMenuBuilder`, `StringSelectMenuBuilder`,

@@ -19,6 +19,8 @@ other types return Discord IDs as strings through `ctx.Values()`.
 
 Copy to `examples/select-menus/main.go`, set `DISCORD_TOKEN`, and run it.
 Invoke `/select`, choose an option, and inspect the updated message.
+Option emojis use Discord's emoji object format; for a Unicode emoji, pass an
+object with its `name`, for example `{"name": "✅"}`.
 
 ```go
 package main
@@ -43,7 +45,12 @@ func main() {
 	router := bot.NewRouter()
 	router.Command("select", "Choose a deployment environment", func(ctx *bot.InteractionContext) {
 		options := []components.SelectOption{
-			components.NewSelectOptionBuilder().SetLabel("Development").SetValue("dev").SetDescription("Local testing").Build(),
+			components.NewSelectOptionBuilder().
+				SetLabel("Development").
+				SetValue("dev").
+				SetDescription("Local testing").
+				SetEmoji(map[string]interface{}{"name": "🧪"}).
+				Build(),
 			components.NewSelectOptionBuilder().SetLabel("Staging").SetValue("stage").SetDescription("Pre-release testing").Build(),
 			components.NewSelectOptionBuilder().SetLabel("Production").SetValue("prod").SetDescription("Released service").Build(),
 		}
