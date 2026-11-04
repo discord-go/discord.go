@@ -8,7 +8,7 @@ The same pattern works for a Discord event that has not yet acquired a typed hel
 
 ## Prerequisites
 
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - `DISCORD_TOKEN` set to a bot token.
 - A guild where the bot can receive message events.
 - `Guilds` and `GuildMessages` enabled in the Developer Portal and selected in `bot.WithIntents`.

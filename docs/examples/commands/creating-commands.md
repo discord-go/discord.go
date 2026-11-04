@@ -13,7 +13,7 @@ The command definition is sent to Discord as an application command. When a user
 - A bot application installed with `applications.commands`.
 - `DISCORD_TOKEN` set.
 - A test guild where commands can be checked.
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 
 ## Quick Start
 

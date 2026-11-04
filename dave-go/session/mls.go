@@ -1,0 +1,1183 @@
+package session
+
+import (
+	"bytes"
+	"context"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
+	"log/slog"
+	"strconv"
+	"time"
+
+	"github.com/discord-go/discord.go/dave-go/godave"
+	"github.com/discord-go/discord.go/dave-go/mediakeys"
+	"github.com/discord-go/discord.go/dave-go/mls-go"
+	"github.com/discord-go/discord.go/dave-go/mls-go/ciphersuite"
+	mlsext "github.com/discord-go/discord.go/dave-go/mls-go/extensions"
+	"github.com/discord-go/discord.go/dave-go/mls-go/framing"
+	"github.com/discord-go/discord.go/dave-go/mls-go/group"
+	"github.com/discord-go/discord.go/dave-go/mls-go/keypackages"
+	memorystore "github.com/discord-go/discord.go/dave-go/mls-go/storage/memory"
+)
+
+const epochRetention = 10 * time.Second
+
+const (
+	// epochRecoveryTimeout is how long we wait for Discord to activate an
+	// epoch before triggering recovery.
+	epochRecoveryTimeout = 15 * time.Second
+	// maxRecoveryAttempts bounds the invalidate → new key package → wait
+	// loop. Past this, only a full voice reconnect can fix the session.
+	maxRecoveryAttempts = 3
+)
+
+type mlsClientWrapper struct {
+	client *mls.Client
+	store  *memorystore.Store
+}
+
+type exporterAdapter struct {
+	store   *memorystore.Store
+	groupID []byte
+}
+
+func (e exporterAdapter) Export(label string, ctx []byte, length int) ([]byte, error) {
+	if e.store == nil {
+		return nil, ErrNilExporterStore
+	}
+
+	state, err := e.store.LoadGroupState(context.Background(), group.NewGroupID(e.groupID))
+	if err != nil {
+		return nil, fmt.Errorf("load group state for exporter: %w", err)
+	}
+
+	groupState, err := group.UnmarshalGroupState(state)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal group state for exporter: %w", err)
+	}
+
+	if groupState.EpochSecrets() == nil || groupState.EpochSecrets().ExporterSecret == nil {
+		return nil, ErrExporterSecretUnavailable
+	}
+
+	exporterSecretPrefixLen := 8
+	exporterSecretBytes := groupState.EpochSecrets().ExporterSecret.AsSlice()
+	if len(exporterSecretBytes) < exporterSecretPrefixLen {
+		exporterSecretPrefixLen = len(exporterSecretBytes)
+	}
+
+	discordExport, err := mediakeys.ExportWithMLSExporterSecret(
+		groupState.EpochSecrets().ExporterSecret,
+		groupState.CipherSuite(),
+		label, ctx, length,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	exportPrefixLen := min(len(discordExport), 8)
+
+	slog.Default().Debug("exporter derivation",
+		"group_id", fmt.Sprintf("%x", e.groupID),
+		"label", label,
+		"context_prefix", hex.EncodeToString(ctx[:minInt(len(ctx), 8)]),
+		"exporter_secret_prefix", hex.EncodeToString(exporterSecretBytes[:exporterSecretPrefixLen]),
+		"export_prefix", hex.EncodeToString(discordExport[:exportPrefixLen]),
+	)
+
+	return discordExport, nil
+}
+
+func userIDToIdentityBytes(userID godave.UserID) ([]byte, error) {
+	n, err := strconv.ParseUint(string(userID), 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse user id %q: %w", userID, err)
+	}
+
+	// DAVE credential identity = user snowflake as big-endian uint64.
+	// Verified against golibdave/libdave wire bytes: identity is BE.
+	identity := make([]byte, 8)
+	binary.BigEndian.PutUint64(identity, n)
+
+	return identity, nil
+}
+
+func identityBytesToUserID(identity []byte) (godave.UserID, uint64, error) {
+	if len(identity) != 8 {
+		return "", 0, fmt.Errorf("%w: %d", ErrInvalidCredentialIdentity, len(identity))
+	}
+
+	// DAVE credential identity = user snowflake as big-endian uint64.
+	n := binary.BigEndian.Uint64(identity)
+
+	return godave.UserID(strconv.FormatUint(n, 10)), n, nil
+}
+
+func (s *Session) ensureMLSClientLocked() error {
+	if s.mlsClient != nil {
+		return nil
+	}
+
+	identity, err := userIDToIdentityBytes(s.userID)
+	if err != nil {
+		return err
+	}
+
+	store := memorystore.NewStore()
+	client, err := mls.NewClient(
+		identity,
+		ciphersuite.MLS128DHKEMP256,
+		mls.WithStorage(store, store),
+		mls.WithCacheStrategy(mls.CacheNone),
+	)
+	if err != nil {
+		return fmt.Errorf("create mls client: %w", err)
+	}
+
+	s.mlsClient = &mlsClientWrapper{client: client, store: store}
+
+	return nil
+}
+
+func (s *Session) ensurePendingKeyPackageLocked() error {
+	if err := s.ensureMLSClientLocked(); err != nil {
+		return err
+	}
+	if len(s.pendingKeyPackage) > 0 {
+		return nil
+	}
+
+	// DAVE spec (https://daveprotocol.com/#validation) requires lifetime [0, 2^64-1].
+	kp, err := s.mlsClient.client.FreshKeyPackageBytes(
+		context.Background(),
+		keypackages.InfiniteLifetime(),
+	)
+	if err != nil {
+		return fmt.Errorf("generate fresh key package: %w", err)
+	}
+
+	s.pendingKeyPackage = append([]byte(nil), kp...)
+	if s.callbacks != nil {
+		// libdave sends the marshaled KeyPackage directly for opcode 26.
+		if err := s.retrySend(func() error { return s.callbacks.SendMLSKeyPackage(kp) }); err != nil {
+			return fmt.Errorf("send mls key package: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Session) joinPendingWelcomeLocked(welcome []byte) error {
+	groupID, err := s.mlsClient.client.JoinGroup(context.Background(), welcome)
+	if err != nil {
+		return fmt.Errorf("join group from welcome: %w", err)
+	}
+	if valErr := s.validateJoinedWelcomeExternalSenderLocked(groupID); valErr != nil {
+		return valErr
+	}
+
+	// Update groupID immediately so that processCommitLocked and
+	// processProposalBatchLocked target the Welcome-joined group, not any
+	// stale locally-created group that was never confirmed by the DS.
+	s.groupID = append([]byte(nil), groupID...)
+	s.pendingGroupID = append([]byte(nil), groupID...)
+	epochState, err := s.rebuildEpochStateLocked(groupID)
+	if err != nil {
+		return err
+	}
+	s.pendingEpoch = epochState
+
+	return nil
+}
+
+func (s *Session) validateJoinedWelcomeExternalSenderLocked(groupID []byte) error {
+	if len(s.externalSenderPackage) == 0 {
+		return ErrNoExternalSender
+	}
+
+	expected, err := mlsext.ParseSingleExternalSender(s.externalSenderPackage)
+	if err != nil {
+		return fmt.Errorf("parse expected external sender: %w", err)
+	}
+
+	groupInfoBytes, err := s.mlsClient.client.GroupInfo(context.Background(), groupID)
+	if err != nil {
+		return fmt.Errorf("read group info for external sender validation: %w", err)
+	}
+	groupInfo, err := group.UnmarshalGroupInfo(groupInfoBytes)
+	if err != nil {
+		return fmt.Errorf("parse joined group info: %w", err)
+	}
+
+	var ext *group.Extension
+	for i := range groupInfo.GroupContext.Extensions {
+		if groupInfo.GroupContext.Extensions[i].Type == mlsext.ExtensionTypeExternalSenders {
+			ext = &groupInfo.GroupContext.Extensions[i]
+
+			break
+		}
+	}
+	if ext == nil {
+		return fmt.Errorf("%w: missing external_senders extension", ErrInvalidExternalSender)
+	}
+
+	actual, err := mlsext.UnmarshalExternalSendersExtension(ext.Data)
+	if err != nil {
+		return fmt.Errorf("parse joined external_senders extension: %w", err)
+	}
+	if len(actual.Senders) != 1 {
+		return fmt.Errorf("%w: expected exactly 1 external sender, got %d", ErrInvalidExternalSender, len(actual.Senders))
+	}
+
+	if !externalSenderMatches(expected, &actual.Senders[0]) {
+		return fmt.Errorf("%w: external sender mismatch", ErrInvalidExternalSender)
+	}
+
+	return nil
+}
+
+func externalSenderMatches(expected, actual *mlsext.ExternalSender) bool {
+	if expected == nil || actual == nil || expected.Credential == nil || actual.Credential == nil ||
+		expected.PublicKey == nil || actual.PublicKey == nil {
+		return false
+	}
+
+	expectedPub, err := expected.PublicKey.ECDH()
+	if err != nil {
+		return false
+	}
+	actualPub, err := actual.PublicKey.ECDH()
+	if err != nil {
+		return false
+	}
+
+	return bytes.Equal(expectedPub.Bytes(), actualPub.Bytes()) &&
+		bytes.Equal(expected.Credential.Marshal(), actual.Credential.Marshal())
+}
+
+func (s *Session) processCommitLocked(commit []byte) error {
+	if len(s.groupID) == 0 {
+		return ErrNoActiveGroup
+	}
+
+	// DAVE Client Commit Validity (protocol.md:314): reject commits that
+	// embed proposals inline instead of referencing cached ones.
+	if err := validateCommitProposalRefs(commit); err != nil {
+		return err
+	}
+
+	if err := s.mlsClient.client.ProcessCommit(context.Background(), s.groupID, commit); err != nil {
+		return fmt.Errorf("process commit: %w", err)
+	}
+
+	epochState, err := s.rebuildEpochStateLocked(s.groupID)
+	if err != nil {
+		return err
+	}
+
+	s.pendingEpoch = epochState
+	s.pendingGroupID = append([]byte(nil), s.groupID...)
+
+	return nil
+}
+
+// validateCommitProposalRefs checks that a serialized commit contains only
+// proposal references (type 2), never inline proposals (type 1). DAVE
+// protocol.md:314 requires that commits reference previously cached proposals
+// rather than embedding them inline.
+func validateCommitProposalRefs(commit []byte) error {
+	msg, err := framing.UnmarshalMLSMessage(commit)
+	if err != nil {
+		return fmt.Errorf("parse commit message: %w", err)
+	}
+
+	pub, ok := msg.AsPublic()
+	if !ok || pub == nil {
+		return fmt.Errorf("%w: commit is not a public message", ErrInlineProposalInCommit)
+	}
+	data, ok := pub.Content.CommitData()
+	if !ok || len(data) == 0 {
+		return fmt.Errorf("%w: no commit data", ErrInlineProposalInCommit)
+	}
+
+	c, err := group.UnmarshalCommit(data)
+	if err != nil {
+		return fmt.Errorf("parse commit body: %w", err)
+	}
+
+	for i, por := range c.Proposals {
+		if por.Proposal != nil {
+			return fmt.Errorf("%w proposal index %d", ErrInlineProposalInCommit, i)
+		}
+	}
+
+	return nil
+}
+
+// readTLSVectorLength decodes an MLS variable-length integer (RFC 9000 §16 encoding
+// used by mlspp for TLS vector length prefixes).
+//
+// The top two bits of the first byte encode the width:
+//
+//	00xxxxxx                         → 1 byte,  6-bit value  (0–63)
+//	01xxxxxx xxxxxxxx                → 2 bytes, 14-bit value (64–16 383)
+//	10xxxxxx xxxxxxxx xxxxxxxx xxxxxxxx → 4 bytes, 30-bit value (16 384–1 073 741 823)
+//
+// Returns (length, bytesConsumed, error).
+func readTLSVectorLength(data []byte) (uint32, int, error) {
+	if len(data) == 0 {
+		return 0, 0, fmt.Errorf("%w: empty", ErrInvalidVectorLength)
+	}
+
+	prefix := data[0] >> 6
+	switch prefix {
+	case 0: // 1-byte encoding
+		return uint32(data[0] & 0x3F), 1, nil
+	case 1: // 2-byte encoding
+		if len(data) < 2 {
+			return 0, 0, fmt.Errorf("%w: truncated 2-byte", ErrInvalidVectorLength)
+		}
+		v := uint32(data[0]&0x3F)<<8 | uint32(data[1])
+
+		return v, 2, nil
+	case 2: // 4-byte encoding
+		if len(data) < 4 {
+			return 0, 0, fmt.Errorf("%w: truncated 4-byte", ErrInvalidVectorLength)
+		}
+		v := uint32(data[0]&0x3F)<<24 | uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3])
+
+		return v, 4, nil
+	default:
+		return 0, 0, fmt.Errorf("%w: unsupported 8-byte encoding", ErrInvalidVectorLength)
+	}
+}
+
+func (s *Session) processProposalBatchLocked(proposals []byte) (bool, error) {
+	if len(proposals) == 0 {
+		s.logger.Debug("processProposalBatchLocked: empty proposals")
+
+		return false, nil
+	}
+	if len(s.groupID) == 0 {
+		// DAVE spec §5: if no local group exists, proposals are ignored.
+		s.logger.Debug("processProposalBatchLocked: no group, ignoring proposals")
+
+		return false, nil
+	}
+
+	// DAVE_MLSProposals payload format (after opcode consumed by gateway):
+	// uint8 operation_type || TLSVector<MLSMessage>
+	// operation_type: 0=append, 1=revoke
+	if len(proposals) < 1 {
+		return false, fmt.Errorf("%w: %d bytes", ErrProposalsTooShort, len(proposals))
+	}
+
+	operationType := proposals[0]
+	s.logger.Debug("processProposalBatchLocked", "operation_type", operationType, "total_size", len(proposals))
+	switch operationType {
+	case 0: // append: TLSVector<MLSMessage> — existing flow below.
+	case 1: // revoke: TLSVector<ProposalRef>
+		return false, s.processRevokeProposalsLocked(proposals[1:])
+	default:
+		s.logger.Debug("processProposalBatchLocked: unknown operation_type, ignoring",
+			"operation_type", operationType)
+
+		return false, nil
+	}
+
+	// Parse TLS vector length to get to the raw MLSMessages.
+	// Format: operation_type || TLSVector<MLSMessage>
+	payload := proposals[1:]
+	vecLen, headerSize, err := readTLSVectorLength(payload)
+	if err != nil {
+		return false, fmt.Errorf("reading proposals vector length: %w", err)
+	}
+	end := headerSize + int(vecLen)
+	if end > len(payload) {
+		return false, fmt.Errorf("%w: need %d bytes, have %d", ErrProposalsTruncated, end, len(payload))
+	}
+
+	s.logger.Debug("proposals vector parsed",
+		"vec_len", vecLen,
+		"header_size", headerSize,
+		"payload_first_32", fmt.Sprintf("%x", payload[:minInt(32, len(payload))]),
+		"vector_first_32", fmt.Sprintf("%x", payload[headerSize:minInt(headerSize+32, end)]))
+
+	remaining := payload[headerSize:end]
+	acceptedAny := false
+	for i := 0; len(remaining) > 0; i++ {
+		if len(remaining) < 4 {
+			return acceptedAny, fmt.Errorf("%w: %d bytes", ErrProposalTooShort, len(remaining))
+		}
+		wireOriginal := remaining
+		s.logger.Debug("parsing proposal",
+			"index", i,
+			"remaining_bytes", len(remaining),
+			"wire_hex", fmt.Sprintf("%x", remaining[:minInt(64, len(remaining))]))
+
+		msg, err := framing.UnmarshalMLSMessage(remaining)
+		if err != nil {
+			return acceptedAny, fmt.Errorf("parse proposal message: %w", err)
+		}
+
+		wire := msg.Marshal()
+		if len(wire) == 0 {
+			return acceptedAny, ErrEmptyProposal
+		}
+
+		allowed, err := s.proposalAllowedByDAVELocked(msg)
+		if err != nil {
+			// fail closed: if we can't inspect the proposal safely, reject it.
+			s.stats.ProposalsRejected++
+			s.logger.Warn("processProposalBatchLocked: rejecting proposal that failed inspection",
+				"error", err,
+				"index", i)
+			remaining = remaining[len(wire):]
+
+			continue
+		}
+		if !allowed {
+			s.stats.ProposalsRejected++
+			s.logger.Warn("processProposalBatchLocked: rejecting disallowed proposal sender/type",
+				"index", i)
+			remaining = remaining[len(wire):]
+
+			continue
+		}
+
+		userID, ok, err := s.addProposalUserID(msg)
+		if err != nil {
+			// This is a Proposal we couldn't parse or extract an identity from —
+			// not "not an add proposal" (that returns ok=false, err=nil below).
+			// Fail closed: identityBytesToUserID and group.UnmarshalProposal are
+			// the same trusted parsers used elsewhere in this file, so a failure
+			// here on a well-formed message is more likely a crafted edge case
+			// than a benign limitation. Reject rather than let it bypass the
+			// expected-membership check via ProcessPublicMessage.
+			s.stats.ProposalsRejected++
+			s.logger.Warn("processProposalBatchLocked: rejecting proposal that failed inspection",
+				"error", err,
+				"index", i)
+			remaining = remaining[len(wire):]
+
+			continue
+		}
+		if ok {
+			if _, exists := s.users[userID]; !exists {
+				s.stats.ProposalsRejected++
+				s.logger.Warn("processProposalBatchLocked: ignoring add proposal for unexpected user",
+					"user_id", userID,
+					"index", i)
+				remaining = remaining[len(wire):]
+
+				continue
+			}
+		}
+
+		// Use original bytes (not re-marshaled) so ProposalRef hash matches gateway's computation.
+		if err := s.mlsClient.client.ProcessPublicMessage(context.Background(), s.groupID, wireOriginal[:len(wire)]); err != nil {
+			return acceptedAny, fmt.Errorf("process proposal public message: %w", err)
+		}
+		acceptedAny = true
+		remaining = remaining[len(wire):]
+	}
+
+	s.logger.Debug("processProposalBatchLocked: all proposals processed successfully")
+
+	return acceptedAny, nil
+}
+
+func (s *Session) proposalAllowedByDAVELocked(msg *framing.MLSMessage) (bool, error) {
+	if msg == nil {
+		return false, nil
+	}
+
+	pubMsg, ok := msg.AsPublic()
+	if !ok || pubMsg == nil {
+		return false, nil
+	}
+
+	if pubMsg.Content.Sender.Type != framing.SenderTypeExternal {
+		return false, nil
+	}
+
+	if pubMsg.Content.ContentType() != framing.ContentTypeProposal {
+		return false, nil
+	}
+
+	data, ok := pubMsg.Content.ProposalData()
+	if !ok {
+		return false, nil
+	}
+
+	proposal, err := group.UnmarshalProposal(data)
+	if err != nil {
+		return false, err
+	}
+
+	switch proposal.Type {
+	case group.ProposalTypeAdd, group.ProposalTypeRemove:
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
+func (s *Session) addProposalUserID(msg *framing.MLSMessage) (godave.UserID, bool, error) {
+	if msg == nil {
+		return "", false, nil
+	}
+	pubMsg, ok := msg.AsPublic()
+	if !ok || pubMsg == nil {
+		return "", false, nil
+	}
+	data, ok := pubMsg.Content.ProposalData()
+	if !ok {
+		return "", false, nil
+	}
+	proposal, err := group.UnmarshalProposal(data)
+	if err != nil {
+		return "", false, err
+	}
+	if proposal.Type != group.ProposalTypeAdd || proposal.Add == nil || proposal.Add.KeyPackage == nil ||
+		proposal.Add.KeyPackage.LeafNode == nil || proposal.Add.KeyPackage.LeafNode.Credential == nil {
+		return "", false, nil
+	}
+
+	userID, _, err := identityBytesToUserID(proposal.Add.KeyPackage.LeafNode.Credential.Identity)
+	if err != nil {
+		return "", false, err
+	}
+
+	return userID, true, nil
+}
+
+func (s *Session) rebuildEpochStateLocked(groupID []byte) (*epochState, error) {
+	members, err := s.mlsClient.client.ListMembers(context.Background(), groupID)
+	if err != nil {
+		return nil, fmt.Errorf("list members: %w", err)
+	}
+
+	seen := make(map[godave.UserID]struct{}, len(members))
+
+	epochID, err := s.mlsClient.client.Epoch(context.Background(), groupID)
+	if err != nil {
+		return nil, fmt.Errorf("read epoch: %w", err)
+	}
+
+	state := &epochState{
+		id:      epochID,
+		groupID: append([]byte(nil), groupID...),
+		senders: make(map[godave.UserID]*senderState, len(members)),
+	}
+
+	exporter := exporterAdapter{store: s.mlsClient.store, groupID: groupID}
+	for _, member := range members {
+		memberUserID, senderID, err := identityBytesToUserID(member.Identity)
+		if err != nil {
+			return nil, fmt.Errorf("decode member identity: %w", err)
+		}
+
+		if _, dup := seen[memberUserID]; dup {
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateGroupIdentity, memberUserID)
+		}
+		seen[memberUserID] = struct{}{}
+
+		baseSecret, err := mediakeys.DeriveSenderBaseSecret(exporter, senderID)
+		if err != nil {
+			return nil, fmt.Errorf("derive sender base secret for %s: %w", memberUserID, err)
+		}
+		baseSecretPreviewLen := min(len(baseSecret), 8)
+
+		ratchet, err := mediakeys.NewKeyRatchet(baseSecret)
+		if err != nil {
+			return nil, fmt.Errorf("build ratchet for %s: %w", memberUserID, err)
+		}
+
+		generationZeroKey, err := ratchet.GetKey(0)
+		if err != nil {
+			return nil, fmt.Errorf("derive generation 0 key for %s: %w", memberUserID, err)
+		}
+		generationZeroPreviewLen := min(len(generationZeroKey), 8)
+
+		s.logger.Debug("sender key material derived",
+			"epoch_id", epochID,
+			"member_user_id", memberUserID,
+			"sender_id", senderID,
+			"base_secret_prefix", hex.EncodeToString(baseSecret[:baseSecretPreviewLen]),
+			"generation0_key_prefix", hex.EncodeToString(generationZeroKey[:generationZeroPreviewLen]),
+		)
+
+		state.senders[memberUserID] = &senderState{
+			ratchet:  ratchet,
+			expander: mediakeys.NewNonceExpander(),
+			replay:   antiReplayWindow{},
+		}
+	}
+
+	return state, nil
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+// markDegradedLocked records that the session can no longer encrypt and logs the
+// transition once. The matching "session recovered" line (markRecoveredLocked)
+// is logged when an epoch is next activated, so the pair brackets the outage in
+// the logs — useful to find exactly when and why a stuck session started failing.
+func (s *Session) markDegradedLocked(reason string, args ...any) {
+	if !s.degradedSince.IsZero() {
+		return // already degraded: don't reset the clock or repeat the log
+	}
+	s.degradedSince = time.Now()
+	s.logger.Warn("session entering degraded state", append([]any{"reason", reason}, args...)...)
+}
+
+// EpochAuthenticator returns the raw epoch authenticator for the active MLS
+// epoch (RFC 9420 §8.2, via mls-go). Returns ErrNoActiveEpoch if no epoch
+// is active or no MLS group has been established.
+func (s *Session) EpochAuthenticator(ctx context.Context) ([]byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.mlsClient == nil || len(s.groupID) == 0 {
+		return nil, ErrNoActiveEpoch
+	}
+
+	secret, err := s.mlsClient.client.EpochAuthenticator(ctx, s.groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(secret) == 0 {
+		return nil, ErrNoActiveEpoch
+	}
+
+	return secret, nil
+}
+
+// EpochAuthenticatorCode returns the epoch authenticator as a 30-digit
+// displayable code per protocol.md "Displayable Codes". Same string Discord
+// first-party clients show for out-of-band verification.
+func (s *Session) EpochAuthenticatorCode(ctx context.Context) (string, error) {
+	secret, err := s.EpochAuthenticator(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return mediakeys.DisplayableCode(secret, 30, 5)
+}
+
+// markRecoveredLocked logs the recovery and clears the degraded clock if the
+// session had been degraded; no-op otherwise.
+func (s *Session) markRecoveredLocked(epochID uint64) {
+	if s.degradedSince.IsZero() {
+		return
+	}
+	s.stats.DegradedDuration += time.Since(s.degradedSince)
+	s.logger.Info("session recovered", "degraded_for", time.Since(s.degradedSince).String(), "epoch_id", epochID)
+	s.degradedSince = time.Time{}
+}
+
+// activateSoleMemberEpochLocked transitions the bot to its own sole-member local
+// group, per the DAVE "Sole member reset" flow. When the last other member
+// leaves, the voice gateway recreates an unestablished group and sends
+// prepare_transition with transition_id 0 and no commit/welcome; the bot must
+// derive its own send ratchet from that group so it keeps encrypting alone.
+//
+// The cached external sender is reused to recreate the group when the gateway
+// did not resend it. If there is no external sender context (a protocol-version-0
+// session) this is a no-op and the session stays in passthrough. Must be called
+// with s.mu held.
+func (s *Session) activateSoleMemberEpochLocked() {
+	if len(s.groupID) == 0 {
+		if len(s.externalSenderPackage) == 0 {
+			// No E2EE context yet (e.g. protocol version 0): stay in passthrough.
+			return
+		}
+		if err := s.createGroupWithExternalSenderLocked(); err != nil {
+			s.logger.Error("sole member reset: failed to recreate local group", "error", err)
+
+			return
+		}
+	}
+
+	if s.pendingEpoch == nil {
+		epochState, err := s.rebuildEpochStateLocked(s.groupID)
+		if err != nil {
+			s.logger.Error("sole member reset: failed to build epoch", "error", err)
+
+			return
+		}
+		s.pendingEpoch = epochState
+		s.pendingGroupID = append([]byte(nil), s.groupID...)
+	}
+
+	s.activatePendingEpochLocked()
+}
+
+func (s *Session) activatePendingEpochLocked() {
+	s.logger.Debug("activatePendingEpochLocked called",
+		"pending_epoch_set", s.pendingEpoch != nil,
+		"active_epoch_set", s.activeEpoch != nil,
+		"user_id", s.userID)
+	if s.pendingEpoch == nil {
+		s.logger.Warn("no pending epoch to activate, no-op")
+
+		return
+	}
+
+	oldActive := s.activeEpoch
+	if s.activeEpoch != nil {
+		s.activeEpoch.expiresAt = time.Now().Add(epochRetention)
+		s.retainedEpoch = append(s.retainedEpoch, s.activeEpoch)
+		s.logger.Debug("activatePendingEpochLocked: retained previous active epoch", "old_epoch_id", s.activeEpoch.id)
+	}
+
+	s.activeEpoch = s.pendingEpoch
+	s.pendingEpoch = nil
+	s.groupID = append([]byte(nil), s.pendingGroupID...)
+	s.pendingGroupID = nil
+	// activatePendingEpochLocked runs from OnDaveExecuteTransition (opcode 22)
+	// — the exact moment protocol.md says "media senders begin using the
+	// new... key ratchet" immediately, with no grace period on the send side
+	// (retention there is receive-side only, see retainedSendRatchet field
+	// doc in session.go). Retaining the previous send ratchet is a deliberate
+	// extension beyond that literal text: defensive padding against
+	// execute_transition delivery jitter for receivers that were ALSO in the
+	// previous epoch.
+	//
+	// But when the new epoch ADDED a member (a join), that member was never in
+	// the previous epoch and holds none of its keys — so retaining the old send
+	// ratchet would black out their audio for the entire TTL (~10s), which is
+	// exactly the "no audio for ~10s after re-join" symptom. In that case switch
+	// atomically (spec-compliant) and reset the nonce to 0 so the new epoch's
+	// ratchet starts clean; selectSendRatchetLocked normally does that reset
+	// when the retained ratchet expires, so we must do it here when we skip
+	// retention.
+	if s.sendRatchet != nil {
+		if newEpochAddsSender(oldActive, s.activeEpoch) {
+			s.sendCounter.Reset()
+			s.retainedSendRatchet = nil
+			s.retainedSendExpiresAt = time.Time{}
+		} else {
+			s.retainedSendRatchet = s.sendRatchet
+			s.retainedSendExpiresAt = time.Now().Add(s.sendRetentionTTL)
+			s.stats.TransitionWindows++
+		}
+	}
+
+	if sender := s.activeEpoch.senders[s.userID]; sender != nil {
+		s.sendRatchet = sender.ratchet
+		s.recoveryAttempts = 0
+		s.markRecoveredLocked(s.activeEpoch.id)
+		s.signalEpochReadyLocked()
+		s.logger.Debug("epoch activated",
+			"epoch_id", s.activeEpoch.id,
+			"sender_count", len(s.activeEpoch.senders))
+	} else {
+		s.sendRatchet = nil
+		s.markDegradedLocked("epoch activated but self not in senders map",
+			"epoch_id", s.activeEpoch.id,
+			"sender_count", len(s.activeEpoch.senders))
+	}
+
+	s.pruneRetainedEpochsLocked()
+
+	// Drain queued proposal batches now that the pending epoch has been
+	// activated. Process them one at a time so that each commit can be
+	// queued again if another pending epoch accumulates mid-drain.
+	s.drainProposalQueueLocked()
+}
+
+// newEpochAddsSender reports whether newEpoch contains a member (sender) that
+// was not present in oldEpoch. When it does, retaining the previous send
+// ratchet across the transition would black out the newly-joined member's audio
+// for the full retention TTL: they were never in the old epoch, so they hold
+// none of its keys and cannot decrypt frames the bot keeps sending on the
+// retained ratchet. Treats a nil old epoch as "added" (nothing to retain for).
+func newEpochAddsSender(oldEpoch, newEpoch *epochState) bool {
+	if oldEpoch == nil || newEpoch == nil {
+		return true
+	}
+	for userID := range newEpoch.senders {
+		if _, ok := oldEpoch.senders[userID]; !ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *Session) drainProposalQueueLocked() {
+	for len(s.proposalQueue) > 0 && s.pendingEpoch == nil {
+		next := s.proposalQueue[0]
+		s.proposalQueue = s.proposalQueue[1:]
+		s.logger.Debug("draining queued proposal batch", "size", len(next), "remaining_queue", len(s.proposalQueue))
+		s.processAndCommitProposalBatchLocked(next)
+	}
+}
+
+func (s *Session) pruneRetainedEpochsLocked() {
+	now := time.Now()
+	dst := s.retainedEpoch[:0]
+	for _, epoch := range s.retainedEpoch {
+		if epoch == nil {
+			continue
+		}
+		if epoch.expiresAt.After(now) {
+			dst = append(dst, epoch)
+		}
+	}
+	s.retainedEpoch = dst
+}
+
+func (s *Session) createGroupWithExternalSenderLocked() error {
+	if len(s.groupID) > 0 {
+		return nil // group already created
+	}
+	if len(s.externalSenderPackage) == 0 {
+		return ErrNoExternalSender
+	}
+	if err := s.ensureMLSClientLocked(); err != nil {
+		return err
+	}
+
+	// DAVE: the MLS group_id must be the channel ID encoded as 8-byte big-endian uint64.
+	channelIDBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(channelIDBytes, uint64(s.channelID))
+
+	// Use the same key package that was uploaded to the gateway (op26).
+	// The commit is signed by this leaf's private key; the gateway verifies it
+	// against the KP it received via op26. Using a different KP here would make
+	// the commit signature unverifiable and the gateway would silently reject it.
+	groupID, err := s.mlsClient.client.CreateGroupWithExternalSender(
+		context.Background(),
+		channelIDBytes,
+		s.pendingKeyPackage,
+		s.externalSenderPackage,
+	)
+	if err != nil {
+		return fmt.Errorf("create mls group: %w", err)
+	}
+
+	s.groupID = append([]byte(nil), groupID...)
+	s.logger.Info("mls group created", "group_id", fmt.Sprintf("%x", s.groupID))
+
+	return nil
+}
+
+// restorePreCommitStateLocked rolls the MLS group back to the snapshot taken
+// just before the last commit. Called when Discord DS echoes a different commit
+// (i.e. another member's commit won) so that processCommitLocked can apply the
+// winning commit from the correct base epoch. Must be called with s.mu held.
+func (s *Session) restorePreCommitStateLocked() error {
+	if len(s.preCommitGroupState) == 0 {
+		return ErrNoPreCommitState
+	}
+	gid := group.NewGroupID(s.groupID)
+	if err := s.mlsClient.store.SaveGroupState(context.Background(), gid, s.preCommitGroupState); err != nil {
+		return fmt.Errorf("restore pre-commit state: %w", err)
+	}
+	s.pendingEpoch = nil
+	s.pendingGroupID = nil
+	s.pendingCommitBytes = nil
+	s.preCommitGroupState = nil
+
+	return nil
+}
+
+// invalidateAndResendKeyPackageLocked resets the local MLS state and sends a
+// new key package to the voice gateway. Called after SendInvalidCommitWelcome
+// per the DAVE protocol spec §"Recovery from Invalid Commit or Welcome":
+// the client must locally reset MLS state and generate a new key package so
+// the voice gateway can re-add the member via a fresh add proposal.
+//
+// If the re-send of the key package fails because the voice gateway is
+// transiently down ("shard is not ready"), the recovery watchdog is NOT
+// armed — re-arming it would just loop on a transport problem, and the new
+// key package cannot leave either. The cleanest path is to wait for the
+// gateway to reconnect, which triggers a fresh OnSelectProtocolAck that
+// resets the session from scratch. Must be called with s.mu held.
+func (s *Session) invalidateAndResendKeyPackageLocked() {
+	s.mlsClient = nil
+	s.groupID = nil
+	s.pendingGroupID = nil
+	s.pendingEpoch = nil
+	s.pendingCommitBytes = nil
+	s.preCommitGroupState = nil
+	s.proposalQueue = nil
+	s.pendingKeyPackage = nil
+	s.markDegradedLocked("invalid commit or welcome, MLS state reset")
+	// Fresh channel so the recovery watchdog waits for an epoch activated
+	// AFTER this invalidation, not one that was already active before.
+	s.resetEpochReadyLocked()
+	if err := s.ensurePendingKeyPackageLocked(); err != nil {
+		if isShardNotReady(err) {
+			s.stats.RecoveryAttemptsTransport++
+			s.logger.Warn(
+				"key package re-send skipped: shard not ready (transport down). "+
+					"Waiting for OnSelectProtocolAck to reset the session on reconnect.",
+				"error", err,
+			)
+			// No recovery watchdog: the gateway reconnect will deliver
+			// OnSelectProtocolAck, which clears all MLS state.
+			return
+		}
+		s.logger.Error("failed to send new key package after invalid commit/welcome", "error", err)
+	}
+	s.watchRecoveryLocked()
+}
+
+// watchRecoveryLocked supervises recovery after an MLS state invalidation.
+// The DAVE spec expects Discord to re-add us via a fresh Welcome after we
+// send a new key package; if that never happens the session is stuck without
+// an active epoch and every Encrypt fails (audio goes silent forever).
+// Retry the invalid-commit signal a bounded number of times, then surface
+// the failure. Must be called with s.mu held.
+func (s *Session) watchRecoveryLocked() {
+	if s.recoveryAttempts >= maxRecoveryAttempts {
+		s.logger.Error("session did not recover after repeated invalidations; a full voice reconnect is required",
+			"attempts", s.recoveryAttempts)
+
+		return
+	}
+	s.recoveryAttempts++
+	s.stats.RecoveryAttempts++
+
+	ready := s.epochReady
+	transitionID := s.pendingTransitionID
+	attempt := s.recoveryAttempts
+	timeout := s.recoveryTimeout
+	go func() {
+		select {
+		case <-ready:
+			// Epoch activated (or a newer invalidation took over supervision).
+			return
+		case <-s.shutdownCtx.Done():
+			// Session was discarded by the integrator (move/disconnect).
+			return
+		case <-time.After(timeout):
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.shutdownCtx.Err() != nil {
+			return
+		}
+		select {
+		case <-ready:
+			// Activated while we were acquiring the lock.
+			return
+		default:
+		}
+		s.logger.Warn("no epoch activated after invalidation, retrying recovery",
+			"attempt", attempt, "transition_id", transitionID)
+		if s.callbacks != nil {
+			_ = s.callbacks.SendInvalidCommitWelcome(transitionID)
+		}
+		s.invalidateAndResendKeyPackageLocked()
+	}()
+}
+
+func (s *Session) commitProposalsLocked() error {
+	s.logger.Debug("commitProposalsLocked: starting commit", "group_id", fmt.Sprintf("%x", s.groupID))
+
+	// Snapshot the pre-commit group state. If Discord DS accepts a competing
+	// commit instead of ours, we restore this snapshot so processCommitLocked
+	// can apply the DS-winning commit from the correct epoch.
+	gid := group.NewGroupID(s.groupID)
+	preState, err := s.mlsClient.store.LoadGroupState(context.Background(), gid)
+	if err != nil {
+		return fmt.Errorf("snapshot pre-commit state: %w", err)
+	}
+
+	// DAVE-specific GroupInfo options:
+	// - external_pub is NOT needed (DAVE doesn't use external commits)
+	// - ratchet_tree IS needed (joiners need the tree to instantiate the group)
+	commit, welcome, err := s.mlsClient.client.CommitPendingProposalsWithOptions(
+		context.Background(),
+		s.groupID,
+		mls.CommitPendingProposalsOptions{
+			GroupInfoOptions: []group.InfoOption{
+				group.WithExternalPub(false),
+			},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("commit pending proposals: %w", err)
+	}
+
+	s.logger.Debug("commitProposalsLocked: commit created", "commit_size", len(commit), "welcome_size", len(welcome))
+	s.logger.Debug("commitProposalsLocked: commit hex", "commit_hex", fmt.Sprintf("%x", commit))
+
+	// CommitPendingProposals advances the local epoch immediately (MergeCommit).
+	// Pre-populate pendingEpoch so that when op 29 arrives (gateway echoes the commit
+	// back to the committer), OnDaveMLSPrepareCommitTransition can confirm our epoch.
+	// If op 29 carries a DIFFERENT commit, restorePreCommitStateLocked() rolls back.
+	s.pendingCommitBytes = append([]byte(nil), commit...)
+	s.preCommitGroupState = preState
+
+	epochState, err := s.rebuildEpochStateLocked(s.groupID)
+	if err != nil {
+		return fmt.Errorf("rebuild epoch after commit: %w", err)
+	}
+	s.pendingEpoch = epochState
+	s.pendingGroupID = append([]byte(nil), s.groupID...)
+
+	s.logger.Debug("commitProposalsLocked: pendingEpoch set",
+		"epoch_id", epochState.id,
+		"sender_count", len(epochState.senders),
+		"has_self", func() bool {
+			_, ok := epochState.senders[s.userID]
+
+			return ok
+		}())
+
+	// DAVE opcode 28 spec v1.1.2:
+	// MLSMessage(commit) || Welcome(struct)
+	// CommitPendingProposals returns the welcome already wrapped in an MLSMessage.
+	// We MUST unwrap it so the Discord gateway can parse it properly.
+	payload := commit
+	if len(welcome) > 0 {
+		wMsg, err := framing.UnmarshalMLSMessage(welcome)
+		if err != nil {
+			return fmt.Errorf("unwrap welcome message: %w", err)
+		}
+		if wMsg.Welcome != nil {
+			payload = append(payload, wMsg.Welcome...)
+		} else {
+			return ErrExpectedWelcome
+		}
+	}
+
+	if s.callbacks == nil {
+		s.logger.Debug("commitProposalsLocked: no callbacks, skipping send")
+
+		return nil
+	}
+	s.logger.Debug("commitProposalsLocked: sending commit/welcome to gateway", "payload_size", len(payload))
+	if err := s.retrySend(func() error { return s.callbacks.SendMLSCommitWelcome(payload) }); err != nil {
+		if isShardNotReady(err) {
+			// Transport down: roll back the local commit so the in-memory MLS
+			// state stays consistent with the gateway (which never got our commit).
+			// OnSelectProtocolAck on reconnect will reset everything cleanly.
+			if rbErr := s.restorePreCommitStateLocked(); rbErr != nil {
+				s.logger.Error("commitProposalsLocked: rollback after transport failure failed", "error", rbErr)
+			}
+			s.logger.Warn(
+				"commit send skipped: shard not ready (transport down). "+
+					"Rolled back local MLS state; waiting for OnSelectProtocolAck on reconnect.",
+				"error", err,
+			)
+
+			return nil
+		}
+
+		return err
+	}
+
+	// Start a background recovery goroutine. If Discord does not confirm our
+	// commit via op:29 within the timeout, the epoch will never activate.
+	// The goroutine either exits early when epochReady is closed (normal path)
+	// or triggers InvalidCommitWelcome + MLS state reset so Discord re-adds us.
+	//
+	// Reset epochReady to a FRESH channel first: a previous activation (e.g. a
+	// sole-member reset just before this re-add) leaves epochReady closed via
+	// signalEpochReadyLocked, and without this reset the goroutine below would
+	// read that already-closed channel and return immediately — a recovery
+	// watchdog dead on arrival. The fresh channel is only closed when THIS
+	// commit's transition actually activates (activatePendingEpochLocked), so
+	// the watchdog now waits for the right event. WaitReady re-checks the real
+	// ready state after any wake, so a spurious close here is harmless to it.
+	s.resetEpochReadyLocked()
+	ready := s.epochReady
+	transitionID := s.pendingTransitionID
+	timeout := s.recoveryTimeout
+	go func() {
+		select {
+		case <-ready:
+			// Epoch activated normally — nothing to do.
+			return
+		case <-s.shutdownCtx.Done():
+			// Session was discarded by the integrator.
+			return
+		case <-time.After(timeout):
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.shutdownCtx.Err() != nil {
+			return
+		}
+		if s.pendingEpoch == nil {
+			return
+		}
+		s.logger.Warn("commit not confirmed by Discord, triggering recovery", "transition_id", transitionID)
+		if s.callbacks != nil {
+			_ = s.callbacks.SendInvalidCommitWelcome(transitionID)
+		}
+		s.invalidateAndResendKeyPackageLocked()
+	}()
+
+	return nil
+}
+
+// proposalRefSize is the length of an MLS ProposalRef (HashReference<V>) for
+// the ciphersuite DAVE requires: MLS128DHKEMP256 -> SHA-256 -> 32 bytes.
+// Confirmed against mls-go/ciphersuite/hash_ref.go + coverage_test.go:59.
+const proposalRefSize = 32
+
+// maxRevokeRefs is a defensive ceiling against corrupted gateway payloads
+// (a real revoke never carries hundreds of refs at once).
+const maxRevokeRefs = 256
+
+// processRevokeProposalsLocked handles DAVE opcode 27 with operation_type=1
+// (protocol.md:1020-1048): payload = TLSVector<ProposalRef>, each ref 32 bytes.
+// Delegates to mls.Client.RevokeProposals, which removes the proposals from
+// the local pending store and proposalByRef lookup; idempotent.
+func (s *Session) processRevokeProposalsLocked(payload []byte) error {
+	vecLen, headerSize, err := readTLSVectorLength(payload)
+	if err != nil {
+		return fmt.Errorf("reading revoke vector length: %w", err)
+	}
+	end := headerSize + int(vecLen)
+	if end > len(payload) {
+		return fmt.Errorf("%w: need %d bytes, have %d", ErrProposalsTruncated, end, len(payload))
+	}
+
+	body := payload[headerSize:end]
+	if len(body) == 0 {
+		s.logger.Debug("processRevokeProposalsLocked: revoke batch empty")
+
+		return nil
+	}
+	if len(body)%proposalRefSize != 0 {
+		return fmt.Errorf("%w: revoke body %d bytes not multiple of %d",
+			ErrProposalsTruncated, len(body), proposalRefSize)
+	}
+
+	n := len(body) / proposalRefSize
+	if n > maxRevokeRefs {
+		return fmt.Errorf("%w: %d refs exceeds %d", ErrProposalsTooMany, n, maxRevokeRefs)
+	}
+	refs := make([][]byte, 0, n)
+	for i := 0; i < len(body); i += proposalRefSize {
+		refs = append(refs, append([]byte(nil), body[i:i+proposalRefSize]...))
+	}
+	s.logger.Debug("processProposalBatchLocked: revoke",
+		"ref_count", len(refs),
+		"first_ref", fmt.Sprintf("%x", refs[0][:minInt(16, len(refs[0]))]))
+	if err := s.mlsClient.client.RevokeProposals(
+		context.Background(), s.groupID, refs,
+	); err != nil {
+		return fmt.Errorf("revoke proposals: %w", err)
+	}
+	s.logger.Debug("processProposalBatchLocked: revoke applied",
+		"ref_count", len(refs))
+
+	return nil
+}

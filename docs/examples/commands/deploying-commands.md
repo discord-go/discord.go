@@ -13,7 +13,7 @@ Command deployment is a REST operation separate from command handling. `rest.Bul
 - A bot token with access to the application.
 - A valid guild ID for development deployment.
 - `applications.commands` installed in the guild.
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 
 ## Quick Start
 

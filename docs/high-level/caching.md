@@ -15,6 +15,11 @@ such as `GuildCache`, `MemberCache`, and `MessageCache` add resource-specific
 methods. `cache.MemoryCache` implements all built-in typed interfaces and can be
 configured with TTL and maximum size options.
 
+`MemoryCache.Get` removes an expired item when that key is read. If idle expired
+entries should also be reclaimed, start a periodic loop with
+`MemoryCache.StartCleanup(ctx, interval)` and call the returned stop function
+during shutdown. The loop is optional and stops when its context is canceled.
+
 The bot performs type assertions before each typed lookup. If no cache is
 configured, or the configured implementation does not implement the requested
 typed interface, `Cached*` returns `(nil, false)`. Fetch methods always use
@@ -108,8 +113,9 @@ fetches call the typed cache setter automatically.
 ### Advanced: direct cache maintenance
 
 Use the cache interface's `Delete`, `Clear`, and typed delete methods when an
-application mutation makes a value stale. Use `MemoryCache.CleanUp` if a
-long-running process wants to remove expired entries proactively.
+application mutation makes a value stale. Use `MemoryCache.StartCleanup` if a
+long-running process wants to remove expired entries proactively without
+waiting for reads.
 
 ## Common Patterns
 

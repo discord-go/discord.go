@@ -13,7 +13,7 @@ Discord allows one initial interaction response. `InteractionContext` records wh
 - A bot token and installed application.
 - `Guilds` enabled for slash commands.
 - `GuildMessages` and the privileged `MessageContent` intent for the prefix example.
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 
 ## Quick Start
 

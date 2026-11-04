@@ -148,6 +148,11 @@ Interaction webhooks (for slash commands) are signed and should use
 The library handles Discord REST rate limits automatically with bucket hashing,
 optimistic remaining counts, and 429 retry. Applications should still:
 
+Shared-scope 429 responses are excluded from the invalid-request limit, as
+Discord specifies. Global and user-scope 429 responses continue to count toward
+that limit. The invalid-request safety counter is local to each REST client;
+separate clients or processes do not share an IP-wide counter.
+
 - Use `context.Context` with deadlines on REST calls to avoid unbounded waits.
 - Avoid tight loops that make many REST requests without delays.
 - Use bulk operations (e.g., `BulkOverwriteGlobalCommands`) instead of

@@ -6,7 +6,7 @@ Slash commands are registered on a `bot.Router` and dispatched as `*bot.Interact
 
 ## Prerequisites
 
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - `DISCORD_TOKEN` set to a bot token.
 - An installed application in a test guild.
 - `Guilds` and `GuildMessages` enabled for the source example. Slash-only applications may be able to use only `Guilds`, depending on the commands they implement.

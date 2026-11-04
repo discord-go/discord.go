@@ -22,7 +22,7 @@ resources, permissions, formatting, and lifecycle-safe workflows.
 
 ## General Prerequisites
 
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - A bot token in `DISCORD_TOKEN`.
 - A test guild and channel where the bot has only the permissions required by
   the guide.

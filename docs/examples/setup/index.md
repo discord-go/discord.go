@@ -17,7 +17,7 @@ Discord has two separate control planes. The Gateway delivers events such as `RE
 
 ## Prerequisites
 
-- A Linux, macOS, or Windows machine with Go `1.26.4` or newer.
+- A Linux, macOS, or Windows machine with Go `1.22.0` or newer.
 - A Discord account that can create an application and install it in a test guild.
 - A private test guild and a channel where the bot can send messages.
 - A shell environment where `DISCORD_TOKEN` can be set without committing it.

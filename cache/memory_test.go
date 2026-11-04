@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -36,6 +37,31 @@ func TestMemoryCache_GetSetDeleteClear(t *testing.T) {
 	c.Clear()
 	if _, ok := c.Get("test2"); ok {
 		t.Error("Expected false after Clear, got true")
+	}
+}
+
+func TestMemoryCache_StartCleanup(t *testing.T) {
+	c := NewMemoryCache(WithTTL(25 * time.Millisecond))
+	c.Set("expiring", "value")
+
+	stop, err := c.StartCleanup(context.Background(), 2*time.Millisecond)
+	if err != nil {
+		t.Fatalf("StartCleanup: %v", err)
+	}
+	time.Sleep(60 * time.Millisecond)
+	stop()
+
+	c.mu.RLock()
+	remaining := len(c.items)
+	c.mu.RUnlock()
+	if remaining != 0 {
+		t.Fatalf("cleanup left %d expired items", remaining)
+	}
+}
+
+func TestMemoryCache_StartCleanupRejectsInvalidInterval(t *testing.T) {
+	if _, err := NewMemoryCache().StartCleanup(context.Background(), 0); err == nil {
+		t.Fatal("StartCleanup accepted a zero interval")
 	}
 }
 

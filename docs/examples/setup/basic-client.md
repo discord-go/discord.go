@@ -6,7 +6,7 @@ This guide starts a complete `discord.go` bot, listens for READY, handles a dire
 
 ## Prerequisites
 
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - `DISCORD_TOKEN` containing a bot token, supplied by the environment.
 - A test guild where the bot can view channels and send messages.
 - `Guilds` and `GuildMessages` enabled for the application. `MessageContent` is also required by the prefix and direct content checks in this exact source example.

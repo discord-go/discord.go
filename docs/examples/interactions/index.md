@@ -6,7 +6,7 @@ API. They use `bot.Router` for application commands and component routes,
 
 ## Before You Start
 
-- Use Go `1.26.4` or newer, as declared by the repository `go.mod`.
+- Use Go `1.22.0` or newer, as declared by the repository `go.mod`.
 - Set `DISCORD_TOKEN` to a bot token. Do not put a token in source code.
 - Install the application in a test guild with the `applications.commands` scope.
 - Use `intents.Guilds` for the interaction-only examples. Buttons, menus, and

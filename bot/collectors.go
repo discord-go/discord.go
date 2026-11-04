@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -23,19 +24,22 @@ type MessageFilter func(*MessageContext) bool
 type ReactionFilter func(*ReactionContext) bool
 
 type interactionCollector struct {
-	filter InteractionFilter
-	result chan *InteractionContext
-	multi  bool
+	filter   InteractionFilter
+	filterMu *sync.Mutex
+	result   chan *InteractionContext
+	multi    bool
 }
 
 type messageCollector struct {
-	filter MessageFilter
-	result chan *MessageContext
+	filter   MessageFilter
+	filterMu *sync.Mutex
+	result   chan *MessageContext
 }
 
 type reactionCollector struct {
-	filter ReactionFilter
-	result chan *ReactionContext
+	filter   ReactionFilter
+	filterMu *sync.Mutex
+	result   chan *ReactionContext
 }
 
 // AwaitInteraction waits for one interaction matching filter or context
@@ -50,7 +54,7 @@ func (b *Bot) AwaitInteraction(ctx context.Context, filter InteractionFilter) (*
 	if b.interactionCollectors == nil {
 		b.interactionCollectors = make(map[uint64]interactionCollector)
 	}
-	b.interactionCollectors[id] = interactionCollector{filter: filter, result: result}
+	b.interactionCollectors[id] = interactionCollector{filter: filter, filterMu: &sync.Mutex{}, result: result}
 	b.collectorMu.Unlock()
 	defer func() {
 		b.collectorMu.Lock()
@@ -76,7 +80,7 @@ func (b *Bot) AwaitMessage(ctx context.Context, filter MessageFilter) (*MessageC
 	if b.messageCollectors == nil {
 		b.messageCollectors = make(map[uint64]messageCollector)
 	}
-	b.messageCollectors[id] = messageCollector{filter: filter, result: result}
+	b.messageCollectors[id] = messageCollector{filter: filter, filterMu: &sync.Mutex{}, result: result}
 	b.collectorMu.Unlock()
 	defer func() {
 		b.collectorMu.Lock()
@@ -93,34 +97,110 @@ func (b *Bot) AwaitMessage(ctx context.Context, filter MessageFilter) (*MessageC
 
 func (b *Bot) publishInteraction(interaction *InteractionContext) {
 	b.collectorMu.Lock()
+	type pending struct {
+		id        uint64
+		collector interactionCollector
+	}
+	pendingCollectors := make([]pending, 0, len(b.interactionCollectors))
 	for id, collector := range b.interactionCollectors {
+		pendingCollectors = append(pendingCollectors, pending{id: id, collector: collector})
+	}
+	b.collectorMu.Unlock()
+
+	for _, item := range pendingCollectors {
+		collector := item.collector
+		if collector.filterMu != nil {
+			collector.filterMu.Lock()
+		}
+		b.collectorMu.Lock()
+		_, active := b.interactionCollectors[item.id]
+		b.collectorMu.Unlock()
+		if !active {
+			if collector.filterMu != nil {
+				collector.filterMu.Unlock()
+			}
+			continue
+		}
 		if collector.filter != nil && !collector.filter(interaction) {
+			if collector.filterMu != nil {
+				collector.filterMu.Unlock()
+			}
+			continue
+		}
+		b.collectorMu.Lock()
+		current, ok := b.interactionCollectors[item.id]
+		if !ok {
+			b.collectorMu.Unlock()
+			if collector.filterMu != nil {
+				collector.filterMu.Unlock()
+			}
 			continue
 		}
 		select {
-		case collector.result <- interaction:
-			if !collector.multi {
-				delete(b.interactionCollectors, id)
+		case current.result <- interaction:
+			if !current.multi {
+				delete(b.interactionCollectors, item.id)
 			}
 		default:
 		}
+		b.collectorMu.Unlock()
+		if collector.filterMu != nil {
+			collector.filterMu.Unlock()
+		}
 	}
-	b.collectorMu.Unlock()
 }
 
 func (b *Bot) publishMessage(message *MessageContext) {
 	b.collectorMu.Lock()
+	type pending struct {
+		id        uint64
+		collector messageCollector
+	}
+	pendingCollectors := make([]pending, 0, len(b.messageCollectors))
 	for id, collector := range b.messageCollectors {
+		pendingCollectors = append(pendingCollectors, pending{id: id, collector: collector})
+	}
+	b.collectorMu.Unlock()
+
+	for _, item := range pendingCollectors {
+		collector := item.collector
+		if collector.filterMu != nil {
+			collector.filterMu.Lock()
+		}
+		b.collectorMu.Lock()
+		_, active := b.messageCollectors[item.id]
+		b.collectorMu.Unlock()
+		if !active {
+			if collector.filterMu != nil {
+				collector.filterMu.Unlock()
+			}
+			continue
+		}
 		if collector.filter != nil && !collector.filter(message) {
+			if collector.filterMu != nil {
+				collector.filterMu.Unlock()
+			}
+			continue
+		}
+		b.collectorMu.Lock()
+		current, ok := b.messageCollectors[item.id]
+		if !ok {
+			b.collectorMu.Unlock()
+			if collector.filterMu != nil {
+				collector.filterMu.Unlock()
+			}
 			continue
 		}
 		select {
-		case collector.result <- message:
-			delete(b.messageCollectors, id)
+		case current.result <- message:
+			delete(b.messageCollectors, item.id)
 		default:
 		}
+		b.collectorMu.Unlock()
+		if collector.filterMu != nil {
+			collector.filterMu.Unlock()
+		}
 	}
-	b.collectorMu.Unlock()
 }
 
 // AwaitReaction waits for one reaction matching filter or context
@@ -136,7 +216,7 @@ func (b *Bot) AwaitReaction(ctx context.Context, filter ReactionFilter) (*Reacti
 	if b.reactionCollectors == nil {
 		b.reactionCollectors = make(map[uint64]reactionCollector)
 	}
-	b.reactionCollectors[id] = reactionCollector{filter: filter, result: result}
+	b.reactionCollectors[id] = reactionCollector{filter: filter, filterMu: &sync.Mutex{}, result: result}
 	b.collectorMu.Unlock()
 	defer func() {
 		b.collectorMu.Lock()
@@ -153,17 +233,55 @@ func (b *Bot) AwaitReaction(ctx context.Context, filter ReactionFilter) (*Reacti
 
 func (b *Bot) publishReaction(reaction *ReactionContext) {
 	b.collectorMu.Lock()
+	type pending struct {
+		id        uint64
+		collector reactionCollector
+	}
+	pendingCollectors := make([]pending, 0, len(b.reactionCollectors))
 	for id, collector := range b.reactionCollectors {
+		pendingCollectors = append(pendingCollectors, pending{id: id, collector: collector})
+	}
+	b.collectorMu.Unlock()
+
+	for _, item := range pendingCollectors {
+		collector := item.collector
+		if collector.filterMu != nil {
+			collector.filterMu.Lock()
+		}
+		b.collectorMu.Lock()
+		_, active := b.reactionCollectors[item.id]
+		b.collectorMu.Unlock()
+		if !active {
+			if collector.filterMu != nil {
+				collector.filterMu.Unlock()
+			}
+			continue
+		}
 		if collector.filter != nil && !collector.filter(reaction) {
+			if collector.filterMu != nil {
+				collector.filterMu.Unlock()
+			}
+			continue
+		}
+		b.collectorMu.Lock()
+		current, ok := b.reactionCollectors[item.id]
+		if !ok {
+			b.collectorMu.Unlock()
+			if collector.filterMu != nil {
+				collector.filterMu.Unlock()
+			}
 			continue
 		}
 		select {
-		case collector.result <- reaction:
-			delete(b.reactionCollectors, id)
+		case current.result <- reaction:
+			delete(b.reactionCollectors, item.id)
 		default:
 		}
+		b.collectorMu.Unlock()
+		if collector.filterMu != nil {
+			collector.filterMu.Unlock()
+		}
 	}
-	b.collectorMu.Unlock()
 }
 
 // CollectInteractions collects multiple interactions matching filter into a
@@ -184,24 +302,29 @@ func (b *Bot) CollectInteractions(ctx context.Context, filter InteractionFilter)
 		ctx = context.Background()
 	}
 	result := make(chan *InteractionContext, 16)
+	collectorCtx, cancel := context.WithCancel(ctx)
 	id := b.subscriptions.Add(1)
 	b.collectorMu.Lock()
 	if b.interactionCollectors == nil {
 		b.interactionCollectors = make(map[uint64]interactionCollector)
 	}
-	b.interactionCollectors[id] = interactionCollector{filter: filter, result: result, multi: true}
+	b.interactionCollectors[id] = interactionCollector{filter: filter, filterMu: &sync.Mutex{}, result: result, multi: true}
 	b.collectorMu.Unlock()
 
+	var stopOnce sync.Once
 	stop := func() {
-		b.collectorMu.Lock()
-		delete(b.interactionCollectors, id)
-		b.collectorMu.Unlock()
+		stopOnce.Do(func() {
+			cancel()
+			b.collectorMu.Lock()
+			delete(b.interactionCollectors, id)
+			close(result)
+			b.collectorMu.Unlock()
+		})
 	}
 
 	go func() {
-		<-ctx.Done()
+		<-collectorCtx.Done()
 		stop()
-		close(result)
 	}()
 
 	return result, stop

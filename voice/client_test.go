@@ -23,6 +23,29 @@ type mockConn struct {
 	blockRead chan struct{}
 }
 
+type blockingVoiceConn struct {
+	closed chan struct{}
+}
+
+func (c *blockingVoiceConn) Read() ([]byte, error) {
+	<-c.closed
+	return nil, errors.New("closed")
+}
+func (c *blockingVoiceConn) ReadMessage() (int, []byte, error) {
+	data, err := c.Read()
+	return MsgTypeText, data, err
+}
+func (c *blockingVoiceConn) Write([]byte) error       { return nil }
+func (c *blockingVoiceConn) WriteBinary([]byte) error { return nil }
+func (c *blockingVoiceConn) Close() error {
+	select {
+	case <-c.closed:
+	default:
+		close(c.closed)
+	}
+	return nil
+}
+
 func (m *mockConn) Read() ([]byte, error) {
 	if m.readIdx >= len(m.readData) {
 		if m.blockRead != nil {
@@ -201,6 +224,32 @@ func TestClient_Connect_ContextCancelled(t *testing.T) {
 	}
 	if c.State != StateIdle {
 		t.Errorf("expected State %v after cancelled connect, got %v", StateIdle, c.State)
+	}
+}
+
+func TestClient_Connect_CancellationInterruptsBlockedRead(t *testing.T) {
+	conn := &blockingVoiceConn{closed: make(chan struct{})}
+	c := NewClient(conn, snowflake.ID(1), snowflake.ID(2), snowflake.ID(3))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- c.Connect(ctx) }()
+
+	select {
+	case <-time.After(20 * time.Millisecond):
+		cancel()
+	case err := <-done:
+		t.Fatalf("Connect returned before cancellation: %v", err)
+	}
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("Connect error = %v, want context.Canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Connect did not unblock after cancellation")
+	}
+	if c.State != StateIdle {
+		t.Fatalf("state = %v, want idle", c.State)
 	}
 }
 

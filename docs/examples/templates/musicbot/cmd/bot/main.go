@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/discord-go/discord.go/client"
 	"github.com/discord-go/discord.go/events"
@@ -65,7 +66,7 @@ type VoiceServerUpdate struct {
 func main() {
 	token := os.Getenv("DISCORD_TOKEN")
 	if token == "" {
-		token = "dummy-token"
+		log.Fatal("DISCORD_TOKEN environment variable is required")
 	}
 
 	bot := client.New(token, client.WithIntents(
@@ -76,6 +77,7 @@ func main() {
 	))
 
 	manager := player.NewQueueManager()
+	testGuildID, testChannelID := testVoiceTarget()
 
 	var voiceStatesMu sync.RWMutex
 	voiceStates := make(map[snowflake.ID]snowflake.ID) // userID -> channelID
@@ -93,13 +95,6 @@ func main() {
 			return
 		}
 
-		// Log all dispatches
-		if payload.Type != nil {
-			log.Printf("DEBUG: Received event %s", *payload.Type)
-		} else {
-			log.Printf("DEBUG: Received op=%d", payload.Op)
-		}
-
 		if payload.Type == nil {
 			return
 		}
@@ -112,8 +107,15 @@ func main() {
 				} `json:"user"`
 			}
 			if err := json.Unmarshal(payload.Data, &readyData); err == nil {
+				voiceSessionsMu.Lock()
 				botUserID = readyData.User.ID
-				log.Printf("DEBUG: Bot user ID = %d", botUserID)
+				voiceSessionsMu.Unlock()
+				if testGuildID != 0 {
+					manager.GetPlayer(testGuildID).ChannelID = testChannelID
+					if err := bot.Gateway.JoinVoiceChannel(testGuildID, testChannelID, false, false); err != nil {
+						log.Printf("voice test join: %v", err)
+					}
+				}
 			}
 		}
 
@@ -138,7 +140,6 @@ func main() {
 		}
 
 		if *payload.Type == "VOICE_STATE_UPDATE" {
-			log.Printf("DEBUG: VOICE_STATE_UPDATE: %s", string(payload.Data))
 			var vs VoiceState
 			if err := json.Unmarshal(payload.Data, &vs); err == nil {
 				voiceStatesMu.Lock()
@@ -159,10 +160,12 @@ func main() {
 		}
 
 		if *payload.Type == "VOICE_SERVER_UPDATE" {
-			log.Printf("DEBUG: VOICE_SERVER_UPDATE: %s", string(payload.Data))
 			var vsu VoiceServerUpdate
 			if err := json.Unmarshal(payload.Data, &vsu); err == nil {
-				go handleVoiceServerUpdate(bot, manager, vsu, botUserID, voiceSessions, &voiceSessionsMu)
+				voiceSessionsMu.RLock()
+				botID := botUserID
+				voiceSessionsMu.RUnlock()
+				go handleVoiceServerUpdate(bot, manager, vsu, botID, voiceSessions, &voiceSessionsMu, testGuildID != 0)
 			}
 			return
 		}
@@ -178,8 +181,6 @@ func main() {
 			}
 			content := strings.TrimSpace(e.Content)
 			ctx := context.Background()
-
-			log.Printf("DEBUG: Received command from %s: %q", e.Author.Username, content)
 
 			if strings.HasPrefix(content, "!play ") {
 				voiceStatesMu.RLock()
@@ -221,6 +222,7 @@ func handleVoiceServerUpdate(
 	botUserID snowflake.ID,
 	voiceSessions map[snowflake.ID]string,
 	voiceSessionsMu *sync.RWMutex,
+	voiceTest bool,
 ) {
 	p := manager.GetPlayer(vsu.GuildID)
 
@@ -239,7 +241,7 @@ func handleVoiceServerUpdate(
 		endpoint = "wss://" + endpoint + "/?v=4"
 	}
 
-	log.Printf("DEBUG: Connecting to voice endpoint: %s (session=%s, token=%s)", endpoint, sessionID, vsu.Token)
+	log.Printf("Connecting to voice endpoint %s", endpoint)
 
 	// Dial the voice WebSocket
 	wsConn, _, err := websocket.DefaultDialer.Dial(endpoint, nil)
@@ -274,6 +276,31 @@ func handleVoiceServerUpdate(
 
 	log.Printf("DEBUG: Voice connected successfully! Starting audio playback...")
 
+	if voiceTest {
+		if err := player.StreamTestTone(context.Background(), vc, 3*time.Second); err != nil {
+			log.Printf("voice test tone: %v", err)
+		} else {
+			log.Printf("voice test tone sent")
+		}
+		return
+	}
+
 	// Start playing from the queue
 	p.PlayNext(vc)
+}
+
+func testVoiceTarget() (snowflake.ID, snowflake.ID) {
+	guildRaw, channelRaw := os.Getenv("VOICE_TEST_GUILD_ID"), os.Getenv("VOICE_TEST_CHANNEL_ID")
+	if guildRaw == "" && channelRaw == "" {
+		return 0, 0
+	}
+	guildID, err := snowflake.Parse(guildRaw)
+	if err != nil {
+		log.Fatalf("invalid VOICE_TEST_GUILD_ID: %v", err)
+	}
+	channelID, err := snowflake.Parse(channelRaw)
+	if err != nil {
+		log.Fatalf("invalid VOICE_TEST_CHANNEL_ID: %v", err)
+	}
+	return guildID, channelID
 }

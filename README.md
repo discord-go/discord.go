@@ -14,8 +14,8 @@
   <a href="https://pkg.go.dev/github.com/discord-go/discord.go"><img src="https://pkg.go.dev/badge/github.com/discord-go/discord.go.svg" alt="Go Reference"></a>
   <a href="https://goreportcard.com/report/github.com/discord-go/discord.go"><img src="https://goreportcard.com/badge/github.com/discord-go/discord.go" alt="Go Report Card"></a>
   <img src="https://img.shields.io/badge/Discord%20API-v10-5865f2.svg" alt="Discord API v10">
-  <img src="https://img.shields.io/badge/Go-1.26+-00add8.svg" alt="Go Version">
-  <img src="https://img.shields.io/badge/version-v0.15.1--rumi-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Go-1.22+-00add8.svg" alt="Go Version">
+  <img src="https://img.shields.io/badge/version-v0.16.0--wid-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License">
 </p>
 
@@ -29,9 +29,11 @@
   for protocol work.
 - **Gateway v10 with sharding.** Dispatch, heartbeat, reconnect, resume,
   zlib-stream compression, multi-shard support with concurrency buckets, and
-  automatic shard count detection.
+  automatic shard count detection. `ShardManager.SetShardIDs` supports explicit
+  process ownership; coordination and recovery remain deployment concerns.
 - **Voice with DAVE.** WebSocket, UDP, RTP, AES-256-GCM transport encryption,
-  Opus frame handling, and DAVE/MLS end-to-end encryption support.
+  Opus frame handling, DAVE/MLS end-to-end encryption, and a paced Opus
+  `voiceplayer` with pause/resume controls.
 - **Components V2.** Full support for Discord's Components V2 message model
   including containers, media galleries, separators, and section components.
 - **Typed throughout.** Every REST resource, gateway event, and interaction
@@ -47,7 +49,7 @@
 go get github.com/discord-go/discord.go
 ```
 
-Requires Go 1.26 or newer. The library targets Discord API v10.
+Requires Go 1.22 or newer. The library targets Discord API v10.
 
 ## Quick Start
 

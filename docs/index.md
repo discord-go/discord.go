@@ -26,7 +26,8 @@ Discord sends Gateway events over a long-lived WebSocket and accepts resource
 operations over REST. `gateway` and `rest` are independent transport layers.
 Resource packages such as `guilds`, `channels`, `users`, and `messages` contain
 typed request and response models. `components`, `interactions`, and `voice`
-model specialized Discord protocols.
+model specialized Discord protocols; `voiceplayer` adds paced playback of
+application-supplied Opus frames.
 
 `bot.Bot` composes these pieces. Its lifecycle owns a Gateway client, its
 dispatcher creates typed contexts, and its router selects command or component
@@ -38,7 +39,7 @@ memory and persistence strategy.
 
 ### Prerequisites
 
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - A Discord application and bot token.
 - `Guilds` enabled for slash commands; add `GuildMessages` and
   `MessageContent` for prefix commands.
@@ -104,6 +105,7 @@ because global command changes can take a while to propagate.
 - Read [`high-level/interactions.md`](high-level/interactions.md) before handling buttons, menus, modals, or autocomplete.
 - Read [`low-level/rest/`](low-level/rest/README.md) when calling resource endpoints directly.
 - Read [`low-level/gateway/`](low-level/gateway/README.md) when handling raw events, reconnects, compression, or shards.
+- See [`api-coverage.md`](api-coverage.md) for the scheduled REST path inventory and its limits.
 - Use [`examples/`](examples/README.md) to copy a complete program shape, then return to the relevant API guide for production hardening.
 
 ## Common Patterns

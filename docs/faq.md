@@ -47,7 +47,7 @@ Discord API v10. The gateway URL includes `v=10` and the REST base URL is
 
 ## What Go version is required?
 
-Go 1.26 or newer, as declared in `go.mod`.
+Go 1.22 or newer, as declared in `go.mod`.
 
 ## How do I handle dynamic modal IDs?
 

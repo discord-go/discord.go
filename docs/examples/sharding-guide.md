@@ -55,7 +55,19 @@ the 1-identify-per-5-seconds limit across all shards in the same process. The
 
 ## Shard Health Monitoring
 
-Monitor per-shard health via the `ShardManager`:
+The high-level bot monitors every started shard. If a shard stops permanently,
+the bot reports the shard failure through `Wait`/`RunContext` and shuts down the
+remaining shards so the process cannot continue silently with incomplete guild
+coverage. Transient connection failures are retried by the gateway client.
+
+The low-level `ShardManager` exposes `Wait` for the same terminal-failure
+monitoring. By default, it returns when a shard exits or the supplied context
+is cancelled. Configure `SetRestartPolicy(attempts, backoff)` before `Start` to
+enable bounded manager-local reconnection attempts. With the default policy,
+call `Shutdown` after a shard failure and decide whether to restart the
+manager. This policy does not supervise or restart a process that exits.
+
+You can also monitor per-shard latency via the manager:
 
 ```go
 for i := 0; i < manager.NumShards(); i++ {

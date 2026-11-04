@@ -7,6 +7,11 @@ management, UDP transport, RTP packet handling, AES-256-GCM transport
 encryption, Opus frame sending, and DAVE/MLS end-to-end encryption. This guide
 covers the voice connection lifecycle, encryption, and audio handling.
 
+The low-level `voice.Client` sends individual Opus frames. The separate
+`voiceplayer` package adds pacing, pause/resume, stop, and playback lifecycle
+states. It accepts Opus frames from an application-provided source; it does not
+decode files or fetch media.
+
 ## Voice Connection Lifecycle
 
 Voice connections follow a two-step process:
@@ -14,6 +19,10 @@ Voice connections follow a two-step process:
 1. Send a Voice State Update via the main Gateway to join a channel.
 2. Receive `VOICE_SERVER_UPDATE` and create a `voice.Client` to connect to the
    voice WebSocket.
+
+Pass a cancellable context to `voice.Client.Connect`. Cancellation closes a
+blocked handshake WebSocket read and interrupts UDP IP discovery. Discovery
+also has a five-second timeout when the voice endpoint does not respond.
 
 ```go
 // Step 1: Join a voice channel via the main gateway
@@ -61,6 +70,31 @@ if err != nil {
 - AES-256-GCM transport encryption with the cached cipher
 - Nonce counter management
 - Packet assembly (header + ciphertext + nonce suffix)
+
+## Paced Playback
+
+Use `voiceplayer` when the application already has an Opus-frame source and
+wants 20ms pacing and playback controls:
+
+```go
+player, err := voiceplayer.New(voiceClient)
+if err != nil {
+    return err
+}
+if err := player.Play(ctx, opusSource); err != nil {
+    return err
+}
+// player.Pause(), player.Resume(), or player.Stop() control playback.
+if err := player.Wait(); err != nil {
+    return err
+}
+```
+
+`opusSource` implements `voiceplayer.Source` by returning one encoded Opus
+frame from `ReadFrame(ctx)` and closing its underlying resource in `Close()`.
+Reads must honor cancellation so `Stop` can release a blocked source. Audio
+decoding, URL downloads, playlists, and queue policy remain application or
+adapter responsibilities.
 
 For receiving audio, set the `OnAudioPacket` callback:
 

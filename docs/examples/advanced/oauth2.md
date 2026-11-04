@@ -53,7 +53,7 @@ opaque session ID in a secure cookie and keep the token record on the server.
 
 ## Prerequisites
 
-- Go `1.26.4` or a compatible newer toolchain, as declared by
+- Go `1.22.0` or a compatible newer toolchain, as declared by
   [`go.mod`](../../../go.mod).
 - A Discord application with an OAuth2 redirect URI exactly matching
   `OAUTH2_REDIRECT_URI`.

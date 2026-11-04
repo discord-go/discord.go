@@ -11,7 +11,7 @@ A discord.go application normally has a small `main` package that loads configur
 ## Prerequisites
 
 - Complete the [setup pages](../setup/README.md).
-- Use Go `1.26.4` or newer.
+- Use Go `1.22.0` or newer.
 - Have a bot token and an installed test application.
 - Know the test guild ID if using fast guild synchronization.
 

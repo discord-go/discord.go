@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"time"
 )
@@ -102,6 +104,41 @@ func (c *MemoryCache) CleanUp() {
 			delete(c.items, k)
 		}
 	}
+}
+
+// StartCleanup starts a periodic cleanup loop that removes expired entries
+// even when they are never read again. The returned stop function cancels the
+// loop and waits for it to exit. The loop also stops when ctx is canceled.
+// A non-positive interval is rejected.
+func (c *MemoryCache) StartCleanup(ctx context.Context, interval time.Duration) (stop func(), err error) {
+	if interval <= 0 {
+		return nil, errors.New("cache: cleanup interval must be positive")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	cleanupCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-cleanupCtx.Done():
+				return
+			case <-ticker.C:
+				c.CleanUp()
+			}
+		}
+	}()
+
+	var once sync.Once
+	return func() {
+		once.Do(cancel)
+		<-done
+	}, nil
 }
 
 func (c *MemoryCache) GetGuild(id string) (any, bool) { return c.Get("guild:" + id) }

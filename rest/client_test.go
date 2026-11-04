@@ -307,6 +307,78 @@ func TestRequest_429RetryCap(t *testing.T) {
 	}
 }
 
+func TestRequest_Shared429DoesNotCountAsInvalidRequest(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-RateLimit-Scope", "shared")
+		w.Header().Set("Retry-After", "0")
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"retry_after":0.001}`))
+	}))
+	defer ts.Close()
+
+	c := New("token", nil, &mockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			return http.DefaultClient.Do(req)
+		},
+	})
+	c.BaseURL = ts.URL
+	c.MaxRetries = 1
+
+	err := c.Request(context.Background(), "GET", "/test", nil, nil)
+	if err == nil {
+		t.Fatal("expected retry limit error")
+	}
+	if c.invalidIdx != 0 {
+		t.Fatalf("shared-scope 429 counted as invalid request: invalidIdx=%d", c.invalidIdx)
+	}
+}
+
+func TestRequest_InvalidRequestAccounting(t *testing.T) {
+	tests := []struct {
+		name      string
+		status    int
+		scope     string
+		wantCount int
+	}{
+		{name: "unauthorized", status: http.StatusUnauthorized, wantCount: 1},
+		{name: "forbidden", status: http.StatusForbidden, wantCount: 1},
+		{name: "429 user scope", status: http.StatusTooManyRequests, scope: "user", wantCount: 2},
+		{name: "429 global scope", status: http.StatusTooManyRequests, scope: "global", wantCount: 2},
+		{name: "429 shared scope", status: http.StatusTooManyRequests, scope: "shared", wantCount: 0},
+		{name: "success", status: http.StatusOK, wantCount: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tt.scope != "" {
+					w.Header().Set("X-RateLimit-Scope", tt.scope)
+				}
+				w.WriteHeader(tt.status)
+				if tt.status == http.StatusTooManyRequests {
+					w.Header().Set("Retry-After", "0")
+					w.Write([]byte(`{"retry_after":0.001}`))
+				} else if tt.status >= 400 {
+					w.Write([]byte(`{"message":"test error"}`))
+				}
+			}))
+			defer ts.Close()
+
+			c := New("token", nil, &mockHTTPClient{
+				DoFunc: func(req *http.Request) (*http.Response, error) {
+					return http.DefaultClient.Do(req)
+				},
+			})
+			c.BaseURL = ts.URL
+			c.MaxRetries = 1
+			_ = c.Request(context.Background(), "GET", "/test", nil, nil)
+			if c.invalidIdx != tt.wantCount {
+				t.Fatalf("invalid request count = %d, want %d", c.invalidIdx, tt.wantCount)
+			}
+		})
+	}
+}
+
 func TestClient_BucketState(t *testing.T) {
 	c := New("token", nil, nil)
 	if _, ok := c.BucketState("/test"); ok {

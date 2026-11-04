@@ -6,7 +6,7 @@ Components V2 provides typed builders for text displays, separators, sections, c
 
 ## Prerequisites
 
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - `DISCORD_TOKEN` set to a bot token.
 - A test guild and a channel where the bot can send messages.
 - `Guilds` enabled in the Portal and selected in the bot.

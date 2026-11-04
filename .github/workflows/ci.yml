@@ -11,12 +11,28 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ['1.22.0', '1.26.x']
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version: ${{ matrix.go-version }}
       - run: test -z "$(gofmt -l $(git ls-files '*.go'))"
       - run: go test ./...
       - run: go test -race ./...
+      - run: go test ./...
+        working-directory: dave-go
+      - run: go vet ./...
+        working-directory: dave-go
+      - run: go test ./...
+        working-directory: dave-go/mls-go
+      - run: go vet ./...
+        working-directory: dave-go/mls-go
+      - run: go test ./...
+        working-directory: dave-go/godave
+      - run: go vet ./...
+        working-directory: dave-go/godave
       - run: go vet ./...

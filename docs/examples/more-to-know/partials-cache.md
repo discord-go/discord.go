@@ -19,6 +19,25 @@ needed.
 5. Treat the returned object as a snapshot and invalidate or refetch after
    mutations.
 
+`MemoryCache` checks expiration during `Get`. If expired entries may never be
+read again, start a context-bound cleanup loop so they are removed from memory
+periodically:
+
+```go
+cleanupCtx, cancelCleanup := context.WithCancel(context.Background())
+stopCleanup, err := store.StartCleanup(cleanupCtx, time.Minute)
+if err != nil {
+    log.Fatal(err)
+}
+defer func() {
+    cancelCleanup()
+    stopCleanup()
+}()
+```
+
+The returned stop function waits for the loop to exit. It is safe to call it
+after the parent context has been canceled.
+
 The built-in cache implements guild, channel, user, role, message, and member
 typed interfaces. A custom cache can implement only the interfaces its
 application needs.

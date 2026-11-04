@@ -8,7 +8,7 @@ The examples are deliberately small enough to run from a checkout, but the guide
 
 ## Prerequisites
 
-- Go `1.26.4` or a compatible newer Go toolchain, as declared by [`go.mod`](../../go.mod).
+- Go `1.22.0` or a compatible newer Go toolchain, as declared by [`go.mod`](../../go.mod).
 - A Discord application with a bot user and a token. Keep the token outside source control.
 - A test guild where you can install the application and inspect commands.
 - Gateway intents enabled in the Developer Portal for the intents selected by the example.
@@ -144,7 +144,7 @@ Every guide should produce a bot that connects, reports READY, handles the docum
 
 - [`code/`](code/) contains the consolidated runnable Go examples that used to
   live in the separate root `example` and `examples` directories.
-- [`templates/`](templates/) contains larger audit and music bot templates with
+- [`templates/`](templates/) contains larger audit, music, and recorder bot templates with
   their own Go modules and dependencies.
 
 The documentation pages explain the source examples; the source trees are kept

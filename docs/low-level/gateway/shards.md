@@ -19,7 +19,12 @@ URL. `SetGatewayURL`, `SetCache`, and `SetCompression` configure all clients.
 
 `Start(ctx)` groups shards by Discord's advertised identify concurrency and
 starts each group with the package's `ShardDelay` between groups. It returns
-the first startup error. `Broadcast` sends a
+the first startup error. After startup, `Wait(ctx)` reports the first shard
+that stops unexpectedly; call `Shutdown(ctx)` to close the remaining shard
+connections. `SetShardIDs` selects which shard IDs this manager owns while
+keeping `NumShards` as the Discord-wide count. `SetRestartPolicy` enables a
+bounded local retry policy; it is disabled by default and does not restart
+processes. `Broadcast` sends a
 `GatewayPayload` to every active shard. `JoinVoiceChannel` calculates the
 target shard and forwards the voice-state update. `Shard(index)` returns nil
 for an invalid index, and `NumShards` reports the configured count.
@@ -66,6 +71,12 @@ URL. Register handlers on `manager.Dispatcher` before `Start`. On shutdown,
 cancel the parent context and call `Shutdown(ctx)` to close all shard clients
 and wait for them; the shutdown context should have a finite deadline.
 
+For a multi-process deployment, call `SetShardIDs` with a disjoint subset on
+each process and configure the same total shard count in each one. The
+application remains responsible for globally coordinating identify concurrency
+and shared storage/cache state. Manager-level restarts do not coordinate
+reassignment to another process.
+
 ## Common Patterns
 
 Share a cache only when event coverage and shard ownership are understood.
@@ -90,7 +101,8 @@ manager.
 
 The public API is `ShardManager`, `NewShardManager`, `Start`, `Shutdown`,
 `Broadcast`, `JoinVoiceChannel`, `JoinVoiceChannelContext`, `Shard`,
-`NumShards`, all configuration setters, `CalculateShardID`, `CalculateShards`,
+`NumShards`, `SetShardIDs`, `SetRestartPolicy`, other configuration setters,
+`CalculateShardID`, `CalculateShards`,
 `ShardID`, and `ShardDelay`.
 
 ## Examples

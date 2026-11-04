@@ -1,7 +1,9 @@
 package voice
 
 import (
+	"context"
 	"encoding/binary"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -64,5 +66,30 @@ func TestUDPConnection(t *testing.T) {
 	}
 	if string(resp) != string(msg) {
 		t.Errorf("Expected %s, got %s", string(msg), string(resp))
+	}
+}
+
+func TestUDPConnection_DiscoverIPContextCancellation(t *testing.T) {
+	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverConn, err := net.ListenUDP("udp", serverAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer serverConn.Close()
+
+	conn, err := NewUDPConnection("127.0.0.1", serverConn.LocalAddr().(*net.UDPAddr).Port, 1234)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	_, _, err = conn.DiscoverIPContext(ctx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("DiscoverIPContext error = %v, want context.DeadlineExceeded", err)
 	}
 }

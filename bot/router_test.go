@@ -376,3 +376,43 @@ func TestCollectInteractions(t *testing.T) {
 		}
 	}
 }
+
+func TestCollectInteractionsStopClosesChannelAndRemovesRegistration(t *testing.T) {
+	b := New("token")
+	ch, stop := b.CollectInteractions(context.Background(), nil)
+	stop()
+	stop() // stopping is idempotent
+
+	if _, open := <-ch; open {
+		t.Fatal("collector channel remained open after stop")
+	}
+	b.collectorMu.Lock()
+	remaining := len(b.interactionCollectors)
+	b.collectorMu.Unlock()
+	if remaining != 0 {
+		t.Fatalf("collector registrations after stop = %d, want 0", remaining)
+	}
+}
+
+func TestCollectInteractionsFilterCanStopCollector(t *testing.T) {
+	b := New("token")
+	var stop func()
+	ch, stop := b.CollectInteractions(context.Background(), func(*InteractionContext) bool {
+		stop()
+		return true
+	})
+	dispatched := make(chan struct{})
+	go func() {
+		b.handleRawDispatch([]byte(`{"op":0,"t":"INTERACTION_CREATE","d":{"id":"1","type":3,"data":{"custom_id":"stop-me","component_type":2}}}`))
+		close(dispatched)
+	}()
+
+	select {
+	case <-dispatched:
+	case <-time.After(time.Second):
+		t.Fatal("filter calling stop deadlocked event dispatch")
+	}
+	if _, open := <-ch; open {
+		t.Fatal("collector channel remained open after filter stopped it")
+	}
+}

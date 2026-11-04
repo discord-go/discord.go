@@ -1,6 +1,7 @@
 package voice
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -52,6 +53,15 @@ func (u *UDPConnection) Close() error {
 }
 
 func (u *UDPConnection) DiscoverIP() (string, int, error) {
+	return u.DiscoverIPContext(context.Background())
+}
+
+// DiscoverIPContext performs UDP address discovery with cancellation and a
+// bounded read deadline so an unresponsive voice endpoint cannot block forever.
+func (u *UDPConnection) DiscoverIPContext(ctx context.Context) (string, int, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	packet := make([]byte, 74)
 	binary.BigEndian.PutUint16(packet[0:2], 1)
 	binary.BigEndian.PutUint16(packet[2:4], 70)
@@ -62,7 +72,24 @@ func (u *UDPConnection) DiscoverIP() (string, int, error) {
 	}
 
 	buf := make([]byte, 74)
+	deadline := time.Now().Add(5 * time.Second)
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		deadline = ctxDeadline
+	}
+	if err := u.conn.SetReadDeadline(deadline); err != nil {
+		return "", 0, err
+	}
+	stopCancel := context.AfterFunc(ctx, func() {
+		_ = u.conn.SetReadDeadline(time.Now())
+	})
+	defer stopCancel()
 	if _, err := u.conn.Read(buf); err != nil {
+		if ctx.Err() != nil {
+			return "", 0, ctx.Err()
+		}
+		if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+			return "", 0, context.DeadlineExceeded
+		}
 		return "", 0, err
 	}
 

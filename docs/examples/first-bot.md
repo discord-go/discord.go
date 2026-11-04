@@ -7,7 +7,7 @@ By the end, you will have a running bot with slash commands.
 
 ## Prerequisites
 
-- Go 1.26 or newer.
+- Go 1.22 or newer.
 - A Discord application with a bot token (see [App Setup](setup/app-setup)).
 
 ## Step 1: Create a Project

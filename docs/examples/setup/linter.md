@@ -10,7 +10,7 @@ Formatting changes source text deterministically. `go vet` analyzes packages and
 
 ## Prerequisites
 
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - A Go module containing the bot.
 - `gofmt`, `go vet`, and `go test` available through the Go installation.
 - A token and installed application only for the final runtime check.

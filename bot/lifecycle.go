@@ -302,8 +302,11 @@ func (b *Bot) runGateway(client *gateway.Client, ctx context.Context, done chan 
 func (b *Bot) runShards(manager *gateway.ShardManager, ctx context.Context, done chan struct{}) {
 	err := manager.Start(ctx)
 	if err == nil {
-		<-ctx.Done()
-		err = manager.Shutdown(context.Background())
+		err = manager.Wait(ctx)
+	}
+	shutdownErr := manager.Shutdown(context.Background())
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		err = shutdownErr
 	}
 	if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 		b.reportError(fmt.Errorf("shards: %w", err))

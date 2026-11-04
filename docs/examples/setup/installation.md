@@ -6,11 +6,11 @@ discord.go is a Go module, so installation means creating a module, selecting a 
 
 ## Architecture
 
-The root `go.mod` declares module path `discord.go` and Go version `1.26.4`. A consumer module normally imports packages such as `discord.go/bot` and resolves them through a release or a local `replace` directive. Go records selected dependency versions in `go.mod` and checksums in `go.sum`.
+The root `go.mod` declares module path `github.com/discord-go/discord.go` and Go version `1.22.0`. A consumer module imports packages such as `github.com/discord-go/discord.go/bot` and resolves them through a release or a local `replace` directive. Go records selected dependency versions in `go.mod` and checksums in `go.sum`.
 
 ## Prerequisites
 
-- Go `1.26.4` or a compatible newer Go toolchain.
+- Go `1.22.0` or a compatible newer Go toolchain.
 - Git if installing from a checkout.
 - A bot token and installed test application for running the result.
 - Network access to download module dependencies on the first build.

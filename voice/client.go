@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/discord-go/discord.go/dave-go/godave"
+	"github.com/discord-go/discord.go/dave-go/session"
 	"github.com/discord-go/discord.go/snowflake"
-	"github.com/disgoorg/godave"
-	"github.com/thomas-vilte/dave-go/session"
 )
 
 // MsgTypeText is a text websocket message.
@@ -153,6 +153,9 @@ func NewClient(conn Connection, guildID, channelID, userID snowflake.ID) *Client
 // Connect transitions the client from Idle to Connected. It performs the
 // full voice handshake, including UDP discovery and SelectProtocol.
 func (c *Client) Connect(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	c.mu.Lock()
 	if c.State != StateIdle {
 		c.mu.Unlock()
@@ -170,9 +173,24 @@ func (c *Client) Connect(ctx context.Context) error {
 	default:
 	}
 
+	// The voice Connection interface has blocking reads but no context-aware
+	// method. Close it when the caller cancels so a handshake read is released.
+	stopCancelWatch := make(chan struct{})
+	defer close(stopCancelWatch)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = c.Conn.Close()
+		case <-stopCancelWatch:
+		}
+	}()
+
 	// Read Hello
 	p, err := c.readPayload()
 	if err != nil {
+		if ctx.Err() != nil {
+			return c.failConnect(ctx.Err())
+		}
 		return c.failConnect(err)
 	}
 	if p.Op != Hello {
@@ -220,6 +238,9 @@ func (c *Client) Connect(ctx context.Context) error {
 	for i := 0; i < 100; i++ { // safety limit
 		p, err = c.readPayload()
 		if err != nil {
+			if ctx.Err() != nil {
+				return c.failConnect(ctx.Err())
+			}
 			return c.failConnect(err)
 		}
 
@@ -371,8 +392,11 @@ func (c *Client) Connect(ctx context.Context) error {
 			c.UDP = udp
 			c.mu.Unlock()
 
-			localIP, localPort, err := udp.DiscoverIP()
+			localIP, localPort, err := udp.DiscoverIPContext(ctx)
 			if err != nil {
+				if ctx.Err() != nil {
+					return c.failConnect(ctx.Err())
+				}
 				return c.failConnect(err)
 			}
 			log.Printf("VOICE: UDP Discovery -> local %s:%d", localIP, localPort)

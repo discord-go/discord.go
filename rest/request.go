@@ -122,11 +122,15 @@ func (c *Client) requestWithDecoder(ctx context.Context, method, path string, bo
 			return err
 		}
 
-		if resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
+		// Discord excludes shared-scope 429s from the invalid-request limit.
+		// The scope is only known after parsing the response headers, so do
+		// that before recording the response.
+		info := ratelimit.ParseHeaders(resp.Header)
+		if resp.StatusCode == 401 || resp.StatusCode == 403 ||
+			(resp.StatusCode == 429 && !strings.EqualFold(info.Scope, "shared")) {
 			c.markInvalidRequest()
 		}
 
-		info := ratelimit.ParseHeaders(resp.Header)
 		c.Limiter.Update(bucket, info)
 
 		respBody, err := io.ReadAll(resp.Body)

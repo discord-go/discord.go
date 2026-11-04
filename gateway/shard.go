@@ -40,7 +40,10 @@ type ShardManager struct {
 	intents intents.Intent
 
 	numShards int
-	shards    []*shardEntry
+	// shardIDs is nil when this manager owns every shard. A non-nil slice lets
+	// a process own a selected subset while retaining the Discord-wide count.
+	shardIDs []int
+	shards   []*shardEntry
 
 	// connFactory creates a Connection for a given shard.
 	// Allows injection for testing.
@@ -53,6 +56,10 @@ type ShardManager struct {
 	// shardDelay controls the delay between shard startups.
 	// Defaults to ShardDelay; can be overridden for testing.
 	shardDelay time.Duration
+	// restartAttempts is the number of additional manager-level attempts after
+	// Client.Start exits. Zero preserves fail-fast supervision.
+	restartAttempts int
+	restartBackoff  time.Duration
 
 	// Dispatcher handles events for all shards.
 	Dispatcher *Dispatcher
@@ -175,6 +182,57 @@ func (sm *ShardManager) NumShards() int {
 	return sm.numShards
 }
 
+// SetShardIDs configures the subset of Discord shard IDs owned by this
+// manager. The configured shard count remains the total count passed to
+// NewShardManager (or discovered when it is zero). This is intended for
+// deployments that assign non-overlapping shard IDs to separate processes.
+// It must be called before Start. A nil or empty slice restores ownership of
+// every shard.
+func (sm *ShardManager) SetShardIDs(ids []int) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if len(sm.shards) > 0 {
+		return fmt.Errorf("gateway: shard ownership cannot change after Start")
+	}
+
+	seen := make(map[int]struct{}, len(ids))
+	for _, id := range ids {
+		if id < 0 {
+			return fmt.Errorf("gateway: shard ID must be non-negative: %d", id)
+		}
+		if sm.numShards > 0 && id >= sm.numShards {
+			return fmt.Errorf("gateway: shard ID %d is outside total shard count %d", id, sm.numShards)
+		}
+		if _, ok := seen[id]; ok {
+			return fmt.Errorf("gateway: duplicate shard ID %d", id)
+		}
+		seen[id] = struct{}{}
+	}
+	sm.shardIDs = append(sm.shardIDs[:0], ids...)
+	if len(sm.shardIDs) == 0 {
+		sm.shardIDs = nil
+	}
+	return nil
+}
+
+// SetRestartPolicy enables bounded manager-level restarts after a shard's
+// Client.Start exits. attempts is the number of additional connection
+// attempts; backoff is the initial delay and doubles after each failure, up
+// to 30 seconds. Passing zero attempts disables manager-level restarts.
+func (sm *ShardManager) SetRestartPolicy(attempts int, backoff time.Duration) error {
+	if attempts < 0 || backoff < 0 || (attempts > 0 && backoff == 0) {
+		return fmt.Errorf("gateway: restart attempts and backoff must be non-negative, with positive backoff when attempts are enabled")
+	}
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if len(sm.shards) > 0 {
+		return fmt.Errorf("gateway: restart policy cannot change after Start")
+	}
+	sm.restartAttempts = attempts
+	sm.restartBackoff = backoff
+	return nil
+}
+
 type SessionStartLimit struct {
 	Total          int `json:"total"`
 	Remaining      int `json:"remaining"`
@@ -235,20 +293,33 @@ func (sm *ShardManager) Start(ctx context.Context) error {
 		}
 	}
 
-	// Re-allocate shards slice if necessary
-	if cap(sm.shards) < sm.numShards {
-		sm.shards = make([]*shardEntry, 0, sm.numShards)
+	ownedShardIDs := sm.shardIDs
+	if ownedShardIDs == nil {
+		ownedShardIDs = make([]int, sm.numShards)
+		for i := range ownedShardIDs {
+			ownedShardIDs[i] = i
+		}
+	}
+	for _, shardID := range ownedShardIDs {
+		if shardID >= sm.numShards {
+			return fmt.Errorf("gateway: shard ID %d is outside total shard count %d", shardID, sm.numShards)
+		}
+	}
+
+	// Re-allocate shards slice for the locally owned shards.
+	if cap(sm.shards) < len(ownedShardIDs) {
+		sm.shards = make([]*shardEntry, 0, len(ownedShardIDs))
 	}
 
 	// Group shards into buckets. Shards in the same bucket start concurrently.
 	// Buckets start sequentially with ShardDelay between them.
 	buckets := make([][]int, 0)
-	for i := 0; i < sm.numShards; i++ {
+	for i, shardID := range ownedShardIDs {
 		bucketIdx := i / maxConcurrency
 		if bucketIdx >= len(buckets) {
 			buckets = append(buckets, []int{})
 		}
-		buckets[bucketIdx] = append(buckets[bucketIdx], i)
+		buckets[bucketIdx] = append(buckets[bucketIdx], shardID)
 	}
 
 	for b, bucket := range buckets {
@@ -282,21 +353,16 @@ func (sm *ShardManager) Start(ctx context.Context) error {
 				return fmt.Errorf("gateway: failed to create connection for shard %s: %w", shardID, err)
 			}
 
-			client := NewClient(conn, sm.Dispatcher)
-			client.Session = NewSession()
-			client.Cache = sm.cache
-			client.Compressed = sm.compressed
-			client.SetToken(sm.token)
-			client.Intents = sm.intents
-			client.Capabilities = sm.capabilities
-			client.Shard = shardID.ToIdentifyShard()
-			client.IdentifyTracker = sm.identifyTracker
-			client.ConnFactory = func(url string) (Connection, error) {
+			connect := func(url string) (Connection, error) {
 				if sm.connURLFactory != nil {
+					if url == "" {
+						url = sm.gatewayURL
+					}
 					return sm.connURLFactory(url, shardID)
 				}
 				return sm.connFactory(shardID)
 			}
+			client := sm.newShardClient(shardID, conn, connect)
 
 			shardCtx, shardCancel := context.WithCancel(ctx)
 
@@ -307,10 +373,7 @@ func (sm *ShardManager) Start(ctx context.Context) error {
 				done:   make(chan struct{}),
 			}
 
-			go func(e *shardEntry) {
-				defer close(e.done)
-				e.err = e.client.Start(shardCtx)
-			}(entry)
+			go sm.runShard(shardCtx, entry, client, connect)
 
 			sm.shards = append(sm.shards, entry)
 		}
@@ -319,22 +382,116 @@ func (sm *ShardManager) Start(ctx context.Context) error {
 	return nil
 }
 
+func (sm *ShardManager) newShardClient(id ShardID, conn Connection, connect func(string) (Connection, error)) *Client {
+	client := NewClient(conn, sm.Dispatcher)
+	client.Session = NewSession()
+	client.Cache = sm.cache
+	client.Compressed = sm.compressed
+	client.SetToken(sm.token)
+	client.Intents = sm.intents
+	client.Capabilities = sm.capabilities
+	client.Shard = id.ToIdentifyShard()
+	client.IdentifyTracker = sm.identifyTracker
+	client.ConnFactory = connect
+	return client
+}
+
+func (sm *ShardManager) runShard(ctx context.Context, entry *shardEntry, client *Client, connect func(string) (Connection, error)) {
+	defer close(entry.done)
+	var lastErr error
+	var conn Connection
+	for attempt := 0; ; attempt++ {
+		lastErr = client.Start(ctx)
+		if ctx.Err() != nil {
+			entry.err = lastErr
+			return
+		}
+		if attempt >= sm.restartAttempts {
+			entry.err = lastErr
+			return
+		}
+
+		delay := sm.restartBackoff
+		for i := 0; i < attempt && delay < 30*time.Second; i++ {
+			delay *= 2
+		}
+		if delay > 30*time.Second {
+			delay = 30 * time.Second
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			entry.err = ctx.Err()
+			return
+		case <-timer.C:
+		}
+
+		for retry := attempt + 1; ; retry++ {
+			conn, lastErr = connect("")
+			if lastErr == nil {
+				if ctx.Err() != nil {
+					entry.err = ctx.Err()
+					return
+				}
+				client = sm.newShardClient(entry.id, conn, connect)
+				sm.mu.Lock()
+				if ctx.Err() != nil {
+					sm.mu.Unlock()
+					_ = conn.Close()
+					entry.err = ctx.Err()
+					return
+				}
+				entry.client = client
+				sm.mu.Unlock()
+				break
+			}
+			if retry >= sm.restartAttempts {
+				entry.err = lastErr
+				return
+			}
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
+				entry.err = ctx.Err()
+				return
+			case <-timer.C:
+			}
+		}
+	}
+}
+
 // Shutdown gracefully stops all shards.
 func (sm *ShardManager) Shutdown(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	sm.mu.Lock()
-	defer sm.mu.Unlock()
+	entries := append([]*shardEntry(nil), sm.shards...)
+	clients := make([]*Client, 0, len(entries))
+	for _, entry := range entries {
+		entry.cancel()
+		if entry.client != nil {
+			clients = append(clients, entry.client)
+		}
+	}
+	sm.mu.Unlock()
 
 	var firstErr error
 
-	for _, entry := range sm.shards {
-		// Cancel the shard's context.
-		entry.cancel()
-
-		// Close the underlying connection to unblock Read()
-		if err := entry.client.Conn.Close(); err != nil && firstErr == nil {
+	for _, client := range clients {
+		// Close the underlying connection to unblock Read().
+		if err := client.Conn.Close(); err != nil && firstErr == nil {
 			firstErr = err
 		}
+	}
 
+	for _, entry := range entries {
 		// Wait for the shard to finish or context deadline.
 		select {
 		case <-entry.done:
@@ -345,8 +502,47 @@ func (sm *ShardManager) Shutdown(ctx context.Context) error {
 		}
 	}
 
+	sm.mu.Lock()
 	sm.shards = nil
+	sm.mu.Unlock()
 	return firstErr
+}
+
+// Wait blocks until a shard exits or ctx is cancelled. A shard exit while the
+// manager context is still active is returned as an error, even when the
+// shard's Client.Start returned nil, because the manager has lost coverage for
+// that shard. Call Shutdown after Wait returns an error or the context ends.
+func (sm *ShardManager) Wait(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	sm.mu.RLock()
+	entries := append([]*shardEntry(nil), sm.shards...)
+	sm.mu.RUnlock()
+	if len(entries) == 0 {
+		return fmt.Errorf("gateway: no shards to monitor")
+	}
+
+	for {
+		for _, entry := range entries {
+			select {
+			case <-entry.done:
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				if entry.err != nil {
+					return fmt.Errorf("gateway: shard %s stopped: %w", entry.id, entry.err)
+				}
+				return fmt.Errorf("gateway: shard %s stopped unexpectedly", entry.id)
+			default:
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(25 * time.Millisecond):
+		}
+	}
 }
 
 // Shard returns the Client for a specific shard index. Returns nil if not found.
@@ -354,10 +550,15 @@ func (sm *ShardManager) Shard(index int) *Client {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 
-	if index < 0 || index >= len(sm.shards) {
-		return nil
+	for _, shard := range sm.shards {
+		if shard.client == nil {
+			continue
+		}
+		if shard.id.ShardID == index {
+			return shard.client
+		}
 	}
-	return sm.shards[index].client
+	return nil
 }
 
 // CalculateShardID calculates the shard ID for a given guild ID and total number of shards.

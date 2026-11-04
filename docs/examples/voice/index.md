@@ -6,7 +6,7 @@ Voice has two related but separate parts in this repository. `bot.JoinVoiceChann
 
 ## Prerequisites
 
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - `DISCORD_TOKEN` set to a bot token.
 - `VOICE_GUILD_ID` and `VOICE_CHANNEL_ID` set to numeric Discord snowflake IDs.
 - The bot installed in the guild and allowed to View Channel and Connect to the voice channel.

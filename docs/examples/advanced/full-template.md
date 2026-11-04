@@ -6,7 +6,7 @@ The V2 template is a multi-file application skeleton rather than a single featur
 
 ## Prerequisites
 
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - `TOKEN` or `DISCORD_TOKEN` set to a bot token.
 - A test guild and an installed application.
 - The intents requested by the template enabled in the Portal: guilds, members, messages, reactions, direct messages, message content, and voice states.

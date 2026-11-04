@@ -11,7 +11,7 @@ The Developer Portal stores application metadata and bot configuration. Discord 
 ## Prerequisites
 
 - A Discord account allowed to create applications.
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - A shell with `DISCORD_TOKEN` available.
 - A test guild for the later [Adding Your App](adding-your-app.md) step.
 

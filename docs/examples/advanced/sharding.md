@@ -46,9 +46,30 @@ use a shard's resume URL. The low-level manager also lets an application
 inspect `ShardID`, choose a connection transport, call `Broadcast`, and route
 voice state with `JoinVoiceChannel`.
 
+## Assigning Shards to Multiple Processes
+
+`gateway.ShardManager.SetShardIDs` lets each process start only its assigned
+shard IDs while keeping the same Discord-wide shard count. Assign disjoint
+sets to processes, and pass the total count to `NewShardManager` in every
+process:
+
+```go
+manager := gateway.NewShardManager(token, 8, intents.Guilds)
+if err := manager.SetShardIDs([]int{0, 2, 4, 6}); err != nil {
+	log.Fatal(err)
+}
+```
+
+Another process can own `[1, 3, 5, 7]`. `ShardManager` does not coordinate
+process startup, Discord's identify concurrency limits, shared cache state, or
+restarts across processes. The deployment must serialize identify starts as
+required by `/gateway/bot` and ensure each shard ID has exactly one owner.
+`SetRestartPolicy` can retry a shard inside one live process; it cannot restart
+a failed process or coordinate ownership changes across replicas.
+
 ## Prerequisites
 
-- Go `1.26.4` or a compatible newer toolchain, as declared by
+- Go `1.22.0` or a compatible newer toolchain, as declared by
   [`go.mod`](../../../go.mod).
 - A Discord bot token and an application allowed to use the selected shard
   count and intents.

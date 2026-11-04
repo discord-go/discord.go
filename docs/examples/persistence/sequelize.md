@@ -59,7 +59,7 @@ correct rather than leak ORM objects into interaction handlers.
 
 ## Prerequisites
 
-- Go `1.26.4` or a compatible newer toolchain, as declared by
+- Go `1.22.0` or a compatible newer toolchain, as declared by
   [`go.mod`](../../../go.mod).
 - This repository, for `discord.go/storage` and `discord.go/bot`.
 - A Discord bot token and an application with the `Guilds` intent if running

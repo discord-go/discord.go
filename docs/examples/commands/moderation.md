@@ -8,7 +8,7 @@ This is an operational example, not a recommendation to grant broad permissions 
 
 ## Prerequisites
 
-- Go `1.26.4` or newer.
+- Go `1.22.0` or newer.
 - `DISCORD_TOKEN` set to a bot token and never committed.
 - `Guilds`, `GuildMessages`, and `GuildMembers` enabled in the Portal for the source example.
 - The bot installed with View Channel, Send Messages, and the exact moderation permissions used: Ban Members, Kick Members, and Moderate Members as applicable.
