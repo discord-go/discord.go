@@ -23,8 +23,11 @@ ECDSA point parsing. The MLS interoperability-vector suite passes under Go
 1.22. An earlier candidate HPKE dependency implemented an obsolete draft and
 failed those vectors, so it was rejected.
 
-The port has passed its DAVE and MLS package tests under Go 1.22. It still needs
-real Discord voice interoperability testing before release.
+The DAVE and MLS package tests pass under Go 1.22. Live Discord voice
+interoperability was also tested with the musicbot and recorderbot: both bots
+connected, completed DAVE setup, and joined a voice channel; audio sent by the
+musicbot was received and saved by the recorderbot as a WAV file. This verifies
+the tested connection and audio path against Discord.
 
 These modules are nested in the parent repository and currently use local
 `replace` directives. Before publishing a parent-library release, publish the
