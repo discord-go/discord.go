@@ -15,7 +15,7 @@
   <a href="https://goreportcard.com/report/github.com/discord-go/discord.go"><img src="https://goreportcard.com/badge/github.com/discord-go/discord.go" alt="Go Report Card"></a>
   <img src="https://img.shields.io/badge/Discord%20API-v10-5865f2.svg" alt="Discord API v10">
   <img src="https://img.shields.io/badge/Go-1.22+-00add8.svg" alt="Go Version">
-  <img src="https://img.shields.io/badge/version-v0.16.0--wid-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-v0.16.1--wid-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License">
 </p>
 

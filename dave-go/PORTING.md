@@ -29,10 +29,12 @@ connected, completed DAVE setup, and joined a voice channel; audio sent by the
 musicbot was received and saved by the recorderbot as a WAV file. This verifies
 the tested connection and audio path against Discord.
 
-These modules are nested in the parent repository and currently use local
-`replace` directives. Before publishing a parent-library release, publish the
-nested modules with repository-prefixed tags such as `dave-go/v0.1.0`,
-`dave-go/mls-go/v0.1.0`, and `dave-go/godave/v0.1.0`.
+These modules are nested in the parent repository and use local `replace`
+directives for in-repository development. The corresponding module versions
+are published as `dave-go/v0.1.0`, `dave-go/mls-go/v0.1.0`, and
+`dave-go/godave/v0.1.0`. A clean consumer module fetched the released parent
+module and all three nested modules, then compiled the voice package with Go
+1.22.0.
 
 ## References
 
