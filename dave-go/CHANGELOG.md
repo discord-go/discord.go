@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 
+## [v0.2.1] - 2026-11-19
+
+### Changed
+
+- Removed local `replace` directives from the published module. Local
+  development uses the repository's `go.work` workspace instead; consumers
+  resolve `godave v0.2.0` and `mls-go v0.2.0` from their published tags.
+
 ## [v0.2.0] - 2026-11-19
 
 This is the discord.go Go 1.22 port baseline. It includes local protocol and
