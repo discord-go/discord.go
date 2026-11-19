@@ -1,0 +1,11 @@
+go 1.22.0
+
+use (
+	.
+	./dave-go
+	./dave-go/godave
+	./dave-go/mls-go
+	./docs/examples/templates/auditbot
+	./docs/examples/templates/musicbot
+	./docs/examples/templates/recorderbot
+)

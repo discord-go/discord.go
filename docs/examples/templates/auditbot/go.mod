@@ -2,18 +2,10 @@ module auditbot
 
 go 1.22.0
 
-replace github.com/discord-go/discord.go => ../../../..
-
-replace github.com/discord-go/discord.go/dave-go => ../../../../dave-go
-
-replace github.com/discord-go/discord.go/dave-go/godave => ../../../../dave-go/godave
-
-replace github.com/discord-go/discord.go/dave-go/mls-go => ../../../../dave-go/mls-go
-
-require github.com/discord-go/discord.go v0.0.0-00010101000000-000000000000
+require github.com/discord-go/discord.go v0.17.0-left
 
 require (
-	github.com/discord-go/discord.go/dave-go v0.2.0 // indirect
+	github.com/discord-go/discord.go/dave-go v0.2.1 // indirect
 	github.com/discord-go/discord.go/dave-go/godave v0.2.0 // indirect
 	github.com/discord-go/discord.go/dave-go/mls-go v0.2.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

@@ -3,6 +3,28 @@
 All notable changes to discord.go are documented here. The format follows
 Keep a Changelog, and versions use the repository's `vX.Y.Z-<codename>` tags.
 
+## [v0.17.1-left] - 2026-11-19
+
+[v0.17.1-left]: https://github.com/discord-go/discord.go/compare/v0.17.0-left...v0.17.1-left
+
+This release removes the local `replace` directives from the published module
+metadata and moves local multi-module development to a `go.work` workspace.
+
+### Changed
+
+- The root `go.mod` and `dave-go/go.mod` no longer contain `replace`
+  directives. Local builds use `go.work`; consumers resolve the published
+  `dave-go v0.2.1`, `dave-go/godave v0.2.0`, and `dave-go/mls-go v0.2.0`
+  modules.
+- `dave-go` is now `v0.2.1`; its only change is the cleaned `go.mod`/`go.sum`.
+- The template `go.mod` files keep their local replaces because they are
+  standalone example modules, not published modules.
+
+### Fixed
+
+- The VitePress documentation build no longer reports dead links for the
+  template directories; the template index links to the GitHub directories.
+
 ## [v0.17.0-left] - 2026-11-19
 
 [v0.17.0-left]: https://github.com/discord-go/discord.go/compare/v0.16.1-wid...v0.17.0-left
