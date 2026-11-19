@@ -3,8 +3,8 @@ module github.com/discord-go/discord.go/dave-go
 go 1.22
 
 require (
-	github.com/discord-go/discord.go/dave-go/godave v0.1.0
-	github.com/discord-go/discord.go/dave-go/mls-go v0.1.0
+	github.com/discord-go/discord.go/dave-go/godave v0.2.0
+	github.com/discord-go/discord.go/dave-go/mls-go v0.2.0
 )
 
 require (

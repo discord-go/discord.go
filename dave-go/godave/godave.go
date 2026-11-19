@@ -84,7 +84,7 @@ type Session interface {
 	OnDavePrepareTransition(transitionID uint16, protocolVersion uint16)
 
 	// OnDaveExecuteTransition is to be called when DAVE_PROTOCOL_EXECUTE_TRANSITION (22) is received.
-	OnDaveExecuteTransition(protocolVersion uint16)
+	OnDaveExecuteTransition(transitionID uint16)
 
 	// OnDavePrepareEpoch is to be called when DAVE_PROTOCOL_PREPARE_EPOCH (24) is received.
 	OnDavePrepareEpoch(epoch int, protocolVersion uint16)

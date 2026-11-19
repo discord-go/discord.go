@@ -46,11 +46,13 @@ func HandlePlay(ctx context.Context, bot *client.Client, e *events.MessageCreate
 	p.Enqueue(track)
 	reply(ctx, bot, e, fmt.Sprintf("✅ Added to queue: **%s**", title))
 
-	if !p.Playing {
-		if p.VoiceClient != nil {
+	playing, vc := p.Playback()
+	if !playing {
+		if vc != nil {
 			log.Printf("DEBUG: Already connected, starting playback on existing VoiceClient")
-			p.PlayNext(p.VoiceClient)
+			p.PlayNext(vc)
 		} else {
+			p.SetChannelID(vcID)
 			log.Printf("DEBUG: Joining voice channel GuildID=%d, ChannelID=%d", e.GuildID, vcID)
 			err := bot.Gateway.JoinVoiceChannel(e.GuildID, vcID, false, false)
 			if err != nil {

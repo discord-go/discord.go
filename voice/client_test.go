@@ -2,14 +2,66 @@ package voice
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"encoding/json"
 	"errors"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/discord-go/discord.go/dave-go/godave"
 	"github.com/discord-go/discord.go/snowflake"
 )
+
+type transitionSession struct {
+	godave.Session
+	id uint16
+}
+
+type invalidEncryptSession struct{ godave.Session }
+
+func (*invalidEncryptSession) Ready() bool                                 { return true }
+func (*invalidEncryptSession) MaxEncryptedFrameSize(int) int               { return 32 }
+func (*invalidEncryptSession) Encrypt(uint32, []byte, []byte) (int, error) { return 0, nil }
+
+func TestSendOpusRejectsEmptyDAVEOutput(t *testing.T) {
+	block, err := aes.NewCipher(make([]byte, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := NewClient(&mockConn{}, 1, 2, 3)
+	client.UDP, err = NewUDPConnection("127.0.0.1", 12345, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.UDP.Close()
+	client.aead = aead
+	client.DaveSession = &invalidEncryptSession{}
+	if err := client.SendOpus([]byte{1, 2, 3}); err == nil {
+		t.Fatal("empty DAVE output must not be sent as plaintext")
+	}
+}
+
+func (s *transitionSession) OnDaveExecuteTransition(id uint16) { s.id = id }
+
+func TestDaveReadLoopPassesTransitionID(t *testing.T) {
+	conn := &mockConn{readData: [][]byte{buildPayload(DaveExecuteTransition, map[string]any{
+		"transition_id":    42,
+		"protocol_version": 1,
+	})}}
+	session := &transitionSession{}
+	client := NewClient(conn, 1, 2, 3)
+	client.DaveSession = session
+	client.daveReadLoop()
+	if session.id != 42 {
+		t.Fatalf("execute transition ID = %d, want 42", session.id)
+	}
+}
 
 type mockConn struct {
 	readData [][]byte
@@ -158,25 +210,32 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
-func TestClient_Connect(t *testing.T) {
+func TestClient_ConnectNegotiatedVersionZero(t *testing.T) {
 	ip, port, cleanup := startLocalUDPServer(t)
 	defer cleanup()
 
 	conn := &mockConn{
 		readData: [][]byte{
 			buildPayload(Hello, HelloData{HeartbeatInterval: 1000}),
-			buildPayload(Ready, ReadyData{IP: ip, Port: port, SSRC: 1234}),
+			buildPayload(Ready, ReadyData{IP: ip, Port: port, SSRC: 1234, Modes: []string{"aead_aes256_gcm_rtpsize"}}),
 			buildPayload(SessionDescription, SessionDescriptionData{SecretKey: make([]byte, 32)}),
 		},
 		blockRead: make(chan struct{}),
 	}
 	defer close(conn.blockRead)
 	c := NewClient(conn, snowflake.ID(1), snowflake.ID(2), snowflake.ID(3))
-	c.Token = "test-bypass"
+	c.Token = "test-negotiated-version-zero"
 
 	err := c.Connect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if shouldHoldDAVEFrames(c.DaveSession) {
+		t.Fatal("negotiated version zero must not wait for an MLS epoch")
+	}
+	if err := c.SendOpus([]byte{0xf8, 0xff, 0xfe}); err != nil {
+		t.Fatalf("send on version zero: %v", err)
 	}
 
 	if c.State != StateConnected {

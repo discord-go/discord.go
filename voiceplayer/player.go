@@ -1,6 +1,11 @@
 // Package voiceplayer provides paced playback of Opus frames over a connected
 // Discord voice client. It intentionally leaves decoding and media acquisition
 // to the application.
+//
+// A Source returns one Opus packet at a time. The musicbot template in
+// docs/examples/templates/musicbot contains a complete FFmpeg/local-file
+// adapter and a per-guild queue. Both live outside this package so the core
+// player stays free of CGO and media dependencies.
 package voiceplayer
 
 import (

@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
-	"log/slog"
 	"strconv"
 	"time"
 
@@ -61,12 +59,6 @@ func (e exporterAdapter) Export(label string, ctx []byte, length int) ([]byte, e
 		return nil, ErrExporterSecretUnavailable
 	}
 
-	exporterSecretPrefixLen := 8
-	exporterSecretBytes := groupState.EpochSecrets().ExporterSecret.AsSlice()
-	if len(exporterSecretBytes) < exporterSecretPrefixLen {
-		exporterSecretPrefixLen = len(exporterSecretBytes)
-	}
-
 	discordExport, err := mediakeys.ExportWithMLSExporterSecret(
 		groupState.EpochSecrets().ExporterSecret,
 		groupState.CipherSuite(),
@@ -75,16 +67,6 @@ func (e exporterAdapter) Export(label string, ctx []byte, length int) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-
-	exportPrefixLen := min(len(discordExport), 8)
-
-	slog.Default().Debug("exporter derivation",
-		"group_id", fmt.Sprintf("%x", e.groupID),
-		"label", label,
-		"context_prefix", hex.EncodeToString(ctx[:minInt(len(ctx), 8)]),
-		"exporter_secret_prefix", hex.EncodeToString(exporterSecretBytes[:exporterSecretPrefixLen]),
-		"export_prefix", hex.EncodeToString(discordExport[:exportPrefixLen]),
-	)
 
 	return discordExport, nil
 }
@@ -588,25 +570,14 @@ func (s *Session) rebuildEpochStateLocked(groupID []byte) (*epochState, error) {
 		if err != nil {
 			return nil, fmt.Errorf("derive sender base secret for %s: %w", memberUserID, err)
 		}
-		baseSecretPreviewLen := min(len(baseSecret), 8)
-
 		ratchet, err := mediakeys.NewKeyRatchet(baseSecret)
 		if err != nil {
 			return nil, fmt.Errorf("build ratchet for %s: %w", memberUserID, err)
 		}
 
-		generationZeroKey, err := ratchet.GetKey(0)
-		if err != nil {
-			return nil, fmt.Errorf("derive generation 0 key for %s: %w", memberUserID, err)
-		}
-		generationZeroPreviewLen := min(len(generationZeroKey), 8)
-
 		s.logger.Debug("sender key material derived",
 			"epoch_id", epochID,
 			"member_user_id", memberUserID,
-			"sender_id", senderID,
-			"base_secret_prefix", hex.EncodeToString(baseSecret[:baseSecretPreviewLen]),
-			"generation0_key_prefix", hex.EncodeToString(generationZeroKey[:generationZeroPreviewLen]),
 		)
 
 		state.senders[memberUserID] = &senderState{
@@ -732,7 +703,6 @@ func (s *Session) activatePendingEpochLocked() {
 		return
 	}
 
-	oldActive := s.activeEpoch
 	if s.activeEpoch != nil {
 		s.activeEpoch.expiresAt = time.Now().Add(epochRetention)
 		s.retainedEpoch = append(s.retainedEpoch, s.activeEpoch)
@@ -743,34 +713,13 @@ func (s *Session) activatePendingEpochLocked() {
 	s.pendingEpoch = nil
 	s.groupID = append([]byte(nil), s.pendingGroupID...)
 	s.pendingGroupID = nil
-	// activatePendingEpochLocked runs from OnDaveExecuteTransition (opcode 22)
-	// — the exact moment protocol.md says "media senders begin using the
-	// new... key ratchet" immediately, with no grace period on the send side
-	// (retention there is receive-side only, see retainedSendRatchet field
-	// doc in session.go). Retaining the previous send ratchet is a deliberate
-	// extension beyond that literal text: defensive padding against
-	// execute_transition delivery jitter for receivers that were ALSO in the
-	// previous epoch.
-	//
-	// But when the new epoch ADDED a member (a join), that member was never in
-	// the previous epoch and holds none of its keys — so retaining the old send
-	// ratchet would black out their audio for the entire TTL (~10s), which is
-	// exactly the "no audio for ~10s after re-join" symptom. In that case switch
-	// atomically (spec-compliant) and reset the nonce to 0 so the new epoch's
-	// ratchet starts clean; selectSendRatchetLocked normally does that reset
-	// when the retained ratchet expires, so we must do it here when we skip
-	// retention.
-	if s.sendRatchet != nil {
-		if newEpochAddsSender(oldActive, s.activeEpoch) {
-			s.sendCounter.Reset()
-			s.retainedSendRatchet = nil
-			s.retainedSendExpiresAt = time.Time{}
-		} else {
-			s.retainedSendRatchet = s.sendRatchet
-			s.retainedSendExpiresAt = time.Now().Add(s.sendRetentionTTL)
-			s.stats.TransitionWindows++
-		}
-	}
+	// Executing a transition switches senders to the new epoch immediately.
+	// Retaining the old send key after a removal would allow a former member
+	// to decrypt newly sent media. Receive epochs are retained separately for
+	// in-flight packets.
+	s.retainedSendRatchet = nil
+	s.retainedSendExpiresAt = time.Time{}
+	s.sendCounter.Reset()
 
 	if sender := s.activeEpoch.senders[s.userID]; sender != nil {
 		s.sendRatchet = sender.ratchet
@@ -793,25 +742,6 @@ func (s *Session) activatePendingEpochLocked() {
 	// activated. Process them one at a time so that each commit can be
 	// queued again if another pending epoch accumulates mid-drain.
 	s.drainProposalQueueLocked()
-}
-
-// newEpochAddsSender reports whether newEpoch contains a member (sender) that
-// was not present in oldEpoch. When it does, retaining the previous send
-// ratchet across the transition would black out the newly-joined member's audio
-// for the full retention TTL: they were never in the old epoch, so they hold
-// none of its keys and cannot decrypt frames the bot keeps sending on the
-// retained ratchet. Treats a nil old epoch as "added" (nothing to retain for).
-func newEpochAddsSender(oldEpoch, newEpoch *epochState) bool {
-	if oldEpoch == nil || newEpoch == nil {
-		return true
-	}
-	for userID := range newEpoch.senders {
-		if _, ok := oldEpoch.senders[userID]; !ok {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (s *Session) drainProposalQueueLocked() {

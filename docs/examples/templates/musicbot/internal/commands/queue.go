@@ -14,7 +14,7 @@ import (
 
 // HandleQueue handles the !queue command.
 func HandleQueue(ctx context.Context, bot *client.Client, e *events.MessageCreate, manager *player.QueueManager) {
-	p := manager.GetPlayer(e.ChannelID)
+	p := manager.GetPlayer(e.GuildID)
 	q := p.GetQueue()
 
 	if len(q) == 0 {

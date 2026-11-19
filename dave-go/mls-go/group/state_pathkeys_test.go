@@ -30,6 +30,11 @@ func TestStateSerialization_PreservesPathNodePrivKeys(t *testing.T) {
 	if _, err := aliceGroup.AddMember(charlieKP); err != nil {
 		t.Fatalf("AddMember: %v", err)
 	}
+	// An add-only commit omits the UpdatePath (libdave force_path=false), so
+	// add a self-update to force a path and exercise pathNodePrivKeys.
+	if _, err := aliceGroup.SelfUpdate(aliceSigPriv); err != nil {
+		t.Fatalf("SelfUpdate: %v", err)
+	}
 	stagedCommit, err := aliceGroup.Commit(aliceSigPriv, aliceSigPub, nil)
 	if err != nil {
 		t.Fatalf("Commit: %v", err)

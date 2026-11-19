@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/discord-go/discord.go/dave-go/godave"
-	"github.com/discord-go/discord.go/dave-go/mediakeys"
 )
 
 // TestStats_DecryptFailuresCounted covers the Decrypt error paths that must
@@ -45,78 +44,6 @@ func TestStats_DecryptFailuresCounted(t *testing.T) {
 	}
 	if got := s.Stats().DecryptFailures; got != 2 {
 		t.Fatalf("DecryptFailures after unknown-sender frame = %d, want 2", got)
-	}
-}
-
-// TestStats_TransitionWindowsIncremented covers that entering the retention
-// window (activating a new epoch while a previous sendRatchet is set)
-// increments TransitionWindows, without touching TransitionFrames.
-func TestStats_TransitionWindowsIncremented(t *testing.T) {
-	cb := &kpCapturingCallbacks{}
-	s := New("123456789", cb)
-	s.sendRetentionTTL = 50 * time.Millisecond
-
-	// Simulate an "old" ratchet that gets retained when the new epoch activates.
-	oldRatchet, err := mediakeys.NewKeyRatchet(make([]byte, mediakeys.BaseSecretLen))
-	if err != nil {
-		t.Fatalf("NewKeyRatchet: %v", err)
-	}
-	newRatchet, err := mediakeys.NewKeyRatchet(make([]byte, mediakeys.BaseSecretLen))
-	if err != nil {
-		t.Fatalf("NewKeyRatchet (new): %v", err)
-	}
-
-	s.mu.Lock()
-	s.sendRatchet = oldRatchet
-	// A same-membership transition (re-key) — the only case that retains the
-	// send ratchet. A join would skip retention (the new member holds no
-	// old-epoch keys); see newEpochAddsSender.
-	s.activeEpoch = &epochState{
-		id:      6,
-		senders: map[godave.UserID]*senderState{"123456789": {ratchet: oldRatchet}},
-	}
-	s.pendingEpoch = &epochState{
-		id:      7,
-		groupID: []byte("g"),
-		senders: map[godave.UserID]*senderState{"123456789": {ratchet: newRatchet}},
-	}
-	s.mu.Unlock()
-
-	// Activate. Must: (a) retain oldRatchet, (b) increment TransitionWindows.
-	s.mu.Lock()
-	s.activatePendingEpochLocked()
-	got := s.stats.TransitionWindows
-	s.mu.Unlock()
-	if got != 1 {
-		t.Fatalf("TransitionWindows = %d after first activate, want 1", got)
-	}
-	if s.retainedSendRatchet != oldRatchet {
-		t.Fatalf("retainedSendRatchet not set to oldRatchet")
-	}
-
-	// Wait for the retention to expire. selectSendRatchetLocked must reset it.
-	time.Sleep(80 * time.Millisecond)
-	s.mu.RLock()
-	_ = s.selectSendRatchetLocked()
-	s.mu.RUnlock()
-
-	// Activate again with a fresh ratchet: must enter another window.
-	secondRatchet, _ := mediakeys.NewKeyRatchet(make([]byte, mediakeys.BaseSecretLen))
-	s.mu.Lock()
-	s.sendRatchet = secondRatchet
-	s.pendingEpoch = &epochState{
-		id:      8,
-		groupID: []byte("g2"),
-		senders: map[godave.UserID]*senderState{"123456789": {ratchet: newRatchet}},
-	}
-	s.mu.Unlock()
-
-	s.mu.Lock()
-	s.activatePendingEpochLocked()
-	got = s.stats.TransitionWindows
-	s.mu.Unlock()
-	if got != 2 {
-		t.Fatalf("TransitionWindows = %d after second activate, want 2", got)
 	}
 }
 

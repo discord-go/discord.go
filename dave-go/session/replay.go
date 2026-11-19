@@ -6,7 +6,8 @@ import "fmt"
 // It tracks the highest nonce seen and a bitmap of the last 64 nonces
 // relative to it. Frames with nonces within the window that have already
 // been seen are rejected. Frames outside the window (older than 64 nonces
-// below highest) are accepted — they're protected by key expiration.
+// below highest) are rejected because they can no longer be distinguished
+// from packets that were already received.
 //
 // NOT safe for concurrent use. The caller (session.Decrypt) must
 // synchronize externally.
@@ -47,7 +48,7 @@ func (w *antiReplayWindow) checkAndMark(nonce uint64) bool {
 	// nonce < w.highest
 	delta := w.highest - nonce
 	if delta >= 64 {
-		return true // outside window, accept (protect by key expiration)
+		return false // too old to prove that this packet is new
 	}
 
 	bit := uint64(1) << delta

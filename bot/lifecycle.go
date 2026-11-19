@@ -88,6 +88,10 @@ func (b *Bot) Start(ctx context.Context) error {
 	var manager *gateway.ShardManager
 	if b.sharded {
 		manager = gateway.NewShardManager(b.token, b.shardCount, b.intentsVal)
+		if err := manager.SetShardIDs(b.shardIDs); err != nil {
+			b.setStopped(err)
+			return err
+		}
 		manager.Dispatcher = dispatcher
 		manager.SetCache(b.cacheStore)
 		manager.SetGatewayURL(gatewayURL)

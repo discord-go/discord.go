@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 
+## [v0.2.0] - 2026-11-19
+
+This is the discord.go Go 1.22 port baseline. It includes local protocol and
+reliability fixes on top of the upstream comparison points recorded in
+`PORTING.md`.
+
+### Fixed
+
+- Add-only MLS commits omit the `UpdatePath`, matching libdave/mlspp's
+  `force_path=false`. This keeps the op 28 commit+welcome payload under the
+  voice gateway limit and fixes the leave/rejoin silence. Remove, Update, and
+  empty commits still include the path.
+- `OnDaveExecuteTransition` receives the transition ID instead of the protocol
+  version.
+- Retained receive epochs are pruned during decrypt, and a pending local commit
+  is distinguished from a peer epoch before rollback.
+- The anti-replay window rejects nonces too old to prove they are new.
+
+### Added
+
+- Regression tests for repeated member rejoin, pending-epoch commits, retained
+  epoch expiry, and confirmation-tag error redaction.
+
 ## [v0.5.1] - 2026-07-15
 
 [v0.5.1]: https://github.com/thomas-vilte/dave-go/compare/v0.5.0...v0.5.1

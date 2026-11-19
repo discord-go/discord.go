@@ -58,29 +58,9 @@ type Session struct {
 	sendCounter *mediakeys.NonceCounter
 	sendRatchet *mediakeys.KeyRatchet
 
-	// retainedSendRatchet holds the previous sendRatchet across an epoch
-	// transition so the sender keeps producing frames the receiver can still
-	// decrypt for up to sendRetentionTTL after the new epoch activates.
-	//
-	// NOTE: this is a deliberate extension beyond the literal protocol text,
-	// not a spec requirement. protocol.md only mandates retention on the
-	// RECEIVE side ("Media receivers temporarily retain the sender key
-	// ratchets for previous epochs... up to ten seconds") and is explicit
-	// that the SEND side switches atomically: "Upon receipt of [execute_
-	// transition], media senders begin using the new... key ratchet" and
-	// "media senders will continue to use key ratchets from the previous
-	// epoch UNTIL the transition is executed" (i.e. not after). By spec
-	// design every member should already have the new receive ratchet
-	// derived (right after processing the commit, before ready_for_
-	// transition is even sent) before any sender could use it, so this
-	// padding exists purely as defense against real-world delivery jitter
-	// on execute_transition across members, not because the protocol asks
-	// for it.
-	//
-	// Cleared lazily by selectSendRatchetLocked when the TTL elapses; that
-	// call also resets sendCounter so the new ratchet starts from nonce 0
-	// per spec ("When a key ratchet is generated for a new epoch, the
-	// sender resets their nonce to 0").
+	// retainedSendRatchet can hold the previous key while preparing a new
+	// connection or epoch. Executing a transition clears it immediately;
+	// retaining old keys for receiving in-flight frames is handled separately.
 	retainedSendRatchet   *mediakeys.KeyRatchet
 	retainedSendExpiresAt time.Time
 	sendRetentionTTL      time.Duration
@@ -461,6 +441,7 @@ func (s *Session) Decrypt(userID godave.UserID, frameData []byte, decryptedFrame
 		return 0, err
 	}
 
+	s.pruneRetainedEpochsLocked()
 	candidates := make([]*epochState, 0, 2+len(s.retainedEpoch))
 	if s.activeEpoch != nil {
 		candidates = append(candidates, s.activeEpoch)
@@ -778,7 +759,7 @@ func (s *Session) processAndCommitProposalBatchLocked(proposals []byte) {
 // transition must be aborted because the state restore or the commit processing
 // failed. Must be called with s.mu held.
 func (s *Session) reconcileCompetingCommitLocked(transitionID uint16, commitMessage []byte) bool {
-	if s.pendingEpoch != nil {
+	if len(s.pendingCommitBytes) > 0 {
 		// Our commit lost; restore pre-commit state before processing the winner.
 		s.logger.Debug("OnDaveMLSPrepareCommitTransition: competing commit won, rolling back",
 			"transition_id", transitionID,
@@ -867,7 +848,7 @@ func (s *Session) OnDaveMLSWelcome(transitionID uint16, welcomeMessage []byte) {
 	// arriving means Discord DS chose another member's commit over ours — our
 	// commit was rejected. Roll back our local state to the pre-commit snapshot
 	// so that joinPendingWelcomeLocked operates from the correct epoch.
-	if s.pendingEpoch != nil {
+	if len(s.pendingCommitBytes) > 0 {
 		s.logger.Debug("OnDaveMLSWelcome: our commit was rejected by DS (Welcome received), rolling back",
 			"transition_id", transitionID)
 		if err := s.restorePreCommitStateLocked(); err != nil {

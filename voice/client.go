@@ -99,8 +99,9 @@ type SelectProtocolInfo struct {
 }
 
 type SessionDescriptionData struct {
-	Mode      string `json:"mode"`
-	SecretKey []byte `json:"secret_key"`
+	Mode                string `json:"mode"`
+	SecretKey           []byte `json:"secret_key"`
+	DaveProtocolVersion uint16 `json:"dave_protocol_version"`
 }
 
 // Client manages the lifecycle of a Discord voice connection.
@@ -229,10 +230,11 @@ func (c *Client) Connect(ctx context.Context) error {
 	// Read messages in a loop - we may get Ready, SessionDescription,
 	// or DAVE opcodes in any order.
 	var (
-		gotReady   bool
-		gotSession bool
-		udpDone    bool
-		ready      ReadyData
+		gotReady    bool
+		gotSession  bool
+		daveVersion uint16
+		udpDone     bool
+		ready       ReadyData
 	)
 
 	for i := 0; i < 100; i++ { // safety limit
@@ -280,9 +282,10 @@ func (c *Client) Connect(ctx context.Context) error {
 			}
 			c.mu.Unlock()
 			gotSession = true
-			log.Printf("VOICE: Received SessionDescription (mode=%s)", sessionDesc.Mode)
+			daveVersion = sessionDesc.DaveProtocolVersion
+			log.Printf("VOICE: Received SessionDescription (mode=%s, dave=%d)", sessionDesc.Mode, daveVersion)
 			if c.DaveSession != nil {
-				c.DaveSession.OnSelectProtocolAck(1) // Ack version 1
+				c.DaveSession.OnSelectProtocolAck(daveVersion)
 			}
 
 		case HeartbeatACK:
@@ -345,7 +348,7 @@ func (c *Client) Connect(ctx context.Context) error {
 			}
 			json.Unmarshal(p.Data, &d)
 			log.Printf("VOICE: Received DAVE ExecuteTransition (id=%d)", d.TransitionID)
-			c.DaveSession.OnDaveExecuteTransition(d.ProtocolVersion)
+			c.DaveSession.OnDaveExecuteTransition(d.TransitionID)
 
 		case DavePrepareEpoch:
 			var d struct {
@@ -418,7 +421,7 @@ func (c *Client) Connect(ctx context.Context) error {
 
 		// If we have both Ready and SessionDescription, check if DAVE is ready
 		if gotReady && gotSession {
-			if c.DaveSession == nil || c.DaveSession.Ready() || c.Token == "test-bypass" {
+			if daveVersion == 0 || c.DaveSession == nil || c.DaveSession.Ready() || c.Token == "test-bypass" {
 				log.Printf("VOICE: Connection established and DAVE ready!")
 				c.mu.Lock()
 				c.State = StateConnected
@@ -461,21 +464,17 @@ func (c *Client) readPayload() (*Payload, error) {
 			return nil, errors.New("voice: binary message too short")
 		}
 
-		logLen := len(msg)
-		if logLen > 16 {
-			logLen = 16
-		}
-		log.Printf("VOICE DEBUG: Binary message bytes: %x", msg[:logLen])
-
 		// Server→Client binary: 1-byte opcode + payload
 		p.Op = int(msg[0])
 		p.Data = msg[1:]
+		slog.Debug("voice gateway received", "user_id", c.UserID, "opcode", p.Op, "bytes", len(p.Data), "binary", true)
 		return &p, nil
 	}
 
 	if err := json.Unmarshal(msg, &p); err != nil {
 		return nil, err
 	}
+	slog.Debug("voice gateway received", "user_id", c.UserID, "opcode", p.Op, "bytes", len(p.Data), "binary", false)
 	return &p, nil
 }
 
@@ -541,7 +540,7 @@ func (c *Client) daveReadLoop() {
 				ProtocolVersion uint16 `json:"protocol_version"`
 			}
 			json.Unmarshal(p.Data, &d)
-			c.DaveSession.OnDaveExecuteTransition(d.ProtocolVersion)
+			c.DaveSession.OnDaveExecuteTransition(d.TransitionID)
 		case DavePrepareEpoch:
 			var d struct {
 				Epoch           int    `json:"epoch"`
@@ -602,6 +601,7 @@ func (c *Client) sendPayload(op int, data interface{}) error {
 // sendBinaryPayload sends a binary opcode to the gateway.
 // Client→Server binary: 1-byte opcode + payload (no sequence number).
 func (c *Client) sendBinaryPayload(op int, data []byte) error {
+	slog.Debug("voice gateway sending", "user_id", c.UserID, "opcode", op, "bytes", len(data), "binary", true)
 	msg := make([]byte, 1+len(data))
 	msg[0] = byte(op)
 	copy(msg[1:], data)
@@ -612,7 +612,6 @@ func (c *Client) sendBinaryPayload(op int, data []byte) error {
 }
 
 func (c *Client) audioReadLoop() {
-	log.Printf("AUDIO_DEBUG: audioReadLoop goroutine STARTED")
 
 	// RTP constants (matching disgo)
 	const (
@@ -629,13 +628,12 @@ func (c *Client) audioReadLoop() {
 		c.mu.Unlock()
 
 		if udp == nil {
-			log.Printf("AUDIO_DEBUG: audioReadLoop exiting - UDP is nil")
 			return
 		}
 
 		packet, err := udp.Read()
 		if err != nil {
-			log.Printf("AUDIO_DEBUG: audioReadLoop udp.Read() error: %v", err)
+			slog.Debug("voice audio read stopped", "error", err)
 			return
 		}
 
@@ -651,8 +649,6 @@ func (c *Client) audioReadLoop() {
 		if packetType != rtpPayloadType {
 			continue
 		}
-
-		log.Printf("AUDIO_DEBUG: Got RTP voice packet len=%d", n)
 
 		// Handle RTP padding
 		hasPadding := (packet[0] & 0x20) != 0
@@ -700,16 +696,13 @@ func (c *Client) audioReadLoop() {
 		copy(nonce, packet[n-4:n])
 
 		if aead == nil {
-			log.Printf("AUDIO_DEBUG: encryption key not set, skipping")
 			continue
 		}
 		decrypted, err := aead.Open(nil, nonce, packet[headerLen:n-4], packet[:headerLen])
 		if err != nil {
-			log.Printf("AUDIO_DEBUG: Transport decryption failed: %v (headerLen=%d, ciphLen=%d)", err, headerLen, n-4-headerLen)
+			slog.Debug("voice transport decryption failed", "error", err)
 			continue
 		}
-
-		log.Printf("AUDIO_DEBUG: Decrypted %d bytes from SSRC=%d seq=%d", len(decrypted), ssrc, sequence)
 
 		// Skip past the extension data in the decrypted payload
 		var decryptedOffset int
@@ -732,7 +725,7 @@ func (c *Client) audioReadLoop() {
 				decryptedBuf := make([]byte, decryptedLen)
 				dn, err := dave.Decrypt(godave.UserID(userID), opus, decryptedBuf)
 				if err != nil {
-					log.Printf("AUDIO_DEBUG: DAVE decryption failed for user %s: %v", userID, err)
+					slog.Debug("voice DAVE decryption failed", "error", err)
 					continue
 				}
 
@@ -968,7 +961,7 @@ func (c *Client) SendOpus(opus []byte) error {
 	if aead == nil {
 		return errors.New("voice: encryption key not set")
 	}
-	if c.DaveSession != nil && !c.DaveSession.Ready() {
+	if shouldHoldDAVEFrames(c.DaveSession) {
 		return errors.New("voice: DAVE session not ready")
 	}
 
@@ -981,12 +974,14 @@ func (c *Client) SendOpus(opus []byte) error {
 		maxLen := c.DaveSession.MaxEncryptedFrameSize(len(opus))
 		e2eeFrame := make([]byte, maxLen)
 		n, err := c.DaveSession.Encrypt(ssrc, opus, e2eeFrame)
-		if err == nil && n > 0 {
-			payload = e2eeFrame[:n]
-		} else if err != nil {
+		if err != nil {
 			log.Printf("VOICE ERROR: DAVE Encrypt failed: %v", err)
 			return fmt.Errorf("voice: DAVE encryption failed: %w", err)
 		}
+		if n <= 0 || n > len(e2eeFrame) {
+			return fmt.Errorf("voice: DAVE encryption returned invalid frame length %d", n)
+		}
+		payload = e2eeFrame[:n]
 	}
 
 	// Transport encryption (AES-256-GCM) using cached cipher.AEAD
@@ -1004,4 +999,16 @@ func (c *Client) SendOpus(opus []byte) error {
 	copy(packet[len(hdrBytes)+len(ciphertext):], nonceSuffix)
 
 	return udp.Write(packet)
+}
+
+// Version zero legitimately uses transport encryption without an active MLS
+// epoch. Other Session implementations retain the Ready contract.
+func shouldHoldDAVEFrames(dave godave.Session) bool {
+	if dave == nil {
+		return false
+	}
+	if state, ok := dave.(interface{ ShouldHoldFrames() bool }); ok {
+		return state.ShouldHoldFrames()
+	}
+	return !dave.Ready()
 }

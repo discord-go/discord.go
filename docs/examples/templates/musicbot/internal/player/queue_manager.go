@@ -1,4 +1,3 @@
-// discord.go code
 package player
 
 import (
@@ -17,19 +16,16 @@ type Track struct {
 	Requested string
 }
 
-// GuildPlayer manages music for a single guild.
+// GuildPlayer manages the playback queue for one guild.
 type GuildPlayer struct {
-	mu sync.Mutex
-
-	GuildID   snowflake.ID
-	ChannelID snowflake.ID
-
-	Queue   []*Track
-	Playing bool
-
-	VoiceClient *voice.Client
-
-	cancel context.CancelFunc
+	mu          sync.Mutex
+	GuildID     snowflake.ID
+	channelID   snowflake.ID
+	queue       []*Track
+	playing     bool
+	voiceClient *voice.Client
+	cancel      context.CancelFunc
+	generation  uint64
 }
 
 // QueueManager manages players for multiple guilds.
@@ -38,105 +34,102 @@ type QueueManager struct {
 	players map[snowflake.ID]*GuildPlayer
 }
 
-// NewQueueManager initializes a new QueueManager.
 func NewQueueManager() *QueueManager {
-	return &QueueManager{
-		players: make(map[snowflake.ID]*GuildPlayer),
-	}
+	return &QueueManager{players: make(map[snowflake.ID]*GuildPlayer)}
 }
 
-// GetPlayer retrieves or creates a player for the given guild.
 func (m *QueueManager) GetPlayer(guildID snowflake.ID) *GuildPlayer {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	p, ok := m.players[guildID]
-	if !ok {
-		p = &GuildPlayer{
-			GuildID: guildID,
-			Queue:   make([]*Track, 0),
-		}
-		m.players[guildID] = p
+	if m.players[guildID] == nil {
+		m.players[guildID] = &GuildPlayer{GuildID: guildID}
 	}
-	return p
+	return m.players[guildID]
 }
 
-// Enqueue adds a track to the queue.
-func (p *GuildPlayer) Enqueue(t *Track) {
+func (p *GuildPlayer) SetChannelID(id snowflake.ID) {
 	p.mu.Lock()
-	p.Queue = append(p.Queue, t)
+	p.channelID = id
 	p.mu.Unlock()
 }
 
-// Pop removes and returns the next track in the queue.
-func (p *GuildPlayer) Pop() *Track {
+func (p *GuildPlayer) ChannelID() snowflake.ID {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if len(p.Queue) == 0 {
-		return nil
-	}
-	t := p.Queue[0]
-	p.Queue = p.Queue[1:]
-	return t
+	return p.channelID
 }
 
-// GetQueue returns a copy of the current queue.
+// Playback returns a synchronized snapshot for command handlers.
+func (p *GuildPlayer) Playback() (bool, *voice.Client) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.playing, p.voiceClient
+}
+
+func (p *GuildPlayer) Enqueue(t *Track) {
+	p.mu.Lock()
+	p.queue = append(p.queue, t)
+	p.mu.Unlock()
+}
+
 func (p *GuildPlayer) GetQueue() []*Track {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	q := make([]*Track, len(p.Queue))
-	copy(q, p.Queue)
-	return q
+	return append([]*Track(nil), p.queue...)
 }
 
-// Stop stops the current track and clears the queue.
+// Stop cancels the entire queue and disconnects the current voice client.
 func (p *GuildPlayer) Stop() {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.Queue = nil
-	if p.cancel != nil {
-		p.cancel()
-		p.cancel = nil
+	p.generation++
+	p.queue = nil
+	cancel, vc := p.cancel, p.voiceClient
+	p.cancel = nil
+	p.voiceClient = nil
+	p.playing = false
+	p.mu.Unlock()
+	if cancel != nil {
+		cancel()
 	}
-	p.Playing = false
-	if p.VoiceClient != nil {
-		_ = p.VoiceClient.Disconnect()
-		p.VoiceClient = nil
+	if vc != nil {
+		_ = vc.Disconnect()
 	}
 }
 
-// PlayNext begins playing tracks from the queue on the provided voice client.
+// PlayNext starts a single worker for the queue. It marks the queue idle under
+// the same lock used by Enqueue, so an enqueue at the end cannot be stranded.
 func (p *GuildPlayer) PlayNext(vc *voice.Client) {
 	p.mu.Lock()
-	if p.Playing {
+	if p.playing || vc == nil {
 		p.mu.Unlock()
 		return
 	}
-	p.Playing = true
-	p.VoiceClient = vc
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancel, p.voiceClient, p.playing = cancel, vc, true
+	generation := p.generation
 	p.mu.Unlock()
-
 	go func() {
+		defer cancel()
 		for {
-			track := p.Pop()
-			if track == nil {
-				break
-			}
-
-			playCtx, cancel := context.WithCancel(context.Background())
 			p.mu.Lock()
-			p.cancel = cancel
+			if p.generation != generation {
+				p.mu.Unlock()
+				return
+			}
+			if len(p.queue) == 0 {
+				p.playing = false
+				p.cancel = nil
+				p.mu.Unlock()
+				return
+			}
+			track := p.queue[0]
+			p.queue[0] = nil
+			p.queue = p.queue[1:]
 			p.mu.Unlock()
-
 			log.Printf("Playing track %s", track.Title)
-			if err := StreamAudio(playCtx, vc, track.StreamURL); err != nil {
+			if err := StreamAudio(ctx, vc, track.StreamURL); err != nil && ctx.Err() == nil {
 				log.Printf("Stream error: %v", err)
 			}
-			cancel()
 		}
-
-		p.mu.Lock()
-		p.Playing = false
-		p.mu.Unlock()
 	}()
 }

@@ -79,38 +79,27 @@ func TestActivate_SkipsSendRetentionOnJoin(t *testing.T) {
 	}
 }
 
-// TestActivate_RetainsSendRatchetWhenNoJoin: when the new epoch does not add a
-// member (same membership, or a removal), retention is preserved — every
-// receiver was in the old epoch and can still decrypt the retained frames,
-// bridging execute_transition jitter.
-func TestActivate_RetainsSendRatchetWhenNoJoin(t *testing.T) {
-	t.Run("same members", func(t *testing.T) {
-		s := setupForActivation(t, []godave.UserID{"bot", "other"}, []godave.UserID{"bot", "other"})
-
-		s.mu.Lock()
-		s.activatePendingEpochLocked()
-		retained := s.retainedSendRatchet
-		windows := s.stats.TransitionWindows
-		s.mu.Unlock()
-
-		if retained == nil {
-			t.Error("send ratchet should be retained when membership is unchanged")
-		}
-		if windows != 1 {
-			t.Errorf("TransitionWindows = %d, want 1", windows)
-		}
-	})
-
-	t.Run("member removed", func(t *testing.T) {
-		s := setupForActivation(t, []godave.UserID{"bot", "leaver"}, []godave.UserID{"bot"})
-
-		s.mu.Lock()
-		s.activatePendingEpochLocked()
-		retained := s.retainedSendRatchet
-		s.mu.Unlock()
-
-		if retained == nil {
-			t.Error("send ratchet should be retained on a removal (new members ⊆ old)")
-		}
-	})
+// A sender must immediately use the new epoch after every transition.
+func TestActivate_SwitchesSendRatchetImmediately(t *testing.T) {
+	for _, tt := range []struct {
+		name                   string
+		oldMembers, newMembers []godave.UserID
+	}{
+		{"same members", []godave.UserID{"bot", "other"}, []godave.UserID{"bot", "other"}},
+		{"member removed", []godave.UserID{"bot", "leaver"}, []godave.UserID{"bot"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			s := setupForActivation(t, tt.oldMembers, tt.newMembers)
+			defer s.Close()
+			s.mu.Lock()
+			s.activatePendingEpochLocked()
+			retained := s.retainedSendRatchet
+			sendIsNew := s.sendRatchet == s.activeEpoch.senders["bot"].ratchet
+			counter := s.sendCounter.Current()
+			s.mu.Unlock()
+			if retained != nil || !sendIsNew || counter != 0 {
+				t.Fatalf("expected new send key and reset nonce, retained=%v new=%v counter=%d", retained != nil, sendIsNew, counter)
+			}
+		})
+	}
 }

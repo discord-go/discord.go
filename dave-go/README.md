@@ -17,6 +17,6 @@ protocol layers and their licenses remain clear.
 - HKDF uses `golang.org/x/crypto`; elliptic key parsing uses Go 1.22 APIs.
 - The DAVE and MLS module tests pass with the Go 1.22 Docker toolchain.
 
-See [PORTING.md](PORTING.md) for the porting notes and limits. This folder is
-not a standalone published module yet; the parent library uses local module
-replacements while the integration is validated.
+See [PORTING.md](PORTING.md) for the porting notes and limits. The modules are published using nested repository tags. The parent repository
+uses local replacements during development; downstream users resolve the
+published versions.

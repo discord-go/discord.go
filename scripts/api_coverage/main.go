@@ -79,11 +79,25 @@ func staticString(expr ast.Expr, variables map[string]string) (string, bool) {
 		return left + right, okLeft && okRight
 	case *ast.CallExpr:
 		if selector, ok := e.Fun.(*ast.SelectorExpr); ok {
+			if pkg, ok := selector.X.(*ast.Ident); ok &&
+				((pkg.Name == "url" && selector.Sel.Name == "PathEscape") ||
+					(pkg.Name == "strconv" && selector.Sel.Name == "Itoa")) {
+				return "{}", true
+			}
 			switch selector.Sel.Name {
 			case "String":
 				return "{}", true
-			case "QueryString":
+			case "QueryString", "query":
 				return "", true
+			}
+		}
+		// Local integer-to-string helpers such as rest.itoa are route
+		// placeholders too. Keep this list narrow so unrelated local calls do
+		// not silently turn into path segments.
+		if ident, ok := e.Fun.(*ast.Ident); ok {
+			switch ident.Name {
+			case "itoa", "Itoa", "formatID", "formatInt":
+				return "{}", true
 			}
 		}
 		if ident, ok := e.Fun.(*ast.SelectorExpr); ok && ident.Sel.Name == "Sprintf" && len(e.Args) > 0 {
@@ -111,6 +125,18 @@ func staticMethod(expr ast.Expr) string {
 }
 
 func restOperations(restDir string) (map[operation]struct{}, error) {
+	requestHelpers := map[string]bool{
+		"Request":                       true,
+		"RequestNoAuth":                 true,
+		"RequestMultipart":              true,
+		"RequestMultipartNoAuth":        true,
+		"RequestMultipartFormNamedFile": true,
+		"request":                       true,
+		"requestMultipart":              true,
+		"requestMultipartForm":          true,
+		"requestRaw":                    true,
+		"requestWithDecoder":            true,
+	}
 	files, err := filepath.Glob(filepath.Join(restDir, "*.go"))
 	if err != nil {
 		return nil, err
@@ -131,6 +157,16 @@ func restOperations(restDir string) (map[operation]struct{}, error) {
 				continue
 			}
 			variables := make(map[string]string)
+			// Function parameters are route placeholders. Without this, a
+			// helper such as DeleteInvite(code string) is reported as missing
+			// even though it builds "/invites/" + code.
+			if function.Type.Params != nil {
+				for _, field := range function.Type.Params.List {
+					for _, name := range field.Names {
+						variables[name.Name] = "{}"
+					}
+				}
+			}
 			ast.Inspect(function.Body, func(node ast.Node) bool {
 				switch statement := node.(type) {
 				case *ast.AssignStmt:
@@ -157,7 +193,7 @@ func restOperations(restDir string) (map[operation]struct{}, error) {
 					}
 				case *ast.CallExpr:
 					selector, ok := statement.Fun.(*ast.SelectorExpr)
-					if !ok || (selector.Sel.Name != "Request" && selector.Sel.Name != "RequestMultipart") || len(statement.Args) < 3 {
+					if !ok || !requestHelpers[selector.Sel.Name] || len(statement.Args) < 3 {
 						return true
 					}
 					method := staticMethod(statement.Args[1])

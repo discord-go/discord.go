@@ -141,6 +141,7 @@ type Bot struct {
 	compression     bool
 	sharded         bool
 	shardCount      int
+	shardIDs        []int
 
 	// Rest is the Discord REST API client. You can use it directly for API
 	// calls not covered by context convenience methods.
@@ -330,6 +331,17 @@ func WithShards(count int) Option {
 		if count > 0 {
 			b.shardCount = count
 		}
+	}
+}
+
+// WithShardIDs assigns this bot a subset of the total configured shards.
+// Use WithShards with the Discord-wide total. The deployment must coordinate
+// shard ownership and Discord Identify requests across processes.
+func WithShardIDs(ids ...int) Option {
+	copyIDs := append([]int(nil), ids...)
+	return func(b *Bot) {
+		b.sharded = true
+		b.shardIDs = append([]int(nil), copyIDs...)
 	}
 }
 

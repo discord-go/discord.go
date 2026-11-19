@@ -1,0 +1,27 @@
+name: Release consumer check
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Published tag to verify (for example v0.16.1-wid)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  consumer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.22.0'
+      - name: Verify published module from a clean consumer
+        env:
+          RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+        run: ./scripts/verify-release.sh "$RELEASE_VERSION"

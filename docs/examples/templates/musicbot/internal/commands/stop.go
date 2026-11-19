@@ -12,7 +12,7 @@ import (
 
 // HandleStop handles the !stop command.
 func HandleStop(ctx context.Context, bot *client.Client, e *events.MessageCreate, manager *player.QueueManager) {
-	p := manager.GetPlayer(e.ChannelID)
+	p := manager.GetPlayer(e.GuildID)
 	p.Stop()
 	reply(ctx, bot, e, "⏹️ Stopped playback and cleared the queue.")
 }

@@ -58,16 +58,16 @@ func TestAntiReplay_LowerNonceWithinWindowNotSeenAccepted(t *testing.T) {
 	}
 }
 
-func TestAntiReplay_OutsideWindowAccepted(t *testing.T) {
+func TestAntiReplay_OutsideWindowRejected(t *testing.T) {
 	var w antiReplayWindow
 	// Fill window: nonces 64..127 (highest=127).
 	for i := uint64(64); i <= 127; i++ {
 		w.checkAndMark(i)
 	}
 	// Nonce 0 is 127 positions back — outside the 64-nonce window.
-	// Must be accepted (key expiration protects old frames).
-	if !w.checkAndMark(0) {
-		t.Fatal("nonce outside window must be accepted")
+	// A nonce outside the window cannot be distinguished from a replay.
+	if w.checkAndMark(0) {
+		t.Fatal("nonce outside window must be rejected")
 	}
 }
 

@@ -58,6 +58,107 @@ func f(id string) { _ = fmt.Sprintf("/guilds/%s/members", id) }`, 0)
 	}
 }
 
+func TestRestOperationsFindsEscapedReaction(t *testing.T) {
+	dir := t.TempDir()
+	source := `package rest
+func f(ctx any, channelID ID, emoji string) {
+ path := "/channels/" + channelID.String() + "/reactions/" + url.PathEscape(emoji) + params.query()
+ c.Request(ctx, "GET", path, nil, nil)
+}`
+	if err := os.WriteFile(filepath.Join(dir, "routes.go"), []byte(source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	operations, err := restOperations(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := operation{method: "GET", path: "/channels/{}/reactions/{}"}
+	if _, ok := operations[want]; !ok {
+		t.Fatalf("operations %v do not include %v", operations, want)
+	}
+}
+
+func TestRestOperationsFindsLocalItoaRoute(t *testing.T) {
+	dir := t.TempDir()
+	source := `package rest
+func f(ctx any, channelID ID, messageID ID, answerID int, params Params) {
+ path := "/channels/" + channelID.String() + "/polls/" + messageID.String() + "/answers/" + itoa(answerID) + params.QueryString()
+ c.Request(ctx, "GET", path, nil, nil)
+}`
+	if err := os.WriteFile(filepath.Join(dir, "routes.go"), []byte(source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	operations, err := restOperations(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := operation{method: "GET", path: "/channels/{}/polls/{}/answers/{}"}
+	if _, ok := operations[want]; !ok {
+		t.Fatalf("operations %v do not include %v", operations, want)
+	}
+}
+
+func TestRestOperationsFindsStringParameterRoute(t *testing.T) {
+	dir := t.TempDir()
+	source := `package rest
+func f(ctx any, code string) {
+ path := "/invites/" + code
+ c.Request(ctx, "DELETE", path, nil, nil)
+}`
+	if err := os.WriteFile(filepath.Join(dir, "routes.go"), []byte(source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	operations, err := restOperations(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := operation{method: "DELETE", path: "/invites/{}"}
+	if _, ok := operations[want]; !ok {
+		t.Fatalf("operations %v do not include %v", operations, want)
+	}
+}
+
+func TestRestOperationsFindsNoAuthRoute(t *testing.T) {
+	dir := t.TempDir()
+	source := `package rest
+func f(ctx any, webhookID ID, token string) {
+ path := "/webhooks/" + webhookID.String() + "/" + token
+ c.RequestNoAuth(ctx, "GET", path, nil, nil)
+}`
+	if err := os.WriteFile(filepath.Join(dir, "routes.go"), []byte(source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	operations, err := restOperations(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := operation{method: "GET", path: "/webhooks/{}/{}"}
+	if _, ok := operations[want]; !ok {
+		t.Fatalf("operations %v do not include %v", operations, want)
+	}
+}
+
+func TestRestOperationsFindsRepresentativeRoutes(t *testing.T) {
+	operations, err := restOperations(filepath.Join("..", "..", "rest"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []operation{
+		{method: "GET", path: "/channels/{}/messages"},
+		{method: "POST", path: "/channels/{}/messages"},
+		{method: "GET", path: "/channels/{}/polls/{}/answers/{}"},
+		{method: "DELETE", path: "/invites/{}"},
+		{method: "GET", path: "/webhooks/{}/{}"},
+		{method: "POST", path: "/interactions/{}/{}/callback"},
+		{method: "GET", path: "/users/@me"},
+		{method: "GET", path: "/gateway/bot"},
+	} {
+		if _, ok := operations[want]; !ok {
+			t.Errorf("representative route %v not detected", want)
+		}
+	}
+}
+
 func TestExportedStructs(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "models.go"), []byte("package models\ntype Guild struct{}\ntype internal struct{}\ntype GuildID string\n"), 0o600); err != nil {

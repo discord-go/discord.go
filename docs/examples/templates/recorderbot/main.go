@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -149,7 +150,8 @@ func writeWAVHeader(f *os.File, dataSize uint32) error {
 	h := make([]byte, 44)
 	copy(h[0:4], "RIFF")
 	binary.LittleEndian.PutUint32(h[4:8], 36+dataSize)
-	copy(h[8:12], "WAVEfmt ")
+	copy(h[8:12], "WAVE")
+	copy(h[12:16], "fmt ")
 	binary.LittleEndian.PutUint32(h[16:20], 16)
 	binary.LittleEndian.PutUint16(h[20:22], 1)
 	binary.LittleEndian.PutUint16(h[22:24], 2)
@@ -172,6 +174,9 @@ func finishWAV(wf *wavFile) error {
 }
 
 func main() {
+	if os.Getenv("VOICE_TEST_DEBUG") == "1" {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})).With("bot", "recorder"))
+	}
 	token := os.Getenv("DISCORD_TOKEN")
 	if token == "" {
 		log.Fatal("DISCORD_TOKEN environment variable is required")
@@ -210,7 +215,11 @@ func main() {
 						log.Printf("voice test recorder start: %v", err)
 						return
 					}
-					send(bot, testTextID, "Voice test recording started; synthetic music-bot tone only.")
+					message := "Voice test recording started; synthetic music-bot tone only."
+					if os.Getenv("VOICE_TEST_MEDIA_INPUT") != "" {
+						message = "Voice test recording started; music playback and any voice-channel participants may be recorded."
+					}
+					send(bot, testTextID, message)
 					if err := bot.Gateway.JoinVoiceChannel(testGuildID, testChannelID, false, false); err != nil {
 						log.Printf("voice test recorder join: %v", err)
 						rec.stop()

@@ -32,11 +32,20 @@ func TestRecorderWritesFinalizedWAV(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data) <= 44 || string(data[:4]) != "RIFF" || string(data[8:12]) != "WAVE" {
+	if len(data) <= 44 || string(data[:4]) != "RIFF" || string(data[8:12]) != "WAVE" || string(data[12:16]) != "fmt " {
 		t.Fatalf("not a WAV recording: %d bytes", len(data))
 	}
 	if got, want := binary.LittleEndian.Uint32(data[4:8]), uint32(len(data)-8); got != want {
 		t.Fatalf("RIFF size = %d, want %d", got, want)
+	}
+	if got := binary.LittleEndian.Uint16(data[20:22]); got != 1 {
+		t.Fatalf("audio format = %d, want PCM", got)
+	}
+	if got := binary.LittleEndian.Uint16(data[22:24]); got != 2 {
+		t.Fatalf("channels = %d, want 2", got)
+	}
+	if got := binary.LittleEndian.Uint32(data[24:28]); got != 48000 {
+		t.Fatalf("sample rate = %d, want 48000", got)
 	}
 	if got, want := binary.LittleEndian.Uint32(data[40:44]), uint32(len(data)-44); got != want {
 		t.Fatalf("data chunk size = %d, want %d", got, want)

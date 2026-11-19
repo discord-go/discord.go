@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
@@ -21,6 +22,7 @@ import (
 
 	"musicbot/internal/commands"
 	"musicbot/internal/player"
+	"musicbot/internal/ytdlp"
 
 	"github.com/gorilla/websocket"
 )
@@ -64,6 +66,9 @@ type VoiceServerUpdate struct {
 }
 
 func main() {
+	if os.Getenv("VOICE_TEST_DEBUG") == "1" {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})).With("bot", "music"))
+	}
 	token := os.Getenv("DISCORD_TOKEN")
 	if token == "" {
 		log.Fatal("DISCORD_TOKEN environment variable is required")
@@ -111,7 +116,7 @@ func main() {
 				botUserID = readyData.User.ID
 				voiceSessionsMu.Unlock()
 				if testGuildID != 0 {
-					manager.GetPlayer(testGuildID).ChannelID = testChannelID
+					manager.GetPlayer(testGuildID).SetChannelID(testChannelID)
 					if err := bot.Gateway.JoinVoiceChannel(testGuildID, testChannelID, false, false); err != nil {
 						log.Printf("voice test join: %v", err)
 					}
@@ -191,6 +196,9 @@ func main() {
 				voiceStatesMu.RLock()
 				vcID, ok := voiceStates[e.Author.ID]
 				voiceStatesMu.RUnlock()
+				if ok {
+					manager.GetPlayer(e.GuildID).SetChannelID(vcID)
+				}
 				commands.HandleJoin(ctx, bot, e, vcID, ok)
 			} else if content == "!leave" {
 				commands.HandleLeave(ctx, bot, e, manager)
@@ -253,7 +261,7 @@ func handleVoiceServerUpdate(
 	voiceConn := &voiceWSConnection{conn: wsConn}
 
 	// Create voice client
-	vc := voice.NewClient(voiceConn, vsu.GuildID, p.ChannelID, botUserID)
+	vc := voice.NewClient(voiceConn, vsu.GuildID, p.ChannelID(), botUserID)
 	vc.SessionID = sessionID
 	vc.Token = vsu.Token
 	vc.Endpoint = endpoint
@@ -277,7 +285,39 @@ func handleVoiceServerUpdate(
 	log.Printf("DEBUG: Voice connected successfully! Starting audio playback...")
 
 	if voiceTest {
-		if err := player.StreamTestTone(context.Background(), vc, 3*time.Second); err != nil {
+		if input := os.Getenv("VOICE_TEST_MEDIA_INPUT"); input != "" {
+			streamURL, title, err := ytdlp.ExtractAudioInfo(input)
+			if err != nil {
+				log.Printf("voice test media lookup: %v", err)
+				return
+			}
+			if vc.DaveSession != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				err = player.WaitVoiceReady(ctx, vc)
+				cancel()
+				if err != nil {
+					log.Printf("voice test DAVE readiness: %v", err)
+					return
+				}
+			}
+			log.Printf("voice test playing: %s", title)
+			if err := player.StreamAudio(context.Background(), vc, streamURL); err != nil {
+				log.Printf("voice test playback: %v", err)
+			} else {
+				log.Printf("voice test media playback completed")
+			}
+			return
+		}
+		duration := 3 * time.Second
+		if raw := os.Getenv("VOICE_TEST_TONE_DURATION"); raw != "" {
+			parsed, err := time.ParseDuration(raw)
+			if err != nil || parsed < 20*time.Millisecond || parsed > time.Hour {
+				log.Printf("invalid VOICE_TEST_TONE_DURATION: use a duration between 20ms and 1h")
+				return
+			}
+			duration = parsed
+		}
+		if err := player.StreamTestTone(context.Background(), vc, duration); err != nil {
 			log.Printf("voice test tone: %v", err)
 		} else {
 			log.Printf("voice test tone sent")

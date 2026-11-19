@@ -17,4 +17,6 @@ jobs:
         with:
           go-version: '1.22.0'
       - name: Compare referenced route helpers with Discord's OpenAPI paths
-        run: go run ./scripts/api_coverage | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          set -o pipefail
+          go run ./scripts/api_coverage | tee -a "$GITHUB_STEP_SUMMARY"

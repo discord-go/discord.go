@@ -19,6 +19,13 @@ type shardLifecycleConn struct {
 	once   sync.Once
 }
 
+func TestStartRejectsInvalidAssignedShards(t *testing.T) {
+	b := New("MTIz.NjQ1.abc123", WithShards(2), WithShardIDs(2))
+	if err := b.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "outside total shard count") {
+		t.Fatalf("Start returned %v, expected an out-of-range shard error", err)
+	}
+}
+
 func (c *shardLifecycleConn) Read() ([]byte, error) {
 	if c.fatal {
 		return nil, &websocket.CloseError{Code: 4004, Text: "authentication failed"}

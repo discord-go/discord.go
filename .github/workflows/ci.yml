@@ -27,6 +27,11 @@ jobs:
         working-directory: dave-go
       - run: go vet ./...
         working-directory: dave-go
+      - name: Test runnable bot templates
+        run: |
+          for template in auditbot musicbot recorderbot; do
+            (cd "docs/examples/templates/$template" && go test ./...)
+          done
       - run: go test ./...
         working-directory: dave-go/mls-go
       - run: go vet ./...

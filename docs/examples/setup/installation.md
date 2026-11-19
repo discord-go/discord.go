@@ -31,8 +31,11 @@ For a separate application module, use a local replacement while developing agai
 mkdir my-bot
 cd my-bot
 go mod init example.com/my-bot
-go mod edit -replace discord.go=/home/mlinux/Desktop/discord.go
-go get discord.go
+go mod edit -replace github.com/discord-go/discord.go=/path/to/discord.go
+go mod edit -replace github.com/discord-go/discord.go/dave-go=/path/to/discord.go/dave-go
+go mod edit -replace github.com/discord-go/discord.go/dave-go/godave=/path/to/discord.go/dave-go/godave
+go mod edit -replace github.com/discord-go/discord.go/dave-go/mls-go=/path/to/discord.go/dave-go/mls-go
+go get github.com/discord-go/discord.go@v0.16.1-wid
 ```
 
 Save this complete `main.go` in that module:
@@ -69,7 +72,7 @@ func main() {
 
 ## Creating/Using
 
-Use the repository's declared module path when importing local packages. If your application lives inside this repository, no `replace` directive is needed. If it lives elsewhere, use a published version when available; use `go mod edit -replace` only for local development or a deliberate fork. Run `go mod tidy` after changing imports.
+Use the repository's declared module path when importing local packages. If your application lives inside this repository, no `replace` directive is needed. For a separate application, prefer the published version. Local checkout development also needs replacements for the three nested DAVE modules; see [releasing](../../releasing.md) for their module paths. Run `go mod tidy` after changing imports.
 
 ## Common Patterns
 

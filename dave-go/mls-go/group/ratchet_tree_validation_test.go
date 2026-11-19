@@ -54,20 +54,18 @@ func TestValidateJoinedRatchetTree_RejectsBadUnmergedLeaves(t *testing.T) {
 	aliceGroup, _, alice, _ := makeTwoMemberGroups(t)
 
 	// makeTwoMemberGroups' own commit has LeafCount()==1 beforehand, so it
-	// omits the UpdatePath and root stays blank. Add a third member with
-	// LeafCount()>1 so this commit forces a real path, making root Present
-	// with a genuinely valid parent-hash chain — isolating the
-	// unmerged_leaves check from the parent-hash check below.
-	charlie := newTestUser(t, "charlie-unmerged-leaves")
-	if _, err := aliceGroup.AddMember(charlie.kp); err != nil {
-		t.Fatalf("AddMember(charlie): %v", err)
+	// omits the UpdatePath and root stays blank. A self-update forces a real
+	// path, making root Present with a genuinely valid parent-hash chain —
+	// isolating the unmerged_leaves check from the parent-hash check below.
+	if _, err := aliceGroup.SelfUpdate(alice.sigPriv); err != nil {
+		t.Fatalf("SelfUpdate: %v", err)
 	}
 	sc, err := aliceGroup.Commit(alice.sigPriv, alice.sigPub, nil)
 	if err != nil {
-		t.Fatalf("Commit(add charlie): %v", err)
+		t.Fatalf("Commit(self-update): %v", err)
 	}
 	if err := aliceGroup.MergeCommit(sc); err != nil {
-		t.Fatalf("MergeCommit(add charlie): %v", err)
+		t.Fatalf("MergeCommit(self-update): %v", err)
 	}
 
 	tree := aliceGroup.ratchetTree.Clone()

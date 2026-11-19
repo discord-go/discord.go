@@ -18,7 +18,7 @@ Run the MLS tests from this directory:
 go test ./...
 ```
 
-This module is currently maintained as part of the parent repository and is
-not published independently. The upstream project remains the protocol
+This module is maintained in the parent repository and published using a
+nested module tag. The upstream project remains the protocol
 reference; see its [source](https://github.com/thomas-vilte/mls-go) and the
 included license for attribution and terms.

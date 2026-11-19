@@ -919,6 +919,28 @@ func (g *Group) CommitWithContext(
 	// the truncated tree no longer contains the committer's leaf index, so no
 	// UpdatePath can be derived. Remaining members advance the epoch using the
 	// Remove proposal alone.
+	//
+	// Add-only commits also omit the path, matching libdave/mlspp's
+	// force_path=false. No member is removed, so a zero commit_secret is safe:
+	// existing members derive the new epoch from the public commit, and the new
+	// member receives the joiner secret via the Welcome. This keeps the op 28
+	// commit+welcome payload small enough for Discord's voice gateway; an
+	// UpdatePath on an add-only commit roughly doubles the payload and the
+	// gateway silently drops commits it cannot process. A Remove (or Update)
+	// still requires a fresh commit_secret the removed member cannot derive, so
+	// those commits keep the UpdatePath. An empty commit also requires a path
+	// (RFC 9420 §12.4.1), so it cannot be used as a no-op epoch bump without
+	// one.
+	needsPath := len(filtered) == 0
+	for _, fp := range filtered {
+		if fp.Proposal == nil {
+			continue
+		}
+		if fp.Proposal.Type == ProposalTypeRemove || fp.Proposal.Type == ProposalTypeUpdate {
+			needsPath = true
+			break
+		}
+	}
 	var updatePath *UpdatePath
 	var commitSecret *ciphersuite.Secret
 	var allPathSecrets []*ciphersuite.Secret
@@ -926,7 +948,7 @@ func (g *Group) CommitWithContext(
 	var committerLevels []int
 
 	selfRemoved := uint32(g.ownLeafIndex) >= treeDiff.NumLeaves
-	if g.ratchetTree.LeafCount() > 1 && !selfRemoved {
+	if g.ratchetTree.LeafCount() > 1 && !selfRemoved && needsPath {
 		updatePath, commitSecret, allPathSecrets, committerDP, committerCopath, committerLevels, err = g.createUpdatePath(treeDiff, sigPrivKey, sigPubKey, excluded, newExtensions)
 		if err != nil {
 			return nil, fmt.Errorf("creating update path: %w", err)
@@ -2254,12 +2276,6 @@ func (g *Group) MergeCommit(stagedCommit *StagedCommit) error {
 		}
 
 		newGCBytes := g.groupContext.Marshal()
-		// Snapshot values before key schedule zeroes them (for debugging)
-		dbgInitSecret := append([]byte(nil), initSecretForNewEpoch.AsSlice()...)
-		var dbgCommitSecret []byte
-		if commitSecret != nil {
-			dbgCommitSecret = append([]byte(nil), commitSecret.AsSlice()...)
-		}
 		// Derive epoch secrets for the new epoch
 		newKS := schedule.NewKeySchedule(g.cipherSuite, initSecretForNewEpoch)
 		newKS.SetCommitSecret(commitSecret)
@@ -2285,14 +2301,7 @@ func (g *Group) MergeCommit(stagedCommit *StagedCommit) error {
 			confirmedTranscriptHash,
 		)
 		if !ciphersuite.EqualCT(expectedTag, stagedCommit.authenticatedContent.Auth.ConfirmationTag) {
-			return fmt.Errorf("confirmation tag mismatch [leaf=%d interimHash=%x confirmedHash=%x treeHash=%x initSecret=%x commitSecret=%x]",
-				g.ownLeafIndex,
-				g.interimTranscriptHash,
-				confirmedTranscriptHash,
-				treeHash,
-				dbgInitSecret,
-				dbgCommitSecret,
-			)
+			return fmt.Errorf("%w (leaf=%d)", ErrConfirmationTagMismatch, g.ownLeafIndex)
 		}
 
 		// Cache current epoch secrets for out-of-order decryption before replacing.

@@ -56,20 +56,12 @@ type Stats struct {
 	// PassthroughFrames counts frames forwarded unmodified because no E2EE epoch
 	// was active (sole member before activation, or a protocol-version-0 session).
 	PassthroughFrames uint64
-	// TransitionFrames counts frames encrypted with the retained (previous) send
-	// ratchet during the post-activation transition window. Non-zero means the
-	// session activated a new epoch and the receiver might still be on the
-	// previous one. Useful for observability and to confirm the
-	// post-activation bridge is doing its job in production.
+	// TransitionFrames counts frames encrypted with a retained send ratchet
+	// while a new connection or epoch is being prepared.
 	TransitionFrames uint64
-	// TransitionWindows counts distinct post-activation retention windows
-	// entered by this session (one per epoch activation that had a previous send
-	// ratchet to retain). Complements TransitionFrames: the retention TTL is a
-	// fixed constant (sendRetentionTTL), so "total time in transition" would be
-	// TransitionWindows * sendRetentionTTL — redundant. A window with zero
-	// TransitionFrames is still informative (epoch activated without any frame
-	// emitted in the gap); a window with many TransitionFrames confirms jitter
-	// on execute_transition delivery.
+	// TransitionWindows counts occasions when a send ratchet was retained
+	// while preparing a new connection or epoch. Executing a new epoch clears
+	// the previous send ratchet immediately.
 	TransitionWindows uint64
 	// DegradedDuration accumulates time spent in degraded state (no active
 	// E2EE epoch) across all recovery cycles that ended in

@@ -347,3 +347,40 @@ the manager calculate the target shard.
 - [Persistence guide](../persistence/keyv.md)
 - [Discord Gateway sharding](https://discord.com/developers/docs/topics/gateway#sharding)
 - [Discord Gateway session start limit](https://discord.com/developers/docs/topics/gateway#session-start-limit-object)
+
+## Supervising shard processes
+
+The optional `shardsupervisor` package starts one child process per assigned
+shard and restarts exited children up to a configured limit. Each child receives
+`DISCORD_SHARD_ID` and `DISCORD_SHARD_COUNT`; use `bot.WithShardIDs(id)` and
+`bot.WithShards(total)` to configure its high-level bot. The runnable example is
+in `docs/examples/code/shard_supervisor`.
+
+The supervisor detects process exits and can also run a `HealthCheck` callback.
+A non-nil check result kills the child so the restart policy applies. The
+runnable example uses a heartbeat file written by each child and checks its
+modification time. A health check should return when its context is done.
+
+`Config.Coordinator` adds cross-process coordination. `FileCoordinator` uses a
+shared directory for shard claim files and a serialized Identify timestamp:
+
+```go
+coordinator := &shardsupervisor.FileCoordinator{Dir: "/var/lib/mybot/shards"}
+cfg.Coordinator = coordinator
+cfg.HealthCheck = func(ctx context.Context, shardID int) error {
+	// Return an error when the shard's heartbeat is stale.
+	return nil
+}
+```
+
+`Acquire` claims a shard before its child starts and releases it when the child
+exits; a second supervisor sharing the directory waits. `WaitIdentify` spaces
+Identify starts by at least five seconds across supervisors. The supervisor
+calls `WaitIdentify` before each start; children that identify later should
+call it themselves for exact spacing. Claims older than `StaleAfter` are
+removed, and the supervisor refreshes live claims from its health loop.
+
+The supervisor still does not manage child subprocess trees, provide IPC, or
+offer graceful shutdown guarantees. Assign each shard to exactly one process
+across all supervisors, and use a shared durable store for state that must be
+visible across replicas.

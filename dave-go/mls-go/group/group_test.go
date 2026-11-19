@@ -374,6 +374,11 @@ func TestDiscardPendingCommit_ZeroesPendingLeafKey(t *testing.T) {
 	}
 
 	sigPriv := ciphersuite.NewSignaturePrivateKey(kpPrivKeys.SignatureKey)
+	// An add-only commit omits the UpdatePath (libdave force_path=false), so
+	// add a self-update to force a path and populate pendingLeafKey.
+	if _, err := group.SelfUpdate(sigPriv); err != nil {
+		t.Fatalf("SelfUpdate failed: %v", err)
+	}
 	if _, err := group.Commit(sigPriv, sigPriv.PublicKey(), nil); err != nil {
 		t.Fatalf("Commit failed: %v", err)
 	}
