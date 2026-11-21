@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -101,13 +102,27 @@ func (p *Paginator) Send(ctx context.Context) error {
 			return customID == paginatorPrevID || customID == paginatorNextID || customID == paginatorStopID
 		})
 		if err != nil {
-			break
+			_, cleanupErr := p.bot.Rest.EditMessage(ctx, p.channelID, msg.ID, p.toEditParams(current, true))
+			if ctx.Err() == nil && errors.Is(err, context.DeadlineExceeded) {
+				if cleanupErr != nil {
+					return fmt.Errorf("paginator: timed out; failed to remove buttons: %w", cleanupErr)
+				}
+				return nil
+			}
+			if cleanupErr != nil {
+				return errors.Join(
+					fmt.Errorf("paginator: failed waiting for interaction: %w", err),
+					fmt.Errorf("paginator: failed to remove buttons after wait ended: %w", cleanupErr),
+				)
+			}
+			return fmt.Errorf("paginator: failed waiting for interaction: %w", err)
 		}
 
 		customID := interaction.CustomID()
 
-		// Acknowledge the interaction to prevent "interaction failed".
-		_, _ = p.bot.Rest.EditOriginalInteractionResponse(timeoutCtx, p.bot.appID, interaction.Token, rest.EditMessageParams{})
+		if err := interaction.DeferUpdate(); err != nil {
+			return fmt.Errorf("paginator: failed to acknowledge button interaction: %w", err)
+		}
 
 		switch customID {
 		case paginatorPrevID:
@@ -119,16 +134,16 @@ func (p *Paginator) Send(ctx context.Context) error {
 				current++
 			}
 		case paginatorStopID:
-			_, _ = p.bot.Rest.EditMessage(timeoutCtx, p.channelID, msg.ID, p.toEditParams(current, true))
+			if _, err := p.bot.Rest.EditMessage(timeoutCtx, p.channelID, msg.ID, p.toEditParams(current, true)); err != nil {
+				return fmt.Errorf("paginator: failed to close message: %w", err)
+			}
 			return nil
 		}
 
-		_, _ = p.bot.Rest.EditMessage(timeoutCtx, p.channelID, msg.ID, p.toEditParams(current, false))
+		if _, err := p.bot.Rest.EditMessage(timeoutCtx, p.channelID, msg.ID, p.toEditParams(current, false)); err != nil {
+			return fmt.Errorf("paginator: failed to update page: %w", err)
+		}
 	}
-
-	// Remove buttons on timeout.
-	_, _ = p.bot.Rest.EditMessage(ctx, p.channelID, msg.ID, p.toEditParams(current, true))
-	return nil
 }
 
 // SendAsync launches Send in a goroutine and returns immediately. It is
