@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.2.1] - 2026-11-22
+
+### Changed
+
+- Clarified package documentation, including which file-backed key material is
+  persisted. These changes do not alter the MLS implementation.
+
 
 ## [v1.6.0] - 2026-07-10
 
