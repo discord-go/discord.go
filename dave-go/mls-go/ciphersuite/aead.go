@@ -1,4 +1,5 @@
 // Package ciphersuite provides AEAD encryption/decryption functions.
+
 package ciphersuite
 
 import (

@@ -11,6 +11,7 @@
 //	psk_secret_0 = 0^Nh
 //	psk_secret_i = HKDF-Extract(psk_input[i], psk_secret_{i-1})
 //	psk_secret   = psk_secret_n
+
 package schedule
 
 import (

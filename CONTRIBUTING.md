@@ -21,6 +21,9 @@ documentation, examples, or test coverage without weakening existing behavior.
 - Use contexts for all network and collector operations.
 - Keep public names consistent with the existing package architecture.
 - Update the relevant Markdown guide and runnable example.
+- Document each package once, in `doc.go` when an overview needs its own file.
+  Keep package overviews accurate and concise; use tested Go examples for usage
+  and link to protocol references rather than duplicating specifications.
 
 ## Verification
 

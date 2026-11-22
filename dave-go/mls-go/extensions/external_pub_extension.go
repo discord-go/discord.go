@@ -1,4 +1,5 @@
 // Package extensions - External Pub Extension (RFC 9420 §12.4.3.2)
+
 package extensions
 
 import (

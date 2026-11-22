@@ -5,6 +5,7 @@
 //
 // SECURITY WARNING: EpochSecrets contain all cryptographic secrets for an MLS
 // epoch. They MUST be encrypted at rest and transmitted only over secure channels.
+
 package schedule
 
 // EpochSecretsData is a serializable representation of EpochSecrets.

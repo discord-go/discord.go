@@ -1,4 +1,5 @@
 // Package extensions - External Senders Extension (RFC 9420 §12.1.8.1)
+
 package extensions
 
 import (

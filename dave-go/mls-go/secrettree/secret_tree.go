@@ -13,6 +13,7 @@
 // From these ratchets, per-generation keys and nonces are derived:
 //   - application_key[j], application_nonce[j]
 //   - handshake_key[j], handshake_nonce[j]
+
 package secrettree
 
 import (

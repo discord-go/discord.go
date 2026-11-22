@@ -1,4 +1,5 @@
 // Package extensions - Application ID Extension (RFC 9420 §5.3.3)
+
 package extensions
 
 import (

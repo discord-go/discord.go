@@ -5,6 +5,7 @@
 //   - Parents at indices 1, 3, 5, 7, ... (odd indices)
 //
 // This layout enables O(1) leaf access and efficient tree traversal without pointers.
+
 package treesync
 
 import (

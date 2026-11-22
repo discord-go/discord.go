@@ -63,6 +63,7 @@
 //
 // **GREASE:** GREASE constants (0x0A0A, 0x1A1A, etc.) test extensibility.
 // Implementations must handle unknown types gracefully.
+
 package extensions
 
 import (

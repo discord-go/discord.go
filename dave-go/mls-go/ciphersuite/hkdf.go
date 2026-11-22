@@ -1,4 +1,5 @@
 // Package ciphersuite implements HKDF operations according to RFC 5869.
+
 package ciphersuite
 
 import (

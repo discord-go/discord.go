@@ -1,4 +1,5 @@
 // Package extensions - Last Resort Extension (RFC 9420 §16.8)
+
 package extensions
 
 import (

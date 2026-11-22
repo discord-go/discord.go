@@ -1,4 +1,5 @@
 // Package ciphersuite defines errors returned by crypto operations.
+
 package ciphersuite
 
 import "errors"

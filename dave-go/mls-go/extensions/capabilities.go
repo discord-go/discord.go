@@ -1,4 +1,5 @@
 // Package extensions - Required Capabilities Extension (RFC 9420 §11.1)
+
 package extensions
 
 import (

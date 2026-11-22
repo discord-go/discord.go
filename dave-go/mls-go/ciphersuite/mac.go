@@ -1,4 +1,5 @@
 // Package ciphersuite implements MAC operations per RFC 9420 §6.1.
+
 package ciphersuite
 
 // Mac represents a Message Authentication Code as defined in RFC 9420 §6.1.

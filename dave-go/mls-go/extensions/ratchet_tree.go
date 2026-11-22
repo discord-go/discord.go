@@ -1,4 +1,5 @@
 // Package extensions - Ratchet Tree Extension (RFC 9420 §12.4.3.3)
+
 package extensions
 
 import (

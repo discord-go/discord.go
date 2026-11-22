@@ -1,4 +1,5 @@
 // Package ciphersuite implements KDF label serialization per RFC 9420 §8.
+
 package ciphersuite
 
 import (

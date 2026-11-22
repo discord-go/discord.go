@@ -172,4 +172,5 @@
 //   - RFC 9420 §6.1: FramedContent
 //   - RFC 9420 §6.2: PublicMessage
 //   - RFC 9420 §6.3: PrivateMessage
+
 package framing

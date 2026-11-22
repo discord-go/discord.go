@@ -1,4 +1,5 @@
 // Package ciphersuite implements hash reference operations per RFC 9420 §5.2.
+
 package ciphersuite
 
 import (

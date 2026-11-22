@@ -2,6 +2,7 @@
 //
 // The key schedule describes the chain of key derivations used to progress
 // from epoch to epoch, as well as the derivation of various secrets.
+
 package schedule
 
 import (

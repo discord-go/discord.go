@@ -47,6 +47,7 @@
 //   - RFC 9420 §11.2.1: BasicCredential
 //   - RFC 9420 §11.2.2: X509Credential
 //   - RFC 9420 §13.5: GREASE handling
+
 package credentials
 
 import (
