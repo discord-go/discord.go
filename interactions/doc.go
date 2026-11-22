@@ -1,2 +1,2 @@
-// Package interactions provides structures and functions for Discord's Interactions API.
+// Package interactions provides types and helpers for Discord interactions.
 package interactions

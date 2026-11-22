@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -29,6 +30,7 @@ type Heartbeater struct {
 	lastSent    atomic.Int64
 	lastPing    atomic.Int64
 	stop        chan struct{}
+	stopOnce    sync.Once
 	// nowFunc allows overriding time.Now for testing.
 	nowFunc func() time.Time
 	// newTickerFunc allows overriding time.NewTicker for testing.
@@ -122,8 +124,5 @@ func (h *Heartbeater) Ping() time.Duration {
 
 // Stop signals the heartbeat loop to stop gracefully.
 func (h *Heartbeater) Stop() {
-	select {
-	case h.stop <- struct{}{}:
-	default:
-	}
+	h.stopOnce.Do(func() { close(h.stop) })
 }

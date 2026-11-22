@@ -15,8 +15,8 @@ A header (`X-Audit-Log-Reason`) attached to REST requests that modifies guild
 state. Appears in the guild's audit log. Limited to 512 characters.
 
 **Bucket**
-A rate limit group identified by Discord's `X-RateLimit-Bucket` header.
-Requests in the same bucket share a rate limit.
+A rate limit group identified by Discord's `X-RateLimit-Bucket` header together
+with its major resource, such as a channel or guild ID.
 
 **Cache**
 An in-memory or external store for Discord entities (guilds, channels, users,

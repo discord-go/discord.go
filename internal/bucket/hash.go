@@ -10,13 +10,11 @@ import (
 // snowflakePattern matches Discord snowflake IDs (numeric strings of 17-20 digits).
 var snowflakePattern = regexp.MustCompile(`\d{17,20}`)
 
-// RouteHash computes a deterministic hash for a Discord API route, suitable for
-// keying rate limit buckets.
+// RouteHash computes a deterministic hash for a normalized API route.
 //
-// Discord groups rate limits by route "template" rather than by the concrete
-// URL. For example, GET /channels/123/messages and GET /channels/456/messages
-// share the same bucket. To achieve this, RouteHash replaces all snowflake IDs
-// in the path with a placeholder before hashing.
+// RouteHash replaces snowflake IDs in the path with a placeholder before
+// hashing. The result is not a Discord rate limit bucket key: it omits major
+// resource IDs and is not the bucket identifier provided by Discord.
 //
 // The method is included because Discord sometimes uses different buckets for
 // different HTTP methods on the same route (e.g. DELETE /channels/{id}/messages/{id}

@@ -15,12 +15,12 @@ time, reset-after duration, global status, and scope. `ParseHeaders` reads
 `X-RateLimit-Reset-After`, and `X-RateLimit-Global`. `BucketState` stores only
 remaining and reset time.
 
-`NewLimiter(store)` creates a limiter. It enforces a 50-request-per-second
-process-wide global limit using `golang.org/x/time/rate.Limiter` (a token
+`NewLimiter(store)` creates a limiter. It applies a 50-request-per-second
+global limit per limiter using `golang.org/x/time/rate.Limiter` (a token
 bucket) and tracks route locks. The token bucket allows concurrent goroutines
 to reserve tokens in parallel without serializing through a global mutex.
-Once a response supplies a bucket hash, the route is mapped to the hash so
-aliases share state. `Wait` honors context cancellation while sleeping for
+Once a response supplies a bucket hash, routes with the same hash and major
+resource share state. `Wait` honors context cancellation while sleeping for
 global or bucket resets; unknown buckets proceed immediately. `Update`
 records the parsed response and global reset.
 
@@ -59,10 +59,10 @@ func main() {
 ## Creating A Limiter
 
 `Store` has `Get(bucketID) (BucketState, bool)` and `Put(bucketID, state)`.
-Implement it with shared storage when multiple processes need coordinated
-limits. The in-memory store is process-local. `NewLimiter` accepts nil and
-creates an in-memory store, so a custom store is only needed for durability or
-distribution.
+The in-memory store is process-local. `NewLimiter` accepts nil and creates an
+in-memory store. A shared store by itself does not coordinate multiple
+processes: `Get` and `Put` do not provide atomic reservations, and the global
+limiter is local. Use a limiter designed for distributed coordination instead.
 
 ## Using Buckets
 
@@ -70,7 +70,7 @@ Call `Wait` immediately before the HTTP request and `Update` after parsing its
 headers. Use a stable route key, usually the REST path without query
 parameters. The REST client does this itself. A 429 response should supply
 `Retry-After` or a JSON retry interval at the transport layer; the limiter's
-header state prevents subsequent calls from racing the reset.
+the REST client applies that interval to subsequent calls as a cooldown.
 
 ## Common Patterns
 

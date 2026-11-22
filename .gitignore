@@ -2,10 +2,12 @@
 .env
 .env.*
 !.env.example
+/discord.env
 
 # Go outputs and coverage
 *.out
 *.test
+/benchmarks/
 coverage.html
 c.out
 bin/

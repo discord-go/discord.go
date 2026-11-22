@@ -12,6 +12,7 @@ type heartbeatMockConnection struct {
 	mu          sync.Mutex
 	writeCount  int
 	lastPayload []byte
+	onWrite     func()
 	closed      bool
 	readChan    chan []byte
 	errChan     chan error
@@ -35,9 +36,12 @@ func (m *heartbeatMockConnection) Read() ([]byte, error) {
 
 func (m *heartbeatMockConnection) Write(data []byte) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.writeCount++
 	m.lastPayload = append([]byte(nil), data...)
+	m.mu.Unlock()
+	if m.onWrite != nil {
+		m.onWrite()
+	}
 	return nil
 }
 
@@ -57,13 +61,21 @@ func (m *heartbeatMockConnection) getWriteCount() int {
 func (m *heartbeatMockConnection) getLastPayload() []byte {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.lastPayload
+	return append([]byte(nil), m.lastPayload...)
 }
 
 func TestHeartbeater_TimingAndACK(t *testing.T) {
 	conn := newMockConnection()
 	interval := 10 * time.Millisecond
 	h := NewHeartbeater(conn, interval)
+	heartbeats := make(chan struct{}, 2)
+	conn.onWrite = func() {
+		h.AckReceived()
+		select {
+		case heartbeats <- struct{}{}:
+		default:
+		}
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -73,18 +85,14 @@ func TestHeartbeater_TimingAndACK(t *testing.T) {
 		done <- h.Run(ctx)
 	}()
 
-	time.Sleep(15 * time.Millisecond)
-
-	if conn.getWriteCount() != 1 {
-		t.Fatalf("Expected 1 heartbeat sent, got %d", conn.getWriteCount())
-	}
-
-	h.AckReceived()
-
-	time.Sleep(10 * time.Millisecond)
-
-	if conn.getWriteCount() != 2 {
-		t.Fatalf("Expected 2 heartbeats sent, got %d", conn.getWriteCount())
+	for expected := 1; expected <= 2; expected++ {
+		select {
+		case <-heartbeats:
+		case err := <-done:
+			t.Fatalf("heartbeater stopped before heartbeat %d: %v", expected, err)
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for heartbeat %d", expected)
+		}
 	}
 
 	h.Stop()
@@ -94,7 +102,7 @@ func TestHeartbeater_TimingAndACK(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Expected nil error on Stop(), got %v", err)
 		}
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(time.Second):
 		t.Fatal("Heartbeater did not stop in time")
 	}
 }
@@ -112,14 +120,12 @@ func TestHeartbeater_ZombieDetection(t *testing.T) {
 		done <- h.Run(ctx)
 	}()
 
-	time.Sleep(30 * time.Millisecond)
-
 	select {
 	case err := <-done:
 		if err != ErrZombieConnection {
 			t.Fatalf("Expected ErrZombieConnection, got %v", err)
 		}
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(time.Second):
 		t.Fatal("Heartbeater did not return ErrZombieConnection in time")
 	}
 }
@@ -128,6 +134,14 @@ func TestHeartbeater_SequenceTracking(t *testing.T) {
 	conn := newMockConnection()
 	interval := 10 * time.Millisecond
 	h := NewHeartbeater(conn, interval)
+	firstHeartbeat := make(chan struct{}, 1)
+	conn.onWrite = func() {
+		h.AckReceived()
+		select {
+		case firstHeartbeat <- struct{}{}:
+		default:
+		}
+	}
 
 	h.UpdateSequence(42)
 
@@ -139,7 +153,13 @@ func TestHeartbeater_SequenceTracking(t *testing.T) {
 		done <- h.Run(ctx)
 	}()
 
-	time.Sleep(15 * time.Millisecond)
+	select {
+	case <-firstHeartbeat:
+	case err := <-done:
+		t.Fatalf("heartbeater stopped before sending: %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for heartbeat")
+	}
 
 	payload := conn.getLastPayload()
 	if payload == nil {
@@ -157,4 +177,20 @@ func TestHeartbeater_SequenceTracking(t *testing.T) {
 
 	h.Stop()
 	<-done
+}
+
+func TestHeartbeaterStopBeforeRunIsPersistentAndIdempotent(t *testing.T) {
+	h := NewHeartbeater(newMockConnection(), time.Hour)
+	h.Stop()
+	h.Stop()
+	done := make(chan error, 1)
+	go func() { done <- h.Run(context.Background()) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Run returned %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Run ignored an earlier Stop")
+	}
 }

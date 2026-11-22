@@ -1,3 +1,2 @@
-// Package gateway provides the Discord gateway API implementation.
-// It includes the client connection, event dispatcher, and payload types.
+// Package gateway implements the Discord gateway connection and event dispatch.
 package gateway

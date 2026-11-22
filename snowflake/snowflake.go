@@ -1,7 +1,6 @@
 package snowflake
 
 import (
-	"encoding/json"
 	"strconv"
 )
 
@@ -18,7 +17,10 @@ func (id ID) String() string {
 // with error 50035 (Invalid Form Body), most visibly in
 // allowed_mentions.users and allowed_mentions.roles.
 func (id ID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(id.String())
+	encoded := make([]byte, 1, 22)
+	encoded[0] = '"'
+	encoded = strconv.AppendUint(encoded, uint64(id), 10)
+	return append(encoded, '"'), nil
 }
 
 // IsZero reports whether the ID is the zero value (0), indicating an unset

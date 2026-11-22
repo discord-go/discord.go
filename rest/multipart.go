@@ -11,13 +11,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/discord-go/discord.go/json"
 	"github.com/discord-go/discord.go/messages"
-	"github.com/discord-go/discord.go/ratelimit"
 )
 
 // File represents a file attachment to be uploaded.
@@ -141,46 +138,57 @@ func (c *Client) requestMultipartForm(ctx context.Context, method, path string, 
 	if err := writer.Close(); err != nil {
 		return err
 	}
-	req, err := gohttp.NewRequestWithContext(ctx, method, c.BaseURL+path, &body)
-	if err != nil {
-		return err
-	}
-	if c.AuthMode != AuthNone && c.token != "" {
-		req.Header.Set("Authorization", string(c.AuthMode)+" "+c.token)
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	if reason, ok := ReasonFromContext(ctx); ok {
-		req.Header.Set("X-Audit-Log-Reason", url.QueryEscape(reason))
-	}
-	if err := c.Limiter.Wait(ctx, path); err != nil {
-		return err
-	}
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
-	info := ratelimit.ParseHeaders(resp.Header)
-	c.Limiter.Update(path, info)
-	responseBody, readErr := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if readErr != nil {
-		return readErr
-	}
-	if resp.StatusCode >= 400 {
-		var apiErr APIError
-		if err := json.Unmarshal(responseBody, &apiErr); err == nil {
-			apiErr.HTTPStatus = resp.StatusCode
-			if apiErr.Message == "" && apiErr.Code == 0 {
-				apiErr.Message = strings.TrimSpace(string(responseBody))
-			}
-			return &apiErr
+	bucket := strings.SplitN(path, "?", 2)[0]
+	for retries := 0; ; retries++ {
+		if err := c.checkInvalidRequests(); err != nil {
+			return err
 		}
-		return &APIError{HTTPStatus: resp.StatusCode, Message: string(responseBody)}
+		req, err := gohttp.NewRequestWithContext(ctx, method, c.BaseURL+path, bytes.NewReader(body.Bytes()))
+		if err != nil {
+			return err
+		}
+		if c.AuthMode != AuthNone && c.token != "" {
+			req.Header.Set("Authorization", string(c.AuthMode)+" "+c.token)
+		}
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		if reason, ok := ReasonFromContext(ctx); ok {
+			req.Header.Set("X-Audit-Log-Reason", url.QueryEscape(reason))
+		}
+		if err := c.waitRoute(ctx, method, bucket); err != nil {
+			return err
+		}
+		resp, err := c.HTTPClient.Do(req)
+		if err != nil {
+			return err
+		}
+		responseBody, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		delay := c.recordLimits(method, bucket, resp, responseBody)
+		if readErr != nil {
+			return readErr
+		}
+		if resp.StatusCode == gohttp.StatusTooManyRequests {
+			if err := c.waitRetry(ctx, bucket, delay, retries); err != nil {
+				return err
+			}
+			continue
+		}
+		if resp.StatusCode >= 400 {
+			var apiErr APIError
+			if err := json.Unmarshal(responseBody, &apiErr); err == nil {
+				apiErr.HTTPStatus = resp.StatusCode
+				if apiErr.Message == "" && apiErr.Code == 0 {
+					apiErr.Message = strings.TrimSpace(string(responseBody))
+				}
+				return &apiErr
+			}
+			return &APIError{HTTPStatus: resp.StatusCode, Message: string(responseBody)}
+		}
+		if v != nil && len(responseBody) > 0 {
+			return json.Unmarshal(responseBody, v)
+		}
+		return nil
 	}
-	if v != nil && len(responseBody) > 0 {
-		return json.Unmarshal(responseBody, v)
-	}
-	return nil
 }
 
 func (c *Client) requestMultipart(ctx context.Context, method, path string, payload any, files []File, v any, authenticate bool) error {
@@ -210,7 +218,10 @@ func (c *Client) requestMultipart(ctx context.Context, method, path string, payl
 		bucket = path[:idx]
 	}
 
-	for {
+	for retries := 0; ; retries++ {
+		if err := c.checkInvalidRequests(); err != nil {
+			return err
+		}
 		var b bytes.Buffer
 		w := multipart.NewWriter(&b)
 
@@ -248,7 +259,7 @@ func (c *Client) requestMultipart(ctx context.Context, method, path string, payl
 			req.Header.Set("X-Audit-Log-Reason", url.QueryEscape(reason))
 		}
 
-		if err := c.Limiter.Wait(ctx, bucket); err != nil {
+		if err := c.waitRoute(ctx, method, bucket); err != nil {
 			return err
 		}
 
@@ -257,36 +268,18 @@ func (c *Client) requestMultipart(ctx context.Context, method, path string, payl
 			return err
 		}
 
-		info := ratelimit.ParseHeaders(resp.Header)
-		c.Limiter.Update(bucket, info)
-
 		respBody, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		delay := c.recordLimits(method, bucket, resp, respBody)
 		if err != nil {
 			return err
 		}
 
 		if resp.StatusCode == 429 {
-			var rateLimitErr struct {
-				RetryAfter float64 `json:"retry_after"`
+			if err := c.waitRetry(ctx, bucket, delay, retries); err != nil {
+				return err
 			}
-			waitDuration := info.ResetAfter
-			if err := json.Unmarshal(respBody, &rateLimitErr); err == nil && rateLimitErr.RetryAfter > 0 {
-				waitDuration = time.Duration(rateLimitErr.RetryAfter * float64(time.Second))
-			} else if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
-				if parsed, err := strconv.ParseFloat(retryAfter, 64); err == nil {
-					waitDuration = time.Duration(parsed * float64(time.Second))
-				}
-			}
-
-			if waitDuration > 0 {
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(waitDuration):
-				}
-				continue // Retry the request
-			}
+			continue
 		}
 
 		if resp.StatusCode >= 400 {

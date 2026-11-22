@@ -1,8 +1,10 @@
 package snowflake
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 // IDs is a Discord API-compatible list of snowflakes. Discord serializes
@@ -10,11 +12,17 @@ import (
 type IDs []ID
 
 func (ids IDs) MarshalJSON() ([]byte, error) {
-	values := make([]string, len(ids))
+	encoded := make([]byte, 0, 2+len(ids)*23)
+	encoded = append(encoded, '[')
 	for index, id := range ids {
-		values[index] = id.String()
+		if index > 0 {
+			encoded = append(encoded, ',')
+		}
+		encoded = append(encoded, '"')
+		encoded = strconv.AppendUint(encoded, uint64(id), 10)
+		encoded = append(encoded, '"')
 	}
-	return json.Marshal(values)
+	return append(encoded, ']'), nil
 }
 
 func (ids *IDs) UnmarshalJSON(data []byte) error {
@@ -25,13 +33,24 @@ func (ids *IDs) UnmarshalJSON(data []byte) error {
 	result := make(IDs, len(values))
 	for index, raw := range values {
 		var stringValue string
-		if err := json.Unmarshal(raw, &stringValue); err == nil {
+		if len(raw) > 0 && raw[0] == '"' {
+			if bytes.IndexByte(raw, '\\') < 0 {
+				stringValue = string(raw[1 : len(raw)-1])
+			} else if err := json.Unmarshal(raw, &stringValue); err != nil {
+				return fmt.Errorf("snowflake: invalid ID at index %d: %w", index, err)
+			}
 			id, parseErr := Parse(stringValue)
 			if parseErr != nil {
 				return parseErr
 			}
 			result[index] = id
 			continue
+		}
+		// Unmarshalling null into a string produces an empty string; keep the
+		// existing invalid-ID behavior instead of accepting it as numeric zero.
+		if bytes.Equal(raw, []byte("null")) {
+			_, err := Parse("")
+			return err
 		}
 		var number uint64
 		if err := json.Unmarshal(raw, &number); err != nil {

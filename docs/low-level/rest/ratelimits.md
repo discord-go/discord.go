@@ -2,10 +2,10 @@
 
 ## Overview
 
-Every REST call participates in `ratelimit.Limiter`. The client uses the path
-without its query string as the initial route key, then adopts Discord's
-returned bucket hash so routes sharing a server bucket coordinate. Global
-resets and the process-wide request window are handled by the limiter.
+Every REST call participates in `ratelimit.Limiter`. The default limiter uses
+the HTTP method and path without its query string, then associates Discord's
+returned bucket hash with the route and its major resource. Clients that share
+one limiter coordinate their route and global limits in the same process.
 
 ## Architecture
 
@@ -13,8 +13,14 @@ The request sequence is: wait for the route and global limits, send the
 request, parse `X-RateLimit-*` headers, and update the limiter. A 429 response
 is special: REST reads JSON `retry_after` first, then the `Retry-After` header,
 then `ResetAfter`, waits with the caller context, and repeats the request. A
-custom `ratelimit.Store` can persist `BucketState` across client instances;
-the built-in memory store is process-local.
+custom `ratelimit.Store` can persist `BucketState`; the built-in memory store
+is process-local. A shared store alone cannot coordinate multiple processes:
+its interface does not provide atomic reservations or a shared global limiter.
+The default limiter conservatively applies its token bucket to all REST paths,
+including interaction endpoints that Discord exempts from the bot global limit.
+Concurrent requests can still encounter 429s, especially before a route's
+limits are known; the limiter cannot guarantee that Discord will never reject a
+request.
 
 `Client.MaxRetries` bounds the 429 retry loop. When set to a positive value,
 the client gives up after that many retries and returns `*RateLimitError`
@@ -45,8 +51,8 @@ func main() {
 	info := ratelimit.ParseHeaders(header)
 	store := ratelimit.NewMemoryStore()
 	limiter := ratelimit.NewLimiter(store)
-	limiter.Update("GET:/channels/1/messages", info)
-	state, ok := store.Get("bucket:" + info.Bucket)
+	limiter.Update("/channels/1/messages", info)
+	state, ok := limiter.(ratelimit.StateReader).State("/channels/1/messages")
 	fmt.Println(ok, state.Remaining, info.ResetAfter)
 }
 ```
@@ -56,20 +62,23 @@ func main() {
 `NewLimiter(nil)` creates a memory-backed limiter. Use `Wait(ctx, bucket)` just
 before a request and `Update(bucket, ratelimit.ParseHeaders(resp.Header))`
 afterward. An unknown bucket proceeds immediately. Once a hash is returned,
-the route is mapped to `bucket:<hash>` and subsequent calls use that state.
+the limiter associates it with the route's major resource. The REST client
+uses the optional `RouteLimiter` interface to distinguish methods; custom
+limiters implementing only `Limiter` continue to receive the path.
 
 ## Common Patterns
 
 Share a limiter for all REST clients using one token. Use `ResetAfter` for
 relative server timing and `Reset` when an absolute server time is available.
 Pass a deadline-bearing context so a shutdown or user request can cancel a
-wait. For distributed workers, implement `Store` over a shared atomic data
-store and account for clock skew.
+wait. Distributed workers need a limiter that coordinates atomic reservations
+and global limits across processes, with appropriate handling of clock skew.
 
 ## Best Practices
 
 Let REST own 429 waiting rather than adding an uncoordinated sleep around each
-call. Keep route keys stable and never key on a full URL with access tokens.
+call. Keep route keys stable and avoid logging them: webhook paths can contain
+access tokens, including in limiter state stored by a custom store.
 Monitor remaining and reset values, but treat them as server hints rather than
 permission to burst beyond a known global policy.
 

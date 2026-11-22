@@ -1,2 +1,2 @@
-// Package events provides structures for Discord gateway events.
+// Package events provides types for Discord gateway events.
 package events

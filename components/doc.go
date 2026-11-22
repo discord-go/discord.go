@@ -1,2 +1,2 @@
-// Package components provides structures and functions for Discord Message Components.
+// Package components provides Discord message component types and builders.
 package components

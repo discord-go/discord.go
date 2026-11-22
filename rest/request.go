@@ -3,6 +3,7 @@ package rest
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	gohttp "net/http"
 	"net/url"
@@ -10,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"errors"
 	"github.com/discord-go/discord.go/json"
 	"github.com/discord-go/discord.go/ratelimit"
 )
@@ -34,6 +34,69 @@ func (c *Client) markInvalidRequest() {
 	defer c.invalidMu.Unlock()
 	c.invalidTimestamps[c.invalidIdx] = time.Now()
 	c.invalidIdx = (c.invalidIdx + 1) % 9500
+}
+
+func (c *Client) waitRoute(ctx context.Context, method, path string) error {
+	if limiter, ok := c.Limiter.(ratelimit.RouteLimiter); ok {
+		return limiter.WaitRoute(ctx, method, path)
+	}
+	return c.Limiter.Wait(ctx, path)
+}
+
+func (c *Client) updateRoute(method, path string, info ratelimit.Info) {
+	if limiter, ok := c.Limiter.(ratelimit.RouteLimiter); ok {
+		limiter.UpdateRoute(method, path, info)
+	} else {
+		c.Limiter.Update(path, info)
+	}
+}
+
+// recordLimits applies 429 retry information to the shared limiter before
+// retrying, so concurrent requests see the same cooldown.
+func (c *Client) recordLimits(method, path string, resp *gohttp.Response, body []byte) time.Duration {
+	info := ratelimit.ParseHeaders(resp.Header)
+	if resp.StatusCode == 401 || resp.StatusCode == 403 ||
+		(resp.StatusCode == 429 && !strings.EqualFold(info.Scope, "shared")) {
+		c.markInvalidRequest()
+	}
+	var delay time.Duration
+	if resp.StatusCode == 429 {
+		var response struct {
+			RetryAfter float64 `json:"retry_after"`
+			Global     bool    `json:"global"`
+		}
+		delay = info.ResetAfter
+		if err := json.Unmarshal(body, &response); err == nil && response.RetryAfter > 0 {
+			delay = time.Duration(response.RetryAfter * float64(time.Second))
+		} else if value, err := strconv.ParseFloat(resp.Header.Get("Retry-After"), 64); err == nil && value > 0 {
+			delay = time.Duration(value * float64(time.Second))
+		}
+		if delay <= 0 {
+			delay = time.Second
+		}
+		info.Global = info.Global || response.Global || strings.EqualFold(info.Scope, "global")
+		info.Remaining = 0
+		info.ResetAfter = delay
+	}
+	_, routeAware := c.Limiter.(ratelimit.RouteLimiter)
+	if !routeAware || resp.StatusCode == 429 || resp.Header.Get("X-RateLimit-Remaining") != "" || info.Global {
+		c.updateRoute(method, path, info)
+	}
+	return delay
+}
+
+func (c *Client) waitRetry(ctx context.Context, bucket string, delay time.Duration, retries int) error {
+	if c.MaxRetries > 0 && retries >= c.MaxRetries {
+		return &RateLimitError{Bucket: bucket, RetryAfter: delay, Retries: retries}
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // Request performs an HTTP request to the Discord API.
@@ -113,7 +176,7 @@ func (c *Client) requestWithDecoder(ctx context.Context, method, path string, bo
 			req.Header.Set("X-Audit-Log-Reason", url.QueryEscape(reason))
 		}
 
-		if err := c.Limiter.Wait(ctx, bucket); err != nil {
+		if err := c.waitRoute(ctx, method, bucket); err != nil {
 			return err
 		}
 
@@ -122,52 +185,16 @@ func (c *Client) requestWithDecoder(ctx context.Context, method, path string, bo
 			return err
 		}
 
-		// Discord excludes shared-scope 429s from the invalid-request limit.
-		// The scope is only known after parsing the response headers, so do
-		// that before recording the response.
-		info := ratelimit.ParseHeaders(resp.Header)
-		if resp.StatusCode == 401 || resp.StatusCode == 403 ||
-			(resp.StatusCode == 429 && !strings.EqualFold(info.Scope, "shared")) {
-			c.markInvalidRequest()
-		}
-
-		c.Limiter.Update(bucket, info)
-
 		respBody, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		waitDuration := c.recordLimits(method, bucket, resp, respBody)
 		if err != nil {
 			return err
 		}
 
 		if resp.StatusCode == 429 {
-			var rateLimitErr struct {
-				RetryAfter float64 `json:"retry_after"`
-			}
-			waitDuration := info.ResetAfter
-			if err := json.Unmarshal(respBody, &rateLimitErr); err == nil && rateLimitErr.RetryAfter > 0 {
-				waitDuration = time.Duration(rateLimitErr.RetryAfter * float64(time.Second))
-			} else if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
-				if parsed, err := strconv.ParseFloat(retryAfter, 64); err == nil && parsed > 0 {
-					waitDuration = time.Duration(parsed * float64(time.Second))
-				}
-			}
-			// A 429 without any wait hint (for example a Cloudflare-fronted
-			// HTML 429) still honors the retry budget instead of falling
-			// through to a generic APIError; back off conservatively.
-			if waitDuration <= 0 {
-				waitDuration = time.Second
-			}
-			if c.MaxRetries > 0 && retries >= c.MaxRetries {
-				return &RateLimitError{
-					Bucket:     bucket,
-					RetryAfter: waitDuration,
-					Retries:    retries,
-				}
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(waitDuration):
+			if err := c.waitRetry(ctx, bucket, waitDuration, retries); err != nil {
+				return err
 			}
 			retries++
 			continue // Retry the request

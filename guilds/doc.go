@@ -1,2 +1,2 @@
-// Package guilds provides types and functions for interacting with Discord Guilds.
+// Package guilds provides Discord guild types and helpers.
 package guilds

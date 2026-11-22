@@ -1,9 +1,9 @@
-github.com/discord-go/discord.go/dave-go v0.2.1 h1:6AnzCXExCnYylBgMKsVhuWYjox461bPyej3dQjA6eCw=
-github.com/discord-go/discord.go/dave-go v0.2.1/go.mod h1:CusutntunNycwm2ih7IPGfCDBtf42VjITlIEhIfXn7o=
-github.com/discord-go/discord.go/dave-go/godave v0.2.0 h1:sS1HCI/jhYBNp2cHS3qGtM5G8ot2Sef9l34OXe1FISM=
-github.com/discord-go/discord.go/dave-go/godave v0.2.0/go.mod h1:x0zcDORmOnrvcNSyvPt5AvQ5jDqflqhocnFI+5QtCwE=
-github.com/discord-go/discord.go/dave-go/mls-go v0.2.0 h1:wTOHJkj6PpBW/sn+SCEhmbRDSOYUPmrNh4jrlQ+hNbc=
-github.com/discord-go/discord.go/dave-go/mls-go v0.2.0/go.mod h1:kkMKXzmD+JBCXwheyvjvV9QzOcWuQSI8YlL4h0WvaJc=
+github.com/discord-go/discord.go/dave-go v0.2.2 h1:Wf4d12Pg5z4j/nwUqiLm0S/L8Ty/KaCnxT3qY1LpokQ=
+github.com/discord-go/discord.go/dave-go v0.2.2/go.mod h1:1/7E/qTza35Q9EeEEJh30w2LtrX3Ji4wsv1kEfQRyT4=
+github.com/discord-go/discord.go/dave-go/godave v0.2.1 h1:qE2exgjDEgPrfPnIcDdOyumKBvMd3HpsSyM3w0CeY6g=
+github.com/discord-go/discord.go/dave-go/godave v0.2.1/go.mod h1:x0zcDORmOnrvcNSyvPt5AvQ5jDqflqhocnFI+5QtCwE=
+github.com/discord-go/discord.go/dave-go/mls-go v0.2.1 h1:HxUBtuUBYBdfTqz+gdTEo9+W+MfPzA/vA6kFzugNaQo=
+github.com/discord-go/discord.go/dave-go/mls-go v0.2.1/go.mod h1:kkMKXzmD+JBCXwheyvjvV9QzOcWuQSI8YlL4h0WvaJc=
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 golang.org/x/crypto v0.31.0 h1:ihbySMvVjLAeSH1IbfcRTkD/iNscyz8rGzjF/E5hV6U=

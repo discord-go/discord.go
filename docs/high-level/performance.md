@@ -87,16 +87,18 @@ bots, consider:
 
 ## Rate Limit Throughput
 
-The rate limiter enforces:
-- 50 requests/second global limit using `golang.org/x/time/rate.Limiter`
+The default limiter provides:
+
+- A 50 requests/second token bucket per limiter using `golang.org/x/time/rate.Limiter`
   (token bucket). This avoids global mutex contention under high concurrency
   — concurrent goroutines reserve tokens in parallel without serializing
   through a single lock.
-- Per-bucket limits based on Discord's `X-RateLimit-Bucket` headers.
+- Per-bucket limits based on Discord's `X-RateLimit-Bucket` headers and major resources.
 - Optimistic remaining count decrement to maximize throughput.
 
 For bulk operations, use batch endpoints (e.g., `BulkOverwriteGlobalCommands`)
-instead of individual requests.
+instead of individual requests. Share a limiter between clients using the same
+token; independent limiters and processes do not coordinate automatically.
 
 ## Compression
 

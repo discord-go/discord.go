@@ -73,7 +73,8 @@ func (c *Client) SetBotToken(token string) {
 
 // BucketState returns the current rate limit state for a route bucket, if
 // the client's limiter tracks it. The bucket key is the same route path used
-// internally (the request path without its query string).
+// internally (the request path without its query string). If multiple HTTP
+// methods use the same path, it reports the most recently updated method.
 func (c *Client) BucketState(bucket string) (ratelimit.BucketState, bool) {
 	if c == nil || c.Limiter == nil {
 		return ratelimit.BucketState{}, false

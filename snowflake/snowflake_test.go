@@ -18,3 +18,17 @@ func TestID_String(t *testing.T) {
 		}
 	}
 }
+
+func TestIDMarshalJSONBoundaries(t *testing.T) {
+	for _, tt := range []struct {
+		id   ID
+		want string
+	}{
+		{0, `"0"`}, {1, `"1"`}, {9007199254740993, `"9007199254740993"`}, {^ID(0), `"18446744073709551615"`},
+	} {
+		got, err := tt.id.MarshalJSON()
+		if err != nil || string(got) != tt.want {
+			t.Errorf("ID(%d) = %s, %v; want %s", tt.id, got, err, tt.want)
+		}
+	}
+}

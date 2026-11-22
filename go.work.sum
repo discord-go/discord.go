@@ -1,1 +1,7 @@
 github.com/discord-go/discord.go v0.17.0-left/go.mod h1:M+ALmLqJnvQZof8kN1qesgVMEO/SMLmNyBI+lQgDc3M=
+github.com/discord-go/discord.go/dave-go v0.2.1/go.mod h1:CusutntunNycwm2ih7IPGfCDBtf42VjITlIEhIfXn7o=
+github.com/discord-go/discord.go/dave-go/godave v0.2.0/go.mod h1:x0zcDORmOnrvcNSyvPt5AvQ5jDqflqhocnFI+5QtCwE=
+github.com/discord-go/discord.go/dave-go/mls-go v0.2.0/go.mod h1:kkMKXzmD+JBCXwheyvjvV9QzOcWuQSI8YlL4h0WvaJc=
+golang.org/x/net v0.21.0/go.mod h1:bIjVDfnllIU7BJ2DNgfnXvpSvtn8VRwhlsaeUTyUS44=
+golang.org/x/term v0.27.0/go.mod h1:iMsnZpn0cago0GOrHO2+Y7u7JPn5AylBrcoWkElMTSM=
+golang.org/x/text v0.21.0/go.mod h1:4IBbMaMmOPCJ8SecivzSH54+73PCFmPWxNTLm+vZkEQ=

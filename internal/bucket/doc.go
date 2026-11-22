@@ -1,7 +1,3 @@
-// Package bucket provides route hash calculation for Discord rate limit buckets.
-//
-// This is an internal package and MUST NOT be imported by external consumers.
-// Discord's rate limiting groups certain routes into the same bucket; this
-// package computes a deterministic hash from the HTTP method and path so the
-// rate limiter can key on it.
+// Package bucket provides a deterministic hash for normalized HTTP routes.
+// This hash is not Discord's server-provided rate limit bucket identifier.
 package bucket

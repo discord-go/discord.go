@@ -1,4 +1,8 @@
-// Package rest provides a client for interacting with the Discord REST API.
+// Package rest provides a client for the Discord REST API.
+//
+// New configures a default HTTP client and rate limiter when they are nil.
+// Requests accept a context for cancellation. Set Client.MaxRetries to bound
+// retries after rate-limit responses; zero leaves retries unbounded.
 package rest
 
 // StringPtr returns a pointer to the given string. It is a convenience

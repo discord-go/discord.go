@@ -1,3 +1,2 @@
-// Package client provides the main entry point for the discord.go library.
-// It manages the REST client, Gateway client, and Cache instance.
+// Package client combines Discord REST and gateway clients with a cache.
 package client
