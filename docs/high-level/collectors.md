@@ -267,9 +267,12 @@ if err := p.Send(ctx); err != nil {
 ```
 
 The paginator blocks until the timeout expires, the user clicks stop,
-or the context is cancelled. Buttons are removed on exit. Because `Send`
-blocks, it must be launched in a goroutine from interaction handlers —
-acknowledge the interaction first, then call `Send` in a `go` statement.
+or the context is cancelled. It acknowledges each accepted button press
+before editing the message, and attempts to remove the buttons on exit,
+including after cancellation. A successful timeout or stop returns `nil`.
+Cancellation and acknowledgement, edit, or cleanup failures are returned as
+errors. Because `Send` blocks, acknowledge the interaction first and then
+launch `Send` in a goroutine from an interaction handler.
 
 For convenience, `SendAsync` wraps this pattern: it launches `Send` in a
 goroutine and returns immediately, delivering any error to an optional
