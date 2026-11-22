@@ -13,8 +13,7 @@ import (
 )
 
 // Paginator manages a paginated message with button navigation.
-// Each page is rendered by a user-provided function that returns the
-// content and embeds to display.
+// Each page supplies the content and embeds to display.
 type Paginator struct {
 	bot       *Bot
 	channelID snowflake.ID
@@ -67,8 +66,11 @@ func (b *Bot) NewPaginator(channelID snowflake.ID, pages []PaginatorPage, opts .
 // Send creates the initial message and starts the interaction loop.
 // It blocks until the timeout expires, the user clicks stop, or ctx
 // is cancelled. The message is edited in-place as the user navigates.
+// On exit it attempts to remove the buttons, even if ctx was cancelled.
+// A timeout or stop returns nil if cleanup succeeds; cancellation and any
+// acknowledgement, edit, or cleanup errors are returned to the caller.
 // For non-blocking use from an interaction handler, call SendAsync.
-func (p *Paginator) Send(ctx context.Context) error {
+func (p *Paginator) Send(ctx context.Context) (resultErr error) {
 	if len(p.pages) == 0 {
 		return fmt.Errorf("paginator: no pages")
 	}
@@ -82,49 +84,54 @@ func (p *Paginator) Send(ctx context.Context) error {
 		return fmt.Errorf("paginator: failed to send message: %w", err)
 	}
 
+	// Remove controls even when the caller has cancelled. Bound cleanup so a
+	// failed Discord request cannot keep the paginator alive indefinitely.
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		if _, err := p.bot.Rest.EditMessage(cleanupCtx, p.channelID, msg.ID, p.toEditParams(current, true)); err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("paginator: failed to remove buttons: %w", err))
+		}
+	}()
+
 	timeoutCtx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
-
-	for {
-		interaction, err := p.bot.AwaitInteraction(timeoutCtx, func(ic *InteractionContext) bool {
-			if ic.Message == nil || ic.Message.ID != msg.ID {
+	interactions, stop := p.bot.CollectInteractions(timeoutCtx, func(ic *InteractionContext) bool {
+		if ic == nil || ic.Interaction == nil || ic.Message == nil || ic.Message.ID != msg.ID {
+			return false
+		}
+		if p.userID != 0 {
+			user := ic.User()
+			if user == nil || user.ID != p.userID {
 				return false
 			}
-			if p.userID != 0 {
-				if ic.Member != nil && ic.Member.User != nil && ic.Member.User.ID != p.userID {
-					return false
-				}
-				if u := ic.User(); u != nil && u.ID != p.userID {
-					return false
-				}
+		}
+		customID := ic.CustomID()
+		return customID == paginatorPrevID || customID == paginatorNextID || customID == paginatorStopID
+	})
+	defer stop()
+
+	for {
+		var interaction *InteractionContext
+		select {
+		case <-timeoutCtx.Done():
+			if ctx.Err() != nil {
+				return fmt.Errorf("paginator: failed waiting for interaction: %w", ctx.Err())
 			}
-			customID := ic.CustomID()
-			return customID == paginatorPrevID || customID == paginatorNextID || customID == paginatorStopID
-		})
-		if err != nil {
-			_, cleanupErr := p.bot.Rest.EditMessage(ctx, p.channelID, msg.ID, p.toEditParams(current, true))
-			if ctx.Err() == nil && errors.Is(err, context.DeadlineExceeded) {
-				if cleanupErr != nil {
-					return fmt.Errorf("paginator: timed out; failed to remove buttons: %w", cleanupErr)
+			return nil
+		case interaction = <-interactions:
+			if interaction == nil {
+				if ctx.Err() != nil {
+					return fmt.Errorf("paginator: failed waiting for interaction: %w", ctx.Err())
 				}
 				return nil
 			}
-			if cleanupErr != nil {
-				return errors.Join(
-					fmt.Errorf("paginator: failed waiting for interaction: %w", err),
-					fmt.Errorf("paginator: failed to remove buttons after wait ended: %w", cleanupErr),
-				)
-			}
-			return fmt.Errorf("paginator: failed waiting for interaction: %w", err)
 		}
-
-		customID := interaction.CustomID()
 
 		if err := interaction.DeferUpdate(); err != nil {
 			return fmt.Errorf("paginator: failed to acknowledge button interaction: %w", err)
 		}
-
-		switch customID {
+		switch interaction.CustomID() {
 		case paginatorPrevID:
 			if current > 0 {
 				current--
@@ -134,12 +141,8 @@ func (p *Paginator) Send(ctx context.Context) error {
 				current++
 			}
 		case paginatorStopID:
-			if _, err := p.bot.Rest.EditMessage(timeoutCtx, p.channelID, msg.ID, p.toEditParams(current, true)); err != nil {
-				return fmt.Errorf("paginator: failed to close message: %w", err)
-			}
 			return nil
 		}
-
 		if _, err := p.bot.Rest.EditMessage(timeoutCtx, p.channelID, msg.ID, p.toEditParams(current, false)); err != nil {
 			return fmt.Errorf("paginator: failed to update page: %w", err)
 		}
@@ -207,6 +210,8 @@ func (p *Paginator) toEditParams(index int, done bool) rest.EditMessageParams {
 		Embeds:  &embeds,
 	}
 	if done {
+		comps := []components.Component{}
+		params.Components = &comps
 		return params
 	}
 
