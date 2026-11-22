@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.2.2] - 2026-11-22
+
+### Changed
+
+- Clarified DAVE package documentation and updated dependencies to the
+  documentation releases `godave v0.2.1` and `mls-go v0.2.1`.
+- Updated the porting guide to describe the current workspace and release
+  process. No DAVE protocol behavior changed in this release.
+
 
 ## [v0.2.1] - 2026-11-19
 

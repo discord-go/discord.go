@@ -29,12 +29,10 @@ connected, completed DAVE setup, and joined a voice channel; audio sent by the
 musicbot was received and saved by the recorderbot as a WAV file. This verifies
 the tested connection and audio path against Discord.
 
-These modules are nested in the parent repository and use local `replace`
-directives for in-repository development. The corresponding module versions
-are published as `dave-go/v0.1.0`, `dave-go/mls-go/v0.1.0`, and
-`dave-go/godave/v0.1.0`. A clean consumer module fetched the released parent
-module and all three nested modules, then compiled the voice package with Go
-1.22.0.
+These modules are nested in the parent repository and use a `go.work`
+workspace for in-repository development. Published module versions are
+resolved from their respective tags. A clean consumer check compiles the
+parent module and its nested dependencies with Go 1.22.0.
 
 ## References
 
@@ -142,6 +140,5 @@ is published.
 See the upstream comparison histories for context:
 [MLS changes](https://github.com/thomas-vilte/mls-go/compare/v1.6.0...main)
 and [DAVE changes](https://github.com/thomas-vilte/dave-go/compare/v0.5.1...main).
-The old published module versions do not include the local fixes in this
-working tree; publish new nested module versions and a parent release after
-validation.
+Publish new nested module versions when their contents change, then update the
+parent requirements and run the consumer check before releasing the parent.
