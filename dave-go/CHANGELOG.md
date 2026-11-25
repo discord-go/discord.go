@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.2.3] - 2026-11-25
+
+### Security
+
+- Require `mls-go v0.2.2` for fresh random initial epoch secrets and proposal
+  handling fixes. Existing saved groups retain their previous secrets and need
+  to be recreated with the fixed version.
+
+### Changed
+
+- Add DAVE frame round-trip coverage across varying payload lengths and record
+  the live voice test's successful rejoin checks and unresolved packet gaps.
+
 ## [v0.2.2] - 2026-11-22
 
 ### Changed

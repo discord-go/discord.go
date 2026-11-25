@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/discord-go/discord.go/dave-go/godave v0.2.1
-	github.com/discord-go/discord.go/dave-go/mls-go v0.2.1
+	github.com/discord-go/discord.go/dave-go/mls-go v0.2.2
 )
 
 require (

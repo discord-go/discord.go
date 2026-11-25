@@ -2,8 +2,33 @@ package frame
 
 import (
 	"bytes"
+	"math/rand"
 	"testing"
 )
+
+func TestEncryptIntoRoundTripVaryingFrameLengths(t *testing.T) {
+	rng := rand.New(rand.NewSource(1))
+	key := bytes.Repeat([]byte{0x42}, 16)
+	gcm, err := NewGCM8(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for length := 0; length <= 1500; length++ {
+		plain := make([]byte, length)
+		if _, err := rng.Read(plain); err != nil {
+			t.Fatal(err)
+		}
+		dst := make([]byte, len(plain)+64)
+		n, err := EncryptWithCipherInto(dst, EncryptWithCipherParams{Plaintext: plain, Cipher: gcm, TruncatedNonce: uint32(length + 1)})
+		if err != nil {
+			t.Fatalf("length %d: %v", length, err)
+		}
+		got, nonce, err := Decrypt(DecryptParams{Ciphertext: dst[:n], Key: key})
+		if err != nil || nonce != uint32(length+1) || !bytes.Equal(got, plain) {
+			t.Fatalf("length %d: nonce=%d, err=%v", length, nonce, err)
+		}
+	}
+}
 
 func TestEncryptIntoMatchesEncrypt(t *testing.T) {
 	key := make([]byte, 16)

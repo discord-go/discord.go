@@ -99,11 +99,19 @@ baseline.
 | DAVE `7a8e9201`, `9bf0fbe0` | Pending local commit vs peer epoch | Ported: rollback only when a local commit is pending. |
 | MLS `0b565769` | Secrets in confirmation errors | Ported: sentinel error without secret data; debug key logging removed. |
 | MLS `3a49c697` | Welcome signer validation | Ported: external sender and GroupInfo signer are checked. |
-| MLS `4d4c4bd7` | Epoch-zero entropy | Review pending: confirm the local RFC 9180 path matches the upstream fix. |
+| MLS `4d4c4bd7` | Epoch-zero entropy | Fixed in `mls-go v0.2.2`: fresh random initial epoch secrets, with regression tests. |
 | MLS `459ca333` | Proposal signatures | Ported: external proposals are verified before caching. |
 | MLS `91c8bddf` | Commit paths | Ported: add-only commits omit the path; Remove/Update/empty commits keep it. |
 | MLS `c4a0c225` | Rejected commit state | Ported: rejected commits roll back to the pre-commit snapshot. |
-| MLS `d26fd13b` | Proposal deduplication | Review pending: confirm duplicate refs are rejected in every proposal path. |
+| MLS `d26fd13b` | Proposal deduplication | Fixed in `mls-go v0.2.2` for repeated received references and signed local echoes, including state restore; broader commit validation review remains. |
+
+The previous `NewGroup` implementation derived the initial epoch secrets from
+zero-valued inputs and the public group context. Those secrets, including the
+initial `init_secret`, could therefore be reconstructed. The local fix draws a
+fresh random initial epoch secret as required by RFC 9420 section 11.1. Groups
+restored from old saved state retain their existing secrets; creating a new group
+with the fixed implementation is necessary to start with fresh initial secrets.
+The fix is included in `mls-go v0.2.2` and `discord.go v0.18.1-walk`.
 
 Re-review this table against the upstream comparison histories before each
 nested module release. A "ported" entry means the local tree contains an
