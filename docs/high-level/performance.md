@@ -99,6 +99,17 @@ The default limiter provides:
 For bulk operations, use batch endpoints (e.g., `BulkOverwriteGlobalCommands`)
 instead of individual requests. Share a limiter between clients using the same
 token; independent limiters and processes do not coordinate automatically.
+For coordinated processes, see the [Redis limiter](../low-level/ratelimit/distributed.md).
+
+For local limiter overhead measurements, run:
+
+```sh
+go test ./ratelimit -run '^$' -bench 'BenchmarkLimiter_(Wait_Overhead|Acquire_)' -benchmem -count=3
+```
+
+These benchmarks disable the global wait only within the benchmark process.
+They measure local coordination overhead; they do not measure Discord network
+latency or the throughput of the default global rate limit.
 
 ## Compression
 

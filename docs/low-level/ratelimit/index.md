@@ -63,6 +63,8 @@ The in-memory store is process-local. `NewLimiter` accepts nil and creates an
 in-memory store. A shared store by itself does not coordinate multiple
 processes: `Get` and `Put` do not provide atomic reservations, and the global
 limiter is local. Use a limiter designed for distributed coordination instead.
+The opt-in [`redislimiter` package](distributed.md) provides Redis-backed
+coordination when its operational requirements are met.
 
 ## Using Buckets
 
@@ -84,6 +86,10 @@ goroutine asleep until a long reset.
 Share one limiter among REST clients that share a token and process. Keep route
 keys consistent. Treat the memory limiter as coordination, not a guarantee
 against a server-side limit; Discord can change buckets and scopes.
+
+The in-memory limiter retains route mappings, bucket state, and locks for the
+life of the limiter. Long-running clients that encounter many distinct paths
+should monitor memory use; automatic eviction is not currently implemented.
 
 ## Common Mistakes
 

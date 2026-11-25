@@ -22,6 +22,13 @@ Concurrent requests can still encounter 429s, especially before a route's
 limits are known; the limiter cannot guarantee that Discord will never reject a
 request.
 
+The default limiter holds concurrent requests for a route while its first
+request discovers the bucket, and allows one discovery request after a known
+window expires. The REST client releases this reservation on a response or
+transport error. Custom limiters can implement `ratelimit.RouteReserver` to
+coordinate the same request lifecycle; `Limiter` and `RouteLimiter` remain
+supported.
+
 `Client.MaxRetries` bounds the 429 retry loop. When set to a positive value,
 the client gives up after that many retries and returns `*RateLimitError`
 instead of retrying forever; zero (the default) keeps the historical unbounded

@@ -152,6 +152,14 @@ func TestRestOperationsFindsRepresentativeRoutes(t *testing.T) {
 		{method: "POST", path: "/interactions/{}/{}/callback"},
 		{method: "GET", path: "/users/@me"},
 		{method: "GET", path: "/gateway/bot"},
+		{method: "GET", path: "/guilds/templates/{}"},
+		{method: "GET", path: "/guilds/{}/templates"},
+		{method: "POST", path: "/guilds/{}/templates"},
+		{method: "PUT", path: "/guilds/{}/templates/{}"},
+		{method: "PATCH", path: "/guilds/{}/templates/{}"},
+		{method: "DELETE", path: "/guilds/{}/templates/{}"},
+		{method: "DELETE", path: "/guilds/{}/integrations/{}"},
+		{method: "GET", path: "/sticker-packs/{}"},
 	} {
 		if _, ok := operations[want]; !ok {
 			t.Errorf("representative route %v not detected", want)

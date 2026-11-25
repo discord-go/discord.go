@@ -20,6 +20,12 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go-version }}
+      - name: Install Redis for distributed limiter tests
+        run: |
+          if ! command -v redis-server >/dev/null || ! command -v redis-cli >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y redis-server
+          fi
       - run: test -z "$(gofmt -l $(git ls-files '*.go'))"
       - run: go test ./...
       - run: go test -race ./...

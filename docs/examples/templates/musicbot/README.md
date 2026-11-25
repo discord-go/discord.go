@@ -29,6 +29,7 @@ For a controlled test, the two-bot runner also accepts
 recorder announces that music and other channel participants may be recorded.
 With that variable unset, the runner sends a synthetic tone instead. For a
 longer tone, set `VOICE_TEST_TONE_DURATION` (for example `10m`).
+Set `VOICE_TEST_MEDIA_LOOP=1` to replay the selected media until the bot stops.
 
 `run-voice-bots.sh` selects a scenario with `VOICE_TEST_SCENARIO`: `baseline`,
 `membership` (recorder leaves and rejoins), `reconnect` (music bot restarts),

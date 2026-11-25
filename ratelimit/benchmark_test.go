@@ -4,14 +4,58 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
-func BenchmarkLimiter_Wait_NoLimits(b *testing.B) {
-	l := NewLimiter(NewMemoryStore())
+// These microbenchmarks remove the global token wait only inside the test so
+// they measure limiter overhead, not Discord's 50-request-per-second policy.
+func benchmarkUnrestrictedLimiter() *limiter {
+	l := NewLimiter(NewMemoryStore()).(*limiter)
+	l.globalLimiter = rate.NewLimiter(rate.Inf, 1)
+	return l
+}
+
+func BenchmarkLimiter_Wait_Overhead(b *testing.B) {
+	l := benchmarkUnrestrictedLimiter()
 	ctx := context.Background()
+	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = l.Wait(ctx, "bench-bucket")
+	}
+}
+
+func BenchmarkLimiter_Acquire_KnownBucket(b *testing.B) {
+	l := benchmarkUnrestrictedLimiter()
+	const path = "/channels/123/messages"
+	l.UpdateRoute("GET", path, Info{Bucket: "example", Remaining: 1<<31 - 1, ResetAfter: time.Hour})
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			release, err := l.AcquireRoute(ctx, "GET", path)
+			if err != nil {
+				b.Error(err)
+				return
+			}
+			release()
+		}
+	})
+}
+
+func BenchmarkLimiter_Acquire_UnknownRoute(b *testing.B) {
+	l := benchmarkUnrestrictedLimiter()
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		release, err := l.AcquireRoute(ctx, "GET", "/channels/123/messages")
+		if err != nil {
+			b.Fatal(err)
+		}
+		release()
 	}
 }
 

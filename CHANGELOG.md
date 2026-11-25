@@ -3,6 +3,48 @@
 All notable changes to discord.go are documented here. The format follows
 Keep a Changelog, and versions use the repository's `vX.Y.Z-<codename>` tags.
 
+## [v0.18.1-walk] - 2026-11-25
+
+[v0.18.1-walk]: https://github.com/discord-go/discord.go/compare/v0.18.0-walk...v0.18.1-walk
+
+### Security
+
+- Generate fresh random MLS initial epoch secrets. Previously, those secrets
+  could be reconstructed from the public group context. Existing saved group
+  state retains its old secrets; create a new group with the fixed version.
+- Ignore repeated received proposal references and signed local echoes, and
+  retain local references across state restore. Further MLS review remains.
+
+### Added
+
+- Add an opt-in Redis-backed distributed REST limiter with atomic shared route
+  and global reservations. See `docs/low-level/ratelimit/distributed.md` for
+  configuration and operational limits.
+- Add guild template operations, guild integration deletion, and sticker-pack
+  lookup. Fix decoding optional sticker-pack asset IDs.
+
+### Changed
+
+- Coordinate default REST requests when a route is first seen or its bucket
+  resets, including cancellation and transport failures.
+- Add local limiter benchmarks that separate coordination overhead from the
+  default global request budget. Expand coverage and regression checks.
+- Run the distributed limiter's Redis integration checks in CI.
+- Record a live two-bot DAVE rejoin test, including the observed packet gaps.
+  Voice-test recording can be restricted to the music bot, and the runner
+  resolves its speaker ID instead of relying on a fixed account.
+
+### Compatibility and verification
+
+- Go 1.22 remains the minimum. The release uses `dave-go v0.2.3`,
+  `dave-go/mls-go v0.2.2`, and `dave-go/godave v0.2.1`.
+- Standalone example modules pin the previously published parent version with
+  the fixed DAVE and MLS dependencies; repository workspace builds use this
+  checkout. Upgrade the parent requirement to `v0.18.1-walk` after publication.
+- The live listener and recorder rejoin checks passed with the local DAVE and
+  MLS changes. Recording continuity did not pass: the test observed packet
+  gaps that still need investigation. See `docs/examples/templates/voice-test-results.md`.
+
 ## [v0.18.0-walk] - 2026-11-22
 
 [v0.18.0-walk]: https://github.com/discord-go/discord.go/compare/v0.17.1-left...v0.18.0-walk

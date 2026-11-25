@@ -20,6 +20,9 @@ Each scenario writes WAV files to a temporary directory and checks the mean
 volume with `ffmpeg -af volumedetect`; a recording below -50 dB is treated as
 silence. The recorder writes a standard 44-byte PCM WAV header, so the files
 open in normal audio tools.
+The runner records only the music bot. It uses `VOICE_TEST_SPEAKER_ID` if set;
+otherwise it uses Python 3 to look up the bot ID with the music token. The
+default synthetic tone lasts two minutes so the recorder has time to reconnect.
 
 1. **Baseline (`baseline`):** both bots join, the music bot plays, the recorder
    captures audio, and the WAV is non-silent.
@@ -44,3 +47,5 @@ Automated unit tests and the baseline scenario do not by themselves prove the
 membership, reconnect, long-playback, or failure scenarios. Network disruption
 and participant changes should only be performed in the dedicated test guild.
 Record the date, version, duration, and actual result for each run.
+
+See [voice-test-results.md](voice-test-results.md) for recorded live results.

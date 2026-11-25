@@ -22,10 +22,11 @@ find review candidates, not a completeness guarantee.
 
 ## Current inventory
 
-The 2026-11-19 inventory found **191 exact matches out of 250** specification
-operations (76.4%) and 194 statically detected REST operations. The previous
-2026-11-18 run found 166/250; the increase comes from scanner fixes, not new
-endpoints:
+The 2026-11-25 inventory found **199 exact matches out of 250** specification
+operations (79.6%) and 202 statically detected REST operations. The previous
+2026-11-19 run found 191/250. The increase comes from guild template, guild
+integration deletion, and sticker-pack helpers. The earlier rise from 166/250
+on 2026-11-18 came from scanner fixes:
 
 - local integer-to-string helpers such as `rest.itoa` are now treated as path
   placeholders;
@@ -40,7 +41,7 @@ These are scanner matches, not a percentage of implemented functionality.
 
 ## Review backlog
 
-The remaining 59 unmatched operations fall into these categories.
+The remaining 51 unmatched operations fall into these categories.
 
 ### Detection limitations
 
@@ -61,14 +62,11 @@ The remaining 59 unmatched operations fall into these categories.
 These have no matching helper in `rest` after reviewing the source. They are
 candidates for implementation, not confirmed regressions:
 
-- guild templates (`GET/POST/PUT/PATCH/DELETE`);
-- guild integration deletion (`DELETE /guilds/{}/integrations/{}`);
 - scheduled-event exceptions and user counts;
 - guild join requests (`GET /guilds/{}/requests`, `PATCH .../requests/{}`);
 - new-member welcome (`GET /guilds/{}/new-member-welcome`);
 - channel and guild permission member/role lookups;
 - thread search (`GET /channels/{}/threads/search`);
-- sticker packs (`GET /sticker-packs/{}`) and guild sticker creation;
 - guild widget and widget image;
 - incident actions (`PUT /guilds/{}/incident-actions`);
 - application lookup by ID and attachment upload;

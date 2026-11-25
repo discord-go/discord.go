@@ -61,3 +61,40 @@ func TestRecorderDoesNotCreateFilesWhenInactive(t *testing.T) {
 		t.Fatal("inactive recorder created an output file")
 	}
 }
+
+func TestRecorderFiltersUnselectedSpeakers(t *testing.T) {
+	dir := t.TempDir()
+	r := newRecorder(dir)
+	r.speakerID = "music-bot"
+	if err := r.start(); err != nil {
+		t.Fatal(err)
+	}
+	defer r.stop()
+	if err := r.write("listener", []byte{1, 2, 3}); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("created files for an unselected speaker: %v", entries)
+	}
+}
+
+func TestPacketStatsCountGapsAcrossSequenceWrap(t *testing.T) {
+	r := newRecorder(t.TempDir())
+	r.speakerID = "music-bot"
+	r.stats = &packetStats{}
+	if err := r.start(); err != nil {
+		t.Fatal(err)
+	}
+	defer r.stop()
+	for _, seq := range []uint16{65534, 65535, 1, 0} {
+		r.observePacket("music-bot", seq)
+	}
+	r.observePacket("listener", 100)
+	if r.stats.received != 4 || r.stats.missing != 1 || r.stats.reordered != 1 {
+		t.Fatalf("unexpected packet statistics: %+v", r.stats)
+	}
+}

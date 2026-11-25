@@ -71,3 +71,22 @@ func TestHeaderless429UpdatesKnownBucket(t *testing.T) {
 		t.Fatalf("different webhook token unexpectedly blocked: %v", err)
 	}
 }
+
+func TestOutOfOrderUpdatesAndNewWindow(t *testing.T) {
+	l := NewLimiter(nil)
+	route := l.(RouteLimiter)
+	reader := l.(StateReader)
+	reset := time.Now().Add(250 * time.Millisecond)
+	route.UpdateRoute("GET", "/channels/1/messages", Info{Bucket: "b", Remaining: 0, Reset: reset})
+	route.UpdateRoute("GET", "/channels/1/messages", Info{Bucket: "b", Remaining: 4, ResetAfter: 10 * time.Millisecond})
+	state, ok := reader.State("/channels/1/messages")
+	if !ok || state.Remaining != 0 || !state.Reset.Equal(reset) {
+		t.Fatalf("stale update reopened the bucket: %+v", state)
+	}
+	time.Sleep(time.Until(state.Reset) + 5*time.Millisecond)
+	route.UpdateRoute("GET", "/channels/1/messages", Info{Bucket: "b", Remaining: 3, ResetAfter: time.Second})
+	state, ok = reader.State("/channels/1/messages")
+	if !ok || state.Remaining != 3 {
+		t.Fatalf("new window ignored: %+v", state)
+	}
+}

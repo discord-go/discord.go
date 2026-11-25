@@ -266,6 +266,11 @@ func (c *Client) GetGuildIntegrations(ctx context.Context, guildID snowflake.ID)
 	return integ, nil
 }
 
+// DeleteGuildIntegration deletes an integration from a guild.
+func (c *Client) DeleteGuildIntegration(ctx context.Context, guildID, integrationID snowflake.ID) error {
+	return c.Request(ctx, "DELETE", "/guilds/"+guildID.String()+"/integrations/"+integrationID.String(), nil, nil)
+}
+
 // GetGuildWidget returns a guild widget object.
 func (c *Client) GetGuildWidget(ctx context.Context, guildID snowflake.ID) (*guilds.Widget, error) {
 	var w guilds.Widget

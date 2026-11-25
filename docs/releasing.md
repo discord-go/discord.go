@@ -7,7 +7,8 @@ GitHub release. The tag must be publicly fetchable for the check to work.
 
 The workflow uses Go 1.22 and runs `scripts/verify-release.sh VERSION` in a
 fresh temporary module with `GOWORK=off`. It imports the bot, voice and
-voiceplayer packages without local replacements. It downloads from the Git
+voiceplayer packages and checks MLS, Redis limiter, and REST symbols without
+local replacements. It downloads from the Git
 repository directly to avoid cached negative proxy results after a new tag.
 The version must be a valid published tag, not a branch or local checkout.
 

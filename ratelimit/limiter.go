@@ -33,6 +33,19 @@ type RouteLimiter interface {
 	UpdateRoute(method, path string, info Info)
 }
 
+// RouteReserver coordinates a request from admission through response handling.
+// The returned function must be called once the response has been recorded,
+// or immediately if the request fails before a response is available.
+type RouteReserver interface {
+	AcquireRoute(ctx context.Context, method, path string) (release func(), err error)
+}
+
+// ContextRouteUpdater lets limiters report failures while recording a response.
+// REST clients propagate these failures rather than continuing with stale limits.
+type ContextRouteUpdater interface {
+	UpdateRouteContext(ctx context.Context, method, path string, info Info) error
+}
+
 type limiter struct {
 	store Store
 
@@ -48,6 +61,7 @@ type limiter struct {
 	bucketLocks sync.Map // map[string]*sync.Mutex
 	routeToHash sync.Map // map[string]string
 	lastRoute   sync.Map // map[path]route, for the legacy State method
+	probes      sync.Map // map[bucket]chan struct{}; only live while a probe is in flight
 }
 
 // NewLimiter creates a new rate limiter using the provided store.
@@ -190,6 +204,128 @@ func (l *limiter) WaitRoute(ctx context.Context, method, path string) error {
 	return l.Wait(ctx, strings.ToUpper(method)+" "+path)
 }
 
+// AcquireRoute permits one discovery request for an unknown or expired bucket.
+// Other requests wait until it records a response or releases the reservation.
+func (l *limiter) AcquireRoute(ctx context.Context, method, path string) (func(), error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	route := strings.ToUpper(method) + " " + path
+	for {
+		if err := l.waitGlobalReset(ctx); err != nil {
+			return nil, err
+		}
+		key := route
+		if hash, ok := l.routeToHash.Load(route); ok {
+			key = hash.(string)
+		}
+		mu := l.getBucketLock(key)
+		mu.Lock()
+		// A response may have associated this route with a bucket while we
+		// were acquiring its old lock. Retry using the new bucket key.
+		if hash, ok := l.routeToHash.Load(route); ok && hash.(string) != key {
+			mu.Unlock()
+			continue
+		}
+		state, known := l.store.Get(key)
+		if !known || !state.Reset.After(time.Now()) {
+			if pending, ok := l.probes.Load(key); ok {
+				mu.Unlock()
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-pending.(chan struct{}):
+					continue
+				}
+			}
+			pending := make(chan struct{})
+			l.probes.Store(key, pending)
+			mu.Unlock()
+			var once sync.Once
+			release := func() {
+				once.Do(func() {
+					mu.Lock()
+					l.probes.Delete(key)
+					close(pending)
+					mu.Unlock()
+				})
+			}
+			if err := l.waitGlobalAdmission(ctx); err != nil {
+				release()
+				return nil, err
+			}
+			return release, nil
+		}
+		if state.Remaining > 0 {
+			state.Remaining--
+			l.store.Put(key, state)
+			mu.Unlock()
+			if err := l.waitGlobalAdmission(ctx); err != nil {
+				return nil, err
+			}
+			// A global wait may have carried this reservation into a new
+			// route window. Discover that window before sending the request.
+			if !state.Reset.After(time.Now()) {
+				continue
+			}
+			return func() {}, nil
+		}
+		delay := time.Until(state.Reset)
+		mu.Unlock()
+		if err := waitDuration(ctx, delay); err != nil {
+			return nil, err
+		}
+	}
+}
+
+func waitDuration(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return ctx.Err()
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (l *limiter) waitGlobalReset(ctx context.Context) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		l.globalMu.RLock()
+		delay := time.Until(l.globalReset)
+		l.globalMu.RUnlock()
+		if delay <= 0 {
+			return nil
+		}
+		if err := waitDuration(ctx, delay); err != nil {
+			return err
+		}
+	}
+}
+
+func (l *limiter) waitGlobalAdmission(ctx context.Context) error {
+	for {
+		if err := l.waitGlobalReset(ctx); err != nil {
+			return err
+		}
+		if err := l.globalLimiter.Wait(ctx); err != nil {
+			return err
+		}
+		l.globalMu.RLock()
+		blocked := l.globalReset.After(time.Now())
+		l.globalMu.RUnlock()
+		if !blocked {
+			return nil
+		}
+	}
+}
+
 // UpdateRoute records response limits for the method and path.
 func (l *limiter) UpdateRoute(method, path string, info Info) {
 	route := strings.ToUpper(method) + " " + path
@@ -234,7 +370,6 @@ func (l *limiter) update(bucket, major string, info Info) {
 		storeKey := bucket
 		if info.Bucket != "" {
 			storeKey = "bucket:" + info.Bucket + ":" + major
-			l.routeToHash.Store(bucket, storeKey)
 		} else if hash, ok := l.routeToHash.Load(bucket); ok {
 			storeKey = hash.(string)
 		}
@@ -259,5 +394,8 @@ func (l *limiter) update(bucket, major string, info Info) {
 		}
 
 		l.store.Put(storeKey, state)
+		if info.Bucket != "" {
+			l.routeToHash.Store(bucket, storeKey)
+		}
 	}
 }

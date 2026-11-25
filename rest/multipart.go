@@ -154,18 +154,24 @@ func (c *Client) requestMultipartForm(ctx context.Context, method, path string, 
 		if reason, ok := ReasonFromContext(ctx); ok {
 			req.Header.Set("X-Audit-Log-Reason", url.QueryEscape(reason))
 		}
-		if err := c.waitRoute(ctx, method, bucket); err != nil {
+		release, err := c.acquireRoute(ctx, method, bucket)
+		if err != nil {
 			return err
 		}
 		resp, err := c.HTTPClient.Do(req)
 		if err != nil {
+			release()
 			return err
 		}
 		responseBody, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		delay := c.recordLimits(method, bucket, resp, responseBody)
+		delay, limitErr := c.recordLimits(ctx, method, bucket, resp, responseBody)
+		release()
 		if readErr != nil {
 			return readErr
+		}
+		if limitErr != nil {
+			return limitErr
 		}
 		if resp.StatusCode == gohttp.StatusTooManyRequests {
 			if err := c.waitRetry(ctx, bucket, delay, retries); err != nil {
@@ -259,20 +265,26 @@ func (c *Client) requestMultipart(ctx context.Context, method, path string, payl
 			req.Header.Set("X-Audit-Log-Reason", url.QueryEscape(reason))
 		}
 
-		if err := c.waitRoute(ctx, method, bucket); err != nil {
+		release, err := c.acquireRoute(ctx, method, bucket)
+		if err != nil {
 			return err
 		}
 
 		resp, err := c.HTTPClient.Do(req)
 		if err != nil {
+			release()
 			return err
 		}
 
 		respBody, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		delay := c.recordLimits(method, bucket, resp, respBody)
+		delay, limitErr := c.recordLimits(ctx, method, bucket, resp, respBody)
+		release()
 		if err != nil {
 			return err
+		}
+		if limitErr != nil {
+			return limitErr
 		}
 
 		if resp.StatusCode == 429 {

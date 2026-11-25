@@ -24,6 +24,15 @@ func (c *Client) ListStickerPacks(ctx context.Context) ([]emojis.StickerPack, er
 	return packs.StickerPacks, err
 }
 
+// GetStickerPack retrieves a standard sticker pack by ID.
+func (c *Client) GetStickerPack(ctx context.Context, packID snowflake.ID) (*emojis.StickerPack, error) {
+	var pack emojis.StickerPack
+	if err := c.Request(ctx, "GET", "/sticker-packs/"+packID.String(), nil, &pack); err != nil {
+		return nil, err
+	}
+	return &pack, nil
+}
+
 type Sticker struct {
 	ID          snowflake.ID `json:"id,string"`
 	Name        string       `json:"name"`

@@ -54,8 +54,17 @@ type recorder struct {
 	mu     sync.Mutex
 	active bool
 	dir    string
-	files  map[string]*wavFile
-	voices map[snowflake.ID]*voice.Client
+	// speakerID restricts automated tests to one sender when configured.
+	speakerID string
+	stats     *packetStats
+	files     map[string]*wavFile
+	voices    map[snowflake.ID]*voice.Client
+}
+
+type packetStats struct {
+	seen, lastReport             time.Time
+	lastSequence                 uint16
+	received, missing, reordered uint64
 }
 
 type wavFile struct {
@@ -111,6 +120,9 @@ func (r *recorder) write(userID string, opus []byte) error {
 	if !r.active {
 		return nil
 	}
+	if r.speakerID != "" && userID != r.speakerID {
+		return nil
+	}
 	wf := r.files[userID]
 	if wf == nil {
 		f, err := os.OpenFile(filepath.Join(r.dir, userID+".wav"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
@@ -144,6 +156,35 @@ func (r *recorder) write(userID string, opus []byte) error {
 	n, err := wf.file.Write(buf)
 	wf.dataBytes += uint32(n)
 	return err
+}
+
+// observePacket reports gaps among successfully decrypted packets from the
+// selected speaker. Gaps may have occurred in transit or during decryption.
+func (r *recorder) observePacket(userID string, sequence uint16) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.active || r.stats == nil || (r.speakerID != "" && userID != r.speakerID) {
+		return
+	}
+	s := r.stats
+	now := time.Now()
+	if s.seen.IsZero() {
+		s.seen, s.lastReport, s.lastSequence = now, now, sequence
+	} else {
+		delta := uint16(sequence - s.lastSequence)
+		switch {
+		case delta == 0 || delta >= 1<<15:
+			s.reordered++
+		default:
+			s.missing += uint64(delta - 1)
+			s.lastSequence = sequence
+		}
+	}
+	s.received++
+	if now.Sub(s.lastReport) >= 5*time.Second {
+		log.Printf("voice test packet stats: received=%d missing=%d reordered=%d elapsed=%.1fs", s.received, s.missing, s.reordered, now.Sub(s.seen).Seconds())
+		s.lastReport = now
+	}
 }
 
 func writeWAVHeader(f *os.File, dataSize uint32) error {
@@ -189,6 +230,19 @@ func main() {
 
 	bot := client.New(token, client.WithIntents(intents.Guilds|intents.GuildMessages|intents.MessageContent|intents.GuildVoiceStates))
 	rec := newRecorder(outDir)
+	if speaker := os.Getenv("VOICE_TEST_SPEAKER_ID"); speaker != "" {
+		id, err := snowflake.Parse(speaker)
+		if err != nil || id == 0 {
+			log.Fatal("invalid VOICE_TEST_SPEAKER_ID")
+		}
+		rec.speakerID = id.String()
+	}
+	if os.Getenv("VOICE_TEST_PACKET_STATS") == "1" {
+		if rec.speakerID == "" {
+			log.Fatal("VOICE_TEST_PACKET_STATS requires VOICE_TEST_SPEAKER_ID")
+		}
+		rec.stats = &packetStats{}
+	}
 	var mu sync.RWMutex
 	channels := make(map[snowflake.ID]snowflake.ID) // user -> channel
 	sessions := make(map[snowflake.ID]string)       // user -> voice session
@@ -215,11 +269,15 @@ func main() {
 						log.Printf("voice test recorder start: %v", err)
 						return
 					}
-					message := "Voice test recording started; synthetic music-bot tone only."
-					if os.Getenv("VOICE_TEST_MEDIA_INPUT") != "" {
-						message = "Voice test recording started; music playback and any voice-channel participants may be recorded."
+					message := "Voice test recording started; music playback and voice-channel participants may be recorded."
+					if rec.speakerID != "" {
+						message = "Voice test recording started; only the configured music bot's audio will be recorded."
 					}
-					send(bot, testTextID, message)
+					if _, err := bot.Rest.CreateMessage(context.Background(), testTextID, message); err != nil {
+						log.Printf("voice test recording notice: %v", err)
+						rec.stop()
+						return
+					}
 					if err := bot.Gateway.JoinVoiceChannel(testGuildID, testChannelID, false, false); err != nil {
 						log.Printf("voice test recorder join: %v", err)
 						rec.stop()
@@ -365,7 +423,8 @@ func connectRecorder(rec *recorder, vsu voiceServerUpdate, botID snowflake.ID, m
 	}
 	vc := voice.NewClient(&wsConnection{conn: conn}, vsu.GuildID, channelID, botID)
 	vc.SessionID, vc.Token, vc.Endpoint = sessionID, vsu.Token, endpoint
-	vc.OnAudioPacket = func(userID string, _ uint16, _ uint32, opus []byte) {
+	vc.OnAudioPacket = func(userID string, sequence uint16, _ uint32, opus []byte) {
+		rec.observePacket(userID, sequence)
 		if err := rec.write(userID, opus); err != nil {
 			log.Printf("decode/write audio for user %s: %v", userID, err)
 		}

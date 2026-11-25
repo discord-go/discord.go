@@ -22,6 +22,12 @@ go run .
 
 Set `RECORDINGS_DIR` to change the output directory. Files are named by Discord
 user ID. Keep the output directory private; it contains recorded conversations.
+For automated tests, `VOICE_TEST_SPEAKER_ID` can restrict recording to one
+speaker's Discord user ID; other speakers' audio is not written to disk.
+Set `VOICE_TEST_PACKET_STATS=1` to log received and missing sequence numbers
+for the selected speaker. A gap can reflect network loss or decryption failure.
+Restart the recorder when the music bot reconnects: a new RTP stream can have
+a different sequence number, so statistics spanning that restart are unreliable.
 
 For a two-bot integration check, start the `musicbot` template with its own token
 and use `./docs/examples/templates/run-voice-bots.sh` from the repository root. To avoid putting tokens

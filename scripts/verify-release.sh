@@ -26,10 +26,17 @@ package consumer
 
 import (
     _ "github.com/discord-go/discord.go/bot"
+    "github.com/discord-go/discord.go/dave-go/mls-go/group"
+    "github.com/discord-go/discord.go/ratelimit/redislimiter"
+    "github.com/discord-go/discord.go/rest"
     _ "github.com/discord-go/discord.go/voice"
     _ "github.com/discord-go/discord.go/voiceplayer"
     "testing"
 )
+
+var _ = group.NewGroup
+var _ = redislimiter.New
+var _ = (*rest.Client).GetGuildTemplate
 
 func TestImports(t *testing.T) {}
 GO

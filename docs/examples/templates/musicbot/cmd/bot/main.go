@@ -301,12 +301,17 @@ func handleVoiceServerUpdate(
 				}
 			}
 			log.Printf("voice test playing: %s", title)
-			if err := player.StreamAudio(context.Background(), vc, streamURL); err != nil {
-				log.Printf("voice test playback: %v", err)
-			} else {
+			for {
+				if err := player.StreamAudio(context.Background(), vc, streamURL); err != nil {
+					log.Printf("voice test playback: %v", err)
+					return
+				}
 				log.Printf("voice test media playback completed")
+				if os.Getenv("VOICE_TEST_MEDIA_LOOP") != "1" {
+					return
+				}
+				log.Printf("voice test restarting media")
 			}
-			return
 		}
 		duration := 3 * time.Second
 		if raw := os.Getenv("VOICE_TEST_TONE_DURATION"); raw != "" {

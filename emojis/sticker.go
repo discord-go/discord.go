@@ -53,6 +53,6 @@ type StickerPack struct {
 	Description string       `json:"description"`
 	Stickers    []Sticker    `json:"stickers"`
 	SKU         snowflake.ID `json:"sku_id,string"`
-	BannerAsset *string      `json:"banner_asset_id,string,omitempty"`
-	CoverAsset  *string      `json:"cover_sticker_id,string,omitempty"`
+	BannerAsset *string      `json:"banner_asset_id,omitempty"`
+	CoverAsset  *string      `json:"cover_sticker_id,omitempty"`
 }

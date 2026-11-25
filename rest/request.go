@@ -43,17 +43,31 @@ func (c *Client) waitRoute(ctx context.Context, method, path string) error {
 	return c.Limiter.Wait(ctx, path)
 }
 
-func (c *Client) updateRoute(method, path string, info ratelimit.Info) {
+func (c *Client) acquireRoute(ctx context.Context, method, path string) (func(), error) {
+	if limiter, ok := c.Limiter.(ratelimit.RouteReserver); ok {
+		return limiter.AcquireRoute(ctx, method, path)
+	}
+	if err := c.waitRoute(ctx, method, path); err != nil {
+		return nil, err
+	}
+	return func() {}, nil
+}
+
+func (c *Client) updateRoute(ctx context.Context, method, path string, info ratelimit.Info) error {
+	if limiter, ok := c.Limiter.(ratelimit.ContextRouteUpdater); ok {
+		return limiter.UpdateRouteContext(ctx, method, path, info)
+	}
 	if limiter, ok := c.Limiter.(ratelimit.RouteLimiter); ok {
 		limiter.UpdateRoute(method, path, info)
 	} else {
 		c.Limiter.Update(path, info)
 	}
+	return nil
 }
 
 // recordLimits applies 429 retry information to the shared limiter before
 // retrying, so concurrent requests see the same cooldown.
-func (c *Client) recordLimits(method, path string, resp *gohttp.Response, body []byte) time.Duration {
+func (c *Client) recordLimits(ctx context.Context, method, path string, resp *gohttp.Response, body []byte) (time.Duration, error) {
 	info := ratelimit.ParseHeaders(resp.Header)
 	if resp.StatusCode == 401 || resp.StatusCode == 403 ||
 		(resp.StatusCode == 429 && !strings.EqualFold(info.Scope, "shared")) {
@@ -80,9 +94,11 @@ func (c *Client) recordLimits(method, path string, resp *gohttp.Response, body [
 	}
 	_, routeAware := c.Limiter.(ratelimit.RouteLimiter)
 	if !routeAware || resp.StatusCode == 429 || resp.Header.Get("X-RateLimit-Remaining") != "" || info.Global {
-		c.updateRoute(method, path, info)
+		if err := c.updateRoute(ctx, method, path, info); err != nil {
+			return delay, err
+		}
 	}
-	return delay
+	return delay, nil
 }
 
 func (c *Client) waitRetry(ctx context.Context, bucket string, delay time.Duration, retries int) error {
@@ -176,20 +192,26 @@ func (c *Client) requestWithDecoder(ctx context.Context, method, path string, bo
 			req.Header.Set("X-Audit-Log-Reason", url.QueryEscape(reason))
 		}
 
-		if err := c.waitRoute(ctx, method, bucket); err != nil {
+		release, err := c.acquireRoute(ctx, method, bucket)
+		if err != nil {
 			return err
 		}
 
 		resp, err := c.HTTPClient.Do(req)
 		if err != nil {
+			release()
 			return err
 		}
 
 		respBody, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		waitDuration := c.recordLimits(method, bucket, resp, respBody)
+		waitDuration, limitErr := c.recordLimits(ctx, method, bucket, resp, respBody)
+		release()
 		if err != nil {
 			return err
+		}
+		if limitErr != nil {
+			return limitErr
 		}
 
 		if resp.StatusCode == 429 {
