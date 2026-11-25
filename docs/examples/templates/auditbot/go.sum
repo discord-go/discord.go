@@ -1,5 +1,5 @@
-github.com/discord-go/discord.go v0.18.0-walk h1:bW/zbhxQ/3DlGz5vhKsvAZOkOdbk3XZhFOJB3595QoE=
-github.com/discord-go/discord.go v0.18.0-walk/go.mod h1:hdDpw6fxnibGk6UsmXuyd0L5oiybXuc2P/Kdqhl9E3M=
+github.com/discord-go/discord.go v0.18.1-walk h1:T3oXvPf1MsJmHxENkt2Y5ZB5ClpUnGITIpMIIiqdJxE=
+github.com/discord-go/discord.go v0.18.1-walk/go.mod h1:dzUzpZm1QdJY5fTd9jFeCPIKWSWjFhQvnrB+GTvlgIY=
 github.com/discord-go/discord.go/dave-go v0.2.3 h1:9YQ8rn3pQ8dAbt2HDT0fK1L8UgyqvAh9kL+LtHLfug0=
 github.com/discord-go/discord.go/dave-go v0.2.3/go.mod h1:79VjzEP+l+z5u69FOC996nijT9BHkDb5Uq7R1JjOnqU=
 github.com/discord-go/discord.go/dave-go/godave v0.2.1 h1:qE2exgjDEgPrfPnIcDdOyumKBvMd3HpsSyM3w0CeY6g=
