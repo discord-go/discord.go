@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.2.2] - 2026-11-25
+
+### Security
+
+- Generate a fresh random initial epoch secret for new MLS groups. Earlier
+  versions derived initial secrets from public inputs; groups restored from
+  existing saved state retain their old secrets and need to be recreated.
+- Deduplicate repeated proposal references and signed local echoes, including
+  after state restore. Additional protocol review remains.
+
 ## [v0.2.1] - 2026-11-22
 
 ### Changed

@@ -9,7 +9,6 @@ import (
 	"github.com/discord-go/discord.go/dave-go/mls-go/ciphersuite"
 	"github.com/discord-go/discord.go/dave-go/mls-go/credentials"
 	"github.com/discord-go/discord.go/dave-go/mls-go/keypackages"
-	"github.com/discord-go/discord.go/dave-go/mls-go/schedule"
 	"github.com/discord-go/discord.go/dave-go/mls-go/treesync"
 )
 
@@ -83,18 +82,6 @@ func setupTwoMemberGroup(t *testing.T) (aliceGroup, bobGroup *Group, alicePriv, 
 	bobGroup, err = JoinFromWelcome(welcome, bobKP, bobPriv, nil)
 	if err != nil {
 		t.Fatalf("JoinFromWelcome: %v", err)
-	}
-
-	// Synchronize Bob's epoch secrets with Alice
-	bobGroup.epochSecrets = &schedule.EpochSecrets{
-		InitSecret:       aliceGroup.epochSecrets.InitSecret.Clone(),
-		SenderDataSecret: aliceGroup.epochSecrets.SenderDataSecret.Clone(),
-		EncryptionSecret: aliceGroup.epochSecrets.EncryptionSecret.Clone(),
-		ExporterSecret:   aliceGroup.epochSecrets.ExporterSecret.Clone(),
-		ExternalSecret:   aliceGroup.epochSecrets.ExternalSecret.Clone(),
-		ConfirmationKey:  aliceGroup.epochSecrets.ConfirmationKey.Clone(),
-		MembershipKey:    aliceGroup.epochSecrets.MembershipKey.Clone(),
-		ResumptionSecret: aliceGroup.epochSecrets.ResumptionSecret.Clone(),
 	}
 
 	return aliceGroup, bobGroup, alicePriv, bobPriv

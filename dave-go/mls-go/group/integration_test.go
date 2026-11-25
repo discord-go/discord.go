@@ -8,8 +8,6 @@ import (
 	"github.com/discord-go/discord.go/dave-go/mls-go/credentials"
 	"github.com/discord-go/discord.go/dave-go/mls-go/framing"
 	"github.com/discord-go/discord.go/dave-go/mls-go/keypackages"
-	"github.com/discord-go/discord.go/dave-go/mls-go/schedule"
-	"github.com/discord-go/discord.go/dave-go/mls-go/secrettree"
 	"github.com/discord-go/discord.go/dave-go/mls-go/treesync"
 )
 
@@ -76,22 +74,6 @@ func makeTwoMemberGroups(t *testing.T) (aliceGroup, bobGroup *Group, alice, bob 
 		t.Fatalf("JoinFromWelcome: %v", err)
 	}
 
-	// Keep both group instances aligned on epoch secrets for message roundtrip checks.
-	bobGroup.epochSecrets = &schedule.EpochSecrets{
-		InitSecret:       aliceGroup.epochSecrets.InitSecret.Clone(),
-		SenderDataSecret: aliceGroup.epochSecrets.SenderDataSecret.Clone(),
-		EncryptionSecret: aliceGroup.epochSecrets.EncryptionSecret.Clone(),
-		ExporterSecret:   aliceGroup.epochSecrets.ExporterSecret.Clone(),
-		ExternalSecret:   aliceGroup.epochSecrets.ExternalSecret.Clone(),
-		ConfirmationKey:  aliceGroup.epochSecrets.ConfirmationKey.Clone(),
-		MembershipKey:    aliceGroup.epochSecrets.MembershipKey.Clone(),
-		ResumptionSecret: aliceGroup.epochSecrets.ResumptionSecret.Clone(),
-	}
-	bobGroup.keySchedule = schedule.NewKeySchedule(bobGroup.cipherSuite, bobGroup.epochSecrets.InitSecret)
-	bobGroup.secretTree, err = secrettree.NewTree(bobGroup.epochSecrets.EncryptionSecret, bobGroup.ratchetTree.NumLeaves, bobGroup.cipherSuite)
-	if err != nil {
-		t.Fatalf("secrettree.NewTree(bob): %v", err)
-	}
 	return aliceGroup, bobGroup, alice, bob
 }
 func TestWelcomeRoundTrip(t *testing.T) {

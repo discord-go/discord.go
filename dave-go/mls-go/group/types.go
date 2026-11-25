@@ -438,7 +438,7 @@ func (ps *ProposalStore) Clear() {
 func (ps *ProposalStore) RemoveByRef(ref []byte) bool {
 	for i, sp := range ps.Proposals {
 		// ProposalRef is a public hash/reference used for lookup, not secret material.
-		if bytes.Equal(sp.Ref, ref) {
+		if len(ref) > 0 && (bytes.Equal(sp.Ref, ref) || bytes.Equal(sp.LocalRef, ref)) {
 			ps.Proposals = append(ps.Proposals[:i], ps.Proposals[i+1:]...)
 			return true
 		}
@@ -465,6 +465,8 @@ type StoredProposal struct {
 	// Ref is the ProposalRef bytes if this proposal was received from the network.
 	// Nil for proposals generated locally by the committer.
 	Ref []byte
+	// LocalRef identifies the signed echo of an inline local proposal.
+	LocalRef []byte
 }
 
 // ExternalSender represents an allowed external sender per RFC 9420 §12.1.8.1.

@@ -123,18 +123,9 @@ type KeySchedule struct {
 //   - cs: Cipher suite for HKDF operations
 //   - initSecret: The init_secret from the previous epoch
 //
-// For the first epoch (epoch 0), initSecret MUST be all zeros:
-//
-//	initSecret = 0^Nh  (where Nh is the hash output length)
-//
-// For subsequent epochs, initSecret comes from the previous epoch's secrets:
-//
-//	initSecret[n] = DeriveSecret(epoch_secret[n-1], "init")
-//
-// RFC 9420 §8:
-//
-//	init_secret_[0] = 0^Nh
-//	init_secret_[n] = DeriveSecret(epoch_secret_[n-1], "init") for n > 0
+// The init secret for a subsequent epoch is derived from the previous epoch's
+// secret. A new group's initial epoch secret is generated separately as
+// required by RFC 9420 section 11.1.
 func NewKeySchedule(cs ciphersuite.CipherSuite, initSecret *ciphersuite.Secret) *KeySchedule {
 	// Wrap initSecret with the CS hash so HKDF propagates SHA-512 for CS5.
 	is := ciphersuite.NewSecretForCS(cs, initSecret.Value)
@@ -142,6 +133,18 @@ func NewKeySchedule(cs ciphersuite.CipherSuite, initSecret *ciphersuite.Secret) 
 		ciphersuite: cs,
 		initSecret:  is,
 	}
+}
+
+// DeriveFromEpochSecret derives the secrets for an already established epoch
+// secret. A new group uses a random epoch secret of the cipher suite's hash
+// length, rather than deriving it from public inputs.
+func DeriveFromEpochSecret(cs ciphersuite.CipherSuite, epochSecret *ciphersuite.Secret) (*EpochSecrets, error) {
+	if epochSecret == nil || len(epochSecret.Value) != cs.HashLength() {
+		return nil, fmt.Errorf("invalid epoch secret length")
+	}
+	secret := ciphersuite.NewSecretForCS(cs, epochSecret.Value)
+	defer secret.SecureZero()
+	return (&KeySchedule{ciphersuite: cs, epochSecret: secret}).DeriveEpochSecrets()
 }
 
 // InitSecret returns the init_secret.

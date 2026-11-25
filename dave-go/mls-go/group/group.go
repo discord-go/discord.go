@@ -311,8 +311,24 @@ func (g *Group) StoreProposalWithRef(p *Proposal, sender LeafNodeIndex, ref []by
 	if g.proposalByRef == nil {
 		g.proposalByRef = make(map[string]*Proposal)
 	}
+	if g.hasPendingProposalRef(ref) {
+		return
+	}
 	g.proposalByRef[string(ref)] = p
 	g.proposals.AddProposalWithRef(p, sender, ref)
+}
+
+func (g *Group) hasPendingProposalRef(ref []byte) bool {
+	if len(ref) == 0 || g.proposals == nil {
+		return false
+	}
+	indexed := g.proposalByRef[string(ref)]
+	for _, entry := range g.proposals.Proposals {
+		if (indexed != nil && entry.Proposal == indexed) || bytes.Equal(entry.Ref, ref) || bytes.Equal(entry.LocalRef, ref) {
+			return true
+		}
+	}
+	return false
 }
 
 // RegisterProposalRef associates a ProposalRef with a proposal already stored in
@@ -371,8 +387,9 @@ func (g *Group) GetTreeLeaf(leafIdx LeafNodeIndex) *treesync.Node {
 //
 // Returns true if the proposal was found and removed, false if not found.
 func (g *Group) RevokeProposal(ref []byte) bool {
+	var otherRef []byte
 	for _, sp := range g.proposals.Proposals {
-		if !bytes.Equal(sp.Ref, ref) {
+		if len(ref) == 0 || (!bytes.Equal(sp.Ref, ref) && !bytes.Equal(sp.LocalRef, ref)) {
 			continue
 		}
 		if sp.Proposal != nil && sp.Proposal.Type == ProposalTypeUpdate && g.pendingUpdatePrivKey != nil && sp.Proposal.Update != nil && sp.Proposal.Update.LeafNode != nil {
@@ -382,12 +399,20 @@ func (g *Group) RevokeProposal(ref []byte) bool {
 				g.pendingUpdatePrivKey = nil
 			}
 		}
+		if bytes.Equal(sp.Ref, ref) {
+			otherRef = sp.LocalRef
+		} else {
+			otherRef = sp.Ref
+		}
 		break
 	}
 	if !g.proposals.RemoveByRef(ref) {
 		return false
 	}
 	delete(g.proposalByRef, string(ref))
+	if len(otherRef) > 0 {
+		delete(g.proposalByRef, string(otherRef))
+	}
 	return true
 }
 
@@ -522,31 +547,13 @@ func NewGroup(
 		TreeHash:    ratchetTree.TreeHash(),
 	}
 
-	// Initialize key schedule with zeros for first epoch
-	initSecret := ciphersuite.ZeroSecretCS(cipherSuite)
-	keySchedule := schedule.NewKeySchedule(cipherSuite, initSecret)
-
-	// Compute epoch secrets
-	commitSecret := ciphersuite.ZeroSecretCS(cipherSuite)
-	keySchedule.SetCommitSecret(commitSecret)
-
-	groupContextBytes := groupContext.Marshal()
-
-	_, err := keySchedule.ComputeJoinerSecret(groupContextBytes)
+	// RFC 9420 section 11.1 requires a fresh, random initial epoch secret.
+	epochSecret, err := ciphersuite.NewSecretRandomCS(cipherSuite)
 	if err != nil {
-		return nil, fmt.Errorf("computing joiner secret: %w", err)
+		return nil, fmt.Errorf("generating initial epoch secret: %w", err)
 	}
-
-	_, err = keySchedule.ComputePskSecret([]schedule.Psk{})
-	if err != nil {
-		return nil, fmt.Errorf("computing psk secret: %w", err)
-	}
-	_, err = keySchedule.ComputeEpochSecret(groupContextBytes)
-	if err != nil {
-		return nil, fmt.Errorf("computing epoch secret: %w", err)
-	}
-
-	epochSecrets, err := keySchedule.DeriveEpochSecrets()
+	epochSecrets, err := schedule.DeriveFromEpochSecret(cipherSuite, epochSecret)
+	epochSecret.SecureZero()
 	if err != nil {
 		return nil, fmt.Errorf("deriving epoch secrets: %w", err)
 	}
@@ -562,7 +569,7 @@ func NewGroup(
 		epochSecrets:  epochSecrets,
 		proposals:     NewProposalStore(),
 		proposalByRef: make(map[string]*Proposal),
-		keySchedule:   keySchedule,
+		keySchedule:   schedule.NewKeySchedule(cipherSuite, epochSecrets.InitSecret),
 		// RFC 9420 §6.2: for the initial epoch, interim_transcript_hash =
 		// Hash(confirmed_transcript_hash || VL(confirmation_tag)) where both
 		// inputs are empty → Hash([0x00]). Must match what external parties
@@ -1505,6 +1512,9 @@ func (g *Group) StoreProposal(p *Proposal, sender LeafNodeIndex, acBytes []byte)
 		g.proposalByRef = make(map[string]*Proposal)
 	}
 	ref := ComputeProposalRef(acBytes, g.cipherSuite)
+	if g.hasPendingProposalRef(ref) {
+		return ref
+	}
 	g.proposalByRef[string(ref)] = p
 	g.proposals.AddProposalWithRef(p, sender, ref)
 	return ref
@@ -2652,6 +2662,28 @@ func (g *Group) processProposalContent(ac *framing.AuthenticatedContent, sender 
 	if !ok {
 		return fmt.Errorf("invalid proposal body")
 	}
+	// The authenticated reference also identifies delivery-service echoes of
+	// locally signed proposals. Check it before validating against the pending
+	// set, where a duplicate Add could otherwise be rejected as a conflict.
+	acForRef := &framing.AuthenticatedContent{WireFormat: ac.WireFormat, Content: ac.Content, Auth: ac.Auth}
+	refBytes := acForRef.Marshal()
+	ref := ComputeProposalRef(refBytes, g.cipherSuite)
+	if g.hasPendingProposalRef(ref) {
+		return nil
+	}
+	if ac.Content.Sender.Type == framing.SenderTypeMember && sender == g.ownLeafIndex {
+		for i := range g.proposals.Proposals {
+			entry := &g.proposals.Proposals[i]
+			if entry.Sender == sender && entry.Proposal != nil && len(entry.Ref) == 0 && len(entry.LocalRef) == 0 && bytes.Equal(ProposalMarshal(entry.Proposal), body.Data) {
+				entry.LocalRef = append([]byte(nil), ref...)
+				if g.proposalByRef == nil {
+					g.proposalByRef = make(map[string]*Proposal)
+				}
+				g.proposalByRef[string(ref)] = entry.Proposal
+				return nil
+			}
+		}
+	}
 
 	proposal, err := UnmarshalProposal(body.Data)
 	if err != nil {
@@ -2700,12 +2732,6 @@ func (g *Group) processProposalContent(ac *framing.AuthenticatedContent, sender 
 
 	// RFC 9420 §12.4: ProposalRef = RefHash("MLS 1.0 Proposal Reference", Marshal(AuthenticatedContent))
 	// WireFormat must match how the proposal was sent (Public or Private).
-	acForRef := &framing.AuthenticatedContent{
-		WireFormat: ac.WireFormat,
-		Content:    ac.Content,
-		Auth:       ac.Auth,
-	}
-	refBytes := acForRef.Marshal()
 	g.StoreProposal(proposal, sender, refBytes)
 	return nil
 }
@@ -2979,8 +3005,18 @@ func NewGroupFromReInit(
 		Extensions:              groupExtensions,
 	}
 
-	initSecret := ciphersuite.ZeroSecretCS(cs)
-	keySchedule := schedule.NewKeySchedule(cs, initSecret)
+	// Seed the successor group with fresh entropy before mixing the reinit PSK.
+	seed, err := ciphersuite.NewSecretRandomCS(cs)
+	if err != nil {
+		return nil, fmt.Errorf("generating reinit seed: %w", err)
+	}
+	seedSecrets, err := schedule.DeriveFromEpochSecret(cs, seed)
+	seed.SecureZero()
+	if err != nil {
+		return nil, fmt.Errorf("deriving reinit seed: %w", err)
+	}
+	keySchedule := schedule.NewKeySchedule(cs, seedSecrets.InitSecret)
+	seedSecrets.Zero()
 	commitSecret := ciphersuite.ZeroSecretCS(cs)
 	keySchedule.SetCommitSecret(commitSecret)
 

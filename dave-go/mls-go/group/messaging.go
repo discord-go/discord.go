@@ -152,6 +152,12 @@ func (g *Group) SignProposalAsPublicMessage(
 		g.proposalByRef = make(map[string]*Proposal)
 	}
 	g.proposalByRef[string(ref)] = proposal
+	for i := range g.proposals.Proposals {
+		if g.proposals.Proposals[i].Proposal == proposal {
+			g.proposals.Proposals[i].LocalRef = append([]byte(nil), ref...)
+			break
+		}
+	}
 
 	return framing.NewMLSMessagePublic(pm).Marshal(), nil
 }

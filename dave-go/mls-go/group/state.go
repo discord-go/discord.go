@@ -80,6 +80,7 @@ type StoredProposalStateData struct {
 	Proposal []byte `json:"proposal"`
 	Sender   uint32 `json:"sender"`
 	Ref      []byte `json:"ref,omitempty"`
+	LocalRef []byte `json:"local_ref,omitempty"`
 }
 
 // MarshalState serializes the complete group state to JSON.
@@ -155,6 +156,7 @@ func (g *Group) MarshalState() ([]byte, error) {
 			Proposal: ProposalMarshal(stored.Proposal),
 			Sender:   uint32(stored.Sender),
 			Ref:      append([]byte(nil), stored.Ref...),
+			LocalRef: append([]byte(nil), stored.LocalRef...),
 		})
 	}
 
@@ -297,11 +299,38 @@ func UnmarshalGroupState(data []byte) (*Group, error) {
 			return nil, fmt.Errorf("unmarshaling stored proposal %d: %w", i, err)
 		}
 		ref := append([]byte(nil), pData.Ref...)
-		g.proposals.AddProposalWithRef(proposal, LeafNodeIndex(pData.Sender), ref)
+		if len(ref) > 0 {
+			if _, exists := g.proposalByRef[string(ref)]; exists {
+				continue
+			}
+			// Older state may contain both a local inline proposal and its echo.
+			if LeafNodeIndex(pData.Sender) == g.ownLeafIndex {
+				merged := false
+				for j := range g.proposals.Proposals {
+					entry := &g.proposals.Proposals[j]
+					if entry.Sender == g.ownLeafIndex && entry.Proposal != nil && len(entry.Ref) == 0 && len(entry.LocalRef) == 0 && bytes.Equal(ProposalMarshal(entry.Proposal), pData.Proposal) {
+						entry.LocalRef = ref
+						g.proposalByRef[string(ref)] = entry.Proposal
+						merged = true
+						break
+					}
+				}
+				if merged {
+					continue
+				}
+			}
+		}
+		g.proposals.Proposals = append(g.proposals.Proposals, StoredProposal{
+			Proposal: proposal, Sender: LeafNodeIndex(pData.Sender), Ref: ref,
+			LocalRef: append([]byte(nil), pData.LocalRef...),
+		})
 		// Rebuild the by-ref index so that commits referencing proposals by hash
 		// can resolve them after a state restore (UnmarshalGroupState).
 		if len(ref) > 0 {
 			g.proposalByRef[string(ref)] = proposal
+		}
+		if len(pData.LocalRef) > 0 {
+			g.proposalByRef[string(pData.LocalRef)] = proposal
 		}
 	}
 
