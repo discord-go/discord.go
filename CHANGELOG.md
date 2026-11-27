@@ -3,6 +3,61 @@
 All notable changes to discord.go are documented here. The format follows
 Keep a Changelog, and versions use the repository's `vX.Y.Z-<codename>` tags.
 
+## [v0.19.0-fuzz] - 2026-11-27
+
+[v0.19.0-fuzz]: https://github.com/discord-go/discord.go/compare/v0.18.1-walk...v0.19.0-fuzz
+
+### Security
+
+- Reject MLS ratchet-tree leaf counts that exceed the available input before
+  allocating nodes, and reject unsupported or inconsistent Welcome inputs.
+- Reject overflowing DAVE variable-length integers, incomplete frame ranges,
+  and ranges whose bounds overflow an integer.
+
+### Fixed
+
+- Decode string-form permissions in the current user's guild list and
+  string-form `flags_new` in application responses. Numeric forms accepted by
+  earlier versions remain supported.
+- Decode string application webhook event types into
+  `Application.EventWebhookTypeNames`, while retaining the legacy numeric
+  `EventWebhooksTypes` field for compatibility.
+
+### Added
+
+- Add guild widget settings and public widget image, guild-specific voice
+  regions, incident-action controls with nullable update fields, and computed
+  guild and channel permissions for members and roles.
+
+### Changed
+
+- Reduce lock contention for concurrent cache reads and generic gateway event
+  lookups. Preserve expiration cleanup and one-shot event behavior.
+- Avoid a response-buffer allocation for HTTP transports' `http.NoBody`
+  responses, including multipart requests.
+- Avoid temporary allocations when identifying the major resource in a REST
+  route for the built-in and Redis-backed rate limiters.
+- Reduce allocations when decoding snowflake ID lists containing Discord's
+  usual string-form IDs; mixed numeric inputs remain supported.
+- Bound the default REST limiter's lock storage with a fixed set of shared
+  locks. Route mappings and in-memory bucket states are still retained.
+- Add a Redis outage and recovery regression test and document the limits of
+  recovery when a response's rate-limit update fails.
+- Exercise Redis coordination against an isolated three-node local cluster.
+- Add 32-bit Go 1.22 CI coverage for the root and nested modules.
+
+### Compatibility and verification
+
+- Go 1.22 remains the minimum. This release requires `dave-go v0.2.4`,
+  `dave-go/mls-go v0.2.3`, and `dave-go/godave v0.2.1`.
+- Standalone example modules in the release tag use the previous published
+  parent version with the updated DAVE and MLS modules. Upgrade their parent
+  requirement to `v0.19.0-fuzz` after publication.
+- Fuzz tests and regression tests cover malformed MLS and DAVE inputs. Tests
+  also exercise a local Redis Cluster and 32-bit Go. Two bots exchanged
+  synthetic encrypted voice before and after the receiving bot rejoined;
+  longer recording continuity remains under investigation.
+
 ## [v0.18.1-walk] - 2026-11-25
 
 [v0.18.1-walk]: https://github.com/discord-go/discord.go/compare/v0.18.0-walk...v0.18.1-walk

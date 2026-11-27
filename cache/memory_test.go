@@ -93,6 +93,25 @@ func TestMemoryCache_Expiration(t *testing.T) {
 	c.mu.RUnlock()
 }
 
+func TestMemoryCacheExpiredReadPreservesReplacement(t *testing.T) {
+	c := NewMemoryCache()
+	c.items["test"] = item{value: "expired", expiration: time.Now().Add(-time.Second).UnixNano()}
+	if _, ok := c.Get("test"); ok {
+		t.Fatal("expired entry was returned")
+	}
+	if _, exists := c.items["test"]; exists {
+		t.Fatal("expired entry was not removed")
+	}
+	// Model a Set after an expired read and before the deletion lock is taken.
+	c.Set("test", "fresh")
+	if value, ok := c.getAfterExpiration("test"); !ok || value != "fresh" {
+		t.Fatalf("replacement was lost: %v, %v", value, ok)
+	}
+	if value, ok := c.Get("test"); !ok || value != "fresh" {
+		t.Fatalf("replacement was deleted: %v, %v", value, ok)
+	}
+}
+
 func TestMemoryCache_MaxSize(t *testing.T) {
 	c := NewMemoryCache(WithMaxSize(2))
 	c.Set("1", "one")

@@ -44,6 +44,11 @@ records the first configured value and rejects a mismatch. To change it, stop
 the old workers, wait for their one-second budget and any Discord-reported
 cooldowns to expire, and then start the new workers with a new namespace.
 
+Cluster deployments require an evaluator that follows Redis Cluster redirects.
+The integration suite checks two clients connected through different nodes of
+an isolated three-primary local cluster. It does not test replication,
+failover, network partitions, or independent hosts.
+
 ## Operational requirements
 
 - Give every REST request a deadline shorter than `ProbeLease`; admission
@@ -56,7 +61,10 @@ cooldowns to expire, and then start the new workers with a new namespace.
 - A backend error while recording a response is returned to the caller. The
   Discord request may already have succeeded, so treat retries of non-idempotent
   requests accordingly. `LastError` also reports errors from the legacy update
-  interface and failed reservation releases.
+  interface and failed reservation releases. A failed update may leave Redis
+  without the response's current rate limits; once Redis recovers, admission
+  alone cannot reconstruct the missing information. Coordinate workers and
+  allow the applicable cooldown to pass before resuming when this occurs.
 - Route aliases are shared after Discord supplies their bucket identifier.
   Unknown aliases may initially be discovered independently. Discord can still
   return 429s; the REST client records and respects their retry delay.

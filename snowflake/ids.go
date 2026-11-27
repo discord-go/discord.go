@@ -26,6 +26,22 @@ func (ids IDs) MarshalJSON() ([]byte, error) {
 }
 
 func (ids *IDs) UnmarshalJSON(data []byte) error {
+	// Discord sends snowflakes as strings. Decode that common case in one
+	// pass without allocating a RawMessage for every ID; retain the fallback
+	// for older payloads containing numeric IDs.
+	var strings []string
+	if err := json.Unmarshal(data, &strings); err == nil {
+		result := make(IDs, len(strings))
+		for index, value := range strings {
+			id, err := Parse(value)
+			if err != nil {
+				return err
+			}
+			result[index] = id
+		}
+		*ids = result
+		return nil
+	}
 	var values []json.RawMessage
 	if err := json.Unmarshal(data, &values); err != nil {
 		return err

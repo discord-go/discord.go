@@ -79,6 +79,26 @@ func TestIDsDecodeCompatibility(t *testing.T) {
 	}
 }
 
+func FuzzIDsDecodeCompatibility(f *testing.F) {
+	for _, seed := range []string{`null`, `[]`, `["1","2"]`, `["\u0031",2]`, `[null]`, `["+1"]`, `[18446744073709551616]`} {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, input string) {
+		want, wantErr := decodeIDsReference([]byte(input))
+		got := IDs{999}
+		err := got.UnmarshalJSON([]byte(input))
+		if (err != nil) != (wantErr != nil) {
+			t.Fatalf("error = %v; reference = %v", err, wantErr)
+		}
+		if err == nil && !reflect.DeepEqual(got, want) {
+			t.Fatalf("got %v; reference = %v", got, want)
+		}
+		if err != nil && !reflect.DeepEqual(got, IDs{999}) {
+			t.Fatalf("receiver changed after error: %v", got)
+		}
+	})
+}
+
 func decodeIDsReference(data []byte) (IDs, error) {
 	var raw []json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {

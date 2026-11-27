@@ -2,8 +2,80 @@ package application
 
 import (
 	"encoding/json"
+	"reflect"
+	"strconv"
 	"testing"
 )
+
+func TestApplicationWebhookEventTypeFormats(t *testing.T) {
+	var app Application
+	if err := json.Unmarshal([]byte(`{"event_webhooks_types":["APPLICATION_AUTHORIZED","ENTITLEMENT_CREATE"]}`), &app); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(app.EventWebhookTypeNames, []string{"APPLICATION_AUTHORIZED", "ENTITLEMENT_CREATE"}) {
+		t.Fatalf("event type names = %v", app.EventWebhookTypeNames)
+	}
+	encoded, err := json.Marshal(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if string(raw["event_webhooks_types"]) != `["APPLICATION_AUTHORIZED","ENTITLEMENT_CREATE"]` {
+		t.Fatalf("encoded event type names = %s", raw["event_webhooks_types"])
+	}
+	if err := json.Unmarshal([]byte(`{"event_webhooks_types":[1,2]}`), &app); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(app.EventWebhooksTypes, []int{1, 2}) || app.EventWebhookTypeNames != nil {
+		t.Fatalf("legacy event types = %v, names = %v", app.EventWebhooksTypes, app.EventWebhookTypeNames)
+	}
+	encoded, err = json.Marshal(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(encoded, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if string(raw["event_webhooks_types"]) != `[1,2]` {
+		t.Fatalf("encoded legacy types = %s", raw["event_webhooks_types"])
+	}
+	if err := json.Unmarshal([]byte(`{"event_webhooks_types":null}`), &app); err != nil || app.EventWebhooksTypes != nil || app.EventWebhookTypeNames != nil {
+		t.Fatalf("null event types: legacy %v, names %v, error %v", app.EventWebhooksTypes, app.EventWebhookTypeNames, err)
+	}
+	if err := json.Unmarshal([]byte(`{"event_webhooks_types":[{}]}`), &app); err == nil {
+		t.Fatal("expected invalid event type error")
+	}
+}
+
+func TestApplicationFlagsNewFormats(t *testing.T) {
+	for _, tt := range []struct {
+		payload string
+		want    int
+		bad     bool
+	}{
+		{`{"flags_new":"8192"}`, 8192, false},
+		{`{"flags_new":8192}`, 8192, false},
+		{`{"flags_new":null}`, 0, false},
+		{`{}`, 0, false},
+		{`{"flags_new":"invalid"}`, 0, true},
+		{`{"flags_new":"18446744073709551616"}`, 0, true},
+	} {
+		var a Application
+		err := json.Unmarshal([]byte(tt.payload), &a)
+		if (err != nil) != tt.bad || (!tt.bad && a.FlagsNew != tt.want) {
+			t.Fatalf("decode %s: flags %d, error %v", tt.payload, a.FlagsNew, err)
+		}
+	}
+	if strconv.IntSize == 64 {
+		var a Application
+		if err := json.Unmarshal([]byte(`{"flags_new":"1099511627776"}`), &a); err != nil || int64(a.FlagsNew) != 1<<40 {
+			t.Fatalf("high-bit flags = %d, error %v", a.FlagsNew, err)
+		}
+	}
+}
 
 func TestApplicationUnmarshal(t *testing.T) {
 	data := []byte(`{

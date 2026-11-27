@@ -1,6 +1,9 @@
 package application
 
 import (
+	"encoding/json"
+	"strconv"
+
 	"github.com/discord-go/discord.go/permissions"
 	"github.com/discord-go/discord.go/snowflake"
 	"github.com/discord-go/discord.go/users"
@@ -40,11 +43,80 @@ type Application struct {
 	ExplicitContentFilter             int                              `json:"explicit_content_filter,omitempty"`
 	Summary                           string                           `json:"summary,omitempty"`
 	Guild                             *struct{}                        `json:"guild,omitempty"`
-	FlagsNew                          int                              `json:"flags_new,omitempty"`
+	FlagsNew                          int                              `json:"flags_new,omitempty"` // Discord string bitfield, limited by int width.
 	IntegrationTypesConfig            map[string]IntegrationTypeConfig `json:"integration_types_config,omitempty"`
 	EventWebhooksURL                  string                           `json:"event_webhooks_url,omitempty"`
 	EventWebhooksStatus               int                              `json:"event_webhooks_status,omitempty"`
-	EventWebhooksTypes                []int                            `json:"event_webhooks_types,omitempty"`
+	// EventWebhooksTypes contains legacy numeric event values.
+	// Deprecated: Discord sends event type names; use EventWebhookTypeNames.
+	EventWebhooksTypes []int `json:"event_webhooks_types,omitempty"`
+	// EventWebhookTypeNames contains the string event types sent by Discord.
+	EventWebhookTypeNames []string `json:"-"`
+}
+
+// UnmarshalJSON accepts Discord's string-encoded flags_new as well as the
+// numeric representation accepted by earlier versions of this package.
+func (a *Application) UnmarshalJSON(data []byte) error {
+	type alias Application
+	aux := struct {
+		FlagsNew     json.RawMessage `json:"flags_new"`
+		WebhookTypes json.RawMessage `json:"event_webhooks_types"`
+		*alias
+	}{alias: (*alias)(a)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if len(aux.WebhookTypes) > 0 {
+		if string(aux.WebhookTypes) == "null" {
+			a.EventWebhookTypeNames = nil
+			a.EventWebhooksTypes = nil
+		} else {
+			var names []string
+			if err := json.Unmarshal(aux.WebhookTypes, &names); err == nil {
+				a.EventWebhookTypeNames = names
+				a.EventWebhooksTypes = nil
+				if len(names) == 0 {
+					a.EventWebhooksTypes = []int{}
+				}
+			} else {
+				var legacy []int
+				if err := json.Unmarshal(aux.WebhookTypes, &legacy); err != nil {
+					return err
+				}
+				a.EventWebhooksTypes = legacy
+				a.EventWebhookTypeNames = nil
+			}
+		}
+	}
+	if len(aux.FlagsNew) == 0 || string(aux.FlagsNew) == "null" {
+		return nil
+	}
+	if aux.FlagsNew[0] == '"' {
+		var value string
+		if err := json.Unmarshal(aux.FlagsNew, &value); err != nil {
+			return err
+		}
+		flags, err := strconv.ParseInt(value, 10, strconv.IntSize)
+		if err != nil {
+			return err
+		}
+		a.FlagsNew = int(flags)
+		return nil
+	}
+	return json.Unmarshal(aux.FlagsNew, &a.FlagsNew)
+}
+
+// MarshalJSON retains legacy numeric webhook values while preferring string
+// event names when they are provided.
+func (a Application) MarshalJSON() ([]byte, error) {
+	type alias Application
+	if a.EventWebhookTypeNames == nil {
+		return json.Marshal(alias(a))
+	}
+	return json.Marshal(struct {
+		WebhookTypes []string `json:"event_webhooks_types,omitempty"`
+		*alias
+	}{WebhookTypes: a.EventWebhookTypeNames, alias: (*alias)(&a)})
 }
 
 type InstallParams struct {

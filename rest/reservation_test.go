@@ -63,6 +63,35 @@ func TestProbeReleasedOnTransportFailure(t *testing.T) {
 	}
 }
 
+func TestNoBodyResponseStillUpdatesRateLimits(t *testing.T) {
+	var calls atomic.Int32
+	c := New("token", nil, &mockHTTPClient{DoFunc: func(*http.Request) (*http.Response, error) {
+		calls.Add(1)
+		return &http.Response{StatusCode: http.StatusNoContent, Body: http.NoBody, Header: http.Header{
+			"X-Ratelimit-Bucket": {"bucket"}, "X-Ratelimit-Remaining": {"0"},
+			"X-Ratelimit-Reset-After": {"2"},
+		}}, nil
+	}})
+	if err := c.Request(context.Background(), "DELETE", "/channels/1/messages/2", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+	if err := c.Request(ctx, "DELETE", "/channels/1/messages/2", nil, nil); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("next request ignored the rate limit: %v", err)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("sent %d requests; expected only one", got)
+	}
+}
+
+func TestNoBodyResponseReadMatchesReadAll(t *testing.T) {
+	got, err := readResponseBody(http.NoBody)
+	if err != nil || got == nil || len(got) != 0 {
+		t.Fatalf("empty body = %v, error = %v", got, err)
+	}
+}
+
 func TestExpiredBucketAllowsOneProbe(t *testing.T) {
 	l := ratelimit.NewLimiter(nil)
 	route := l.(ratelimit.RouteLimiter)

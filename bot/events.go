@@ -91,6 +91,30 @@ func (b *Bot) dispatchEvent(name string, data json.RawMessage) {
 	// such as "Channel Info" are not all-caps on the wire, so normalize the
 	// lookup while keeping the original name on the context.
 	key := strings.ToUpper(name)
+	// Most events have no generic subscribers. Keep this lookup read-only so
+	// unrelated dispatches do not contend for the exclusive bot lock.
+	b.mu.RLock()
+	current := b.eventHandlers[key]
+	if len(current) == 0 {
+		b.mu.RUnlock()
+		return
+	}
+	hasOnce := false
+	for _, subscription := range current {
+		if subscription.once {
+			hasOnce = true
+			break
+		}
+	}
+	if !hasOnce {
+		handlers := append([]eventSubscription(nil), current...)
+		b.mu.RUnlock()
+		b.invokeEventHandlers(name, data, handlers)
+		return
+	}
+	b.mu.RUnlock()
+	// Re-read under the exclusive lock: another dispatch may have consumed a
+	// one-shot subscription between the read lock and this lock.
 	b.mu.Lock()
 	handlers := append([]eventSubscription(nil), b.eventHandlers[key]...)
 	for _, subscription := range handlers {
@@ -109,6 +133,10 @@ func (b *Bot) dispatchEvent(name string, data json.RawMessage) {
 	if len(handlers) == 0 {
 		return
 	}
+	b.invokeEventHandlers(name, data, handlers)
+}
+
+func (b *Bot) invokeEventHandlers(name string, data json.RawMessage, handlers []eventSubscription) {
 	ctx := &EventContext{BaseContext: b.baseContextWithRaw(data), Name: name, Data: append(json.RawMessage(nil), data...)}
 	for _, subscription := range handlers {
 		b.invoke(name, func() { subscription.handler(ctx) })

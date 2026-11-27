@@ -71,8 +71,8 @@ coordination when its operational requirements are met.
 Call `Wait` immediately before the HTTP request and `Update` after parsing its
 headers. Use a stable route key, usually the REST path without query
 parameters. The REST client does this itself. A 429 response should supply
-`Retry-After` or a JSON retry interval at the transport layer; the limiter's
-the REST client applies that interval to subsequent calls as a cooldown.
+`Retry-After` or a JSON retry interval at the transport layer; the REST client
+applies that interval to subsequent calls as a cooldown.
 
 ## Common Patterns
 
@@ -87,9 +87,10 @@ Share one limiter among REST clients that share a token and process. Keep route
 keys consistent. Treat the memory limiter as coordination, not a guarantee
 against a server-side limit; Discord can change buckets and scopes.
 
-The in-memory limiter retains route mappings, bucket state, and locks for the
-life of the limiter. Long-running clients that encounter many distinct paths
-should monitor memory use; automatic eviction is not currently implemented.
+The in-memory limiter uses a fixed number of shared locks, but retains route
+mappings and bucket state for its lifetime. Long-running clients that encounter
+many distinct paths should monitor memory use; automatic eviction of those
+entries is not currently implemented.
 
 ## Common Mistakes
 

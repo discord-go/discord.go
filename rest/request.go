@@ -65,6 +65,15 @@ func (c *Client) updateRoute(ctx context.Context, method, path string, info rate
 	return nil
 }
 
+// readResponseBody avoids allocating an empty buffer for responses that the
+// HTTP transport identifies as having no body, such as successful 204s.
+func readResponseBody(body io.ReadCloser) ([]byte, error) {
+	if body == gohttp.NoBody {
+		return []byte{}, nil
+	}
+	return io.ReadAll(body)
+}
+
 // recordLimits applies 429 retry information to the shared limiter before
 // retrying, so concurrent requests see the same cooldown.
 func (c *Client) recordLimits(ctx context.Context, method, path string, resp *gohttp.Response, body []byte) (time.Duration, error) {
@@ -203,7 +212,7 @@ func (c *Client) requestWithDecoder(ctx context.Context, method, path string, bo
 			return err
 		}
 
-		respBody, err := io.ReadAll(resp.Body)
+		respBody, err := readResponseBody(resp.Body)
 		resp.Body.Close()
 		waitDuration, limitErr := c.recordLimits(ctx, method, bucket, resp, respBody)
 		release()

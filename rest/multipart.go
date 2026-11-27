@@ -163,7 +163,7 @@ func (c *Client) requestMultipartForm(ctx context.Context, method, path string, 
 			release()
 			return err
 		}
-		responseBody, readErr := io.ReadAll(resp.Body)
+		responseBody, readErr := readResponseBody(resp.Body)
 		resp.Body.Close()
 		delay, limitErr := c.recordLimits(ctx, method, bucket, resp, responseBody)
 		release()
@@ -276,7 +276,7 @@ func (c *Client) requestMultipart(ctx context.Context, method, path string, payl
 			return err
 		}
 
-		respBody, err := io.ReadAll(resp.Body)
+		respBody, err := readResponseBody(resp.Body)
 		resp.Body.Close()
 		delay, limitErr := c.recordLimits(ctx, method, bucket, resp, respBody)
 		release()

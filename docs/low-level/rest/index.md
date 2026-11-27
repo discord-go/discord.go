@@ -71,6 +71,31 @@ stage instances. Gateway, voice, OAuth-related, subscription, SKU, and
 entitlement methods complete the resource surface. The exact family split and
 method names are listed in [`endpoints.md`](endpoints.md).
 
+Widget settings use `GetGuildWidgetSettings` and `ModifyGuildWidget`;
+`GetGuildWidgetImage` retrieves the public PNG without authentication.
+`ListGuildVoiceRegions` includes guild-specific regions. Use
+`ModifyGuildIncidentActions` to manage the guild's incident actions. For the
+nullable update fields, a nil outer pointer leaves a value unchanged, a
+pointer to nil clears it, and a pointer to a value sets it. For example:
+
+```go
+var clearChannel *snowflake.ID
+settings, err := c.ModifyGuildWidget(ctx, guildID, rest.ModifyGuildWidgetParams{
+    ChannelID: &clearChannel,
+})
+```
+
+Widget settings and incident actions require `MANAGE_GUILD`; the image endpoint
+is public. See Discord's [guild resource](https://docs.discord.com/developers/resources/guild)
+for permissions, available widget styles, and incident-action time limits.
+
+Use `GetGuildMemberPermissions`, `GetGuildRolePermissions`,
+`GetChannelMemberPermissions`, and `GetChannelRolePermissions` for Discord's
+computed permission bitfields. Channel checks include overwrites; role checks
+exclude other roles and member-specific overwrites. Consult the
+[channel resource](https://docs.discord.com/developers/resources/channel) for
+the permissions needed to use channel lookups.
+
 ## Common Patterns
 
 Use typed parameter structs for writes. Use `rest.WithReason(ctx, reason)` for

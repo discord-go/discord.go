@@ -10,6 +10,22 @@ import (
 	"github.com/discord-go/discord.go/snowflake"
 )
 
+func TestGetCurrentUserGuildsStringPermissions(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/users/@me/guilds" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`[{"id":"42","name":"test","permissions":"1152921504606846976","features":[]}]`))
+	}))
+	defer ts.Close()
+	c := New("token", nil, ts.Client())
+	c.BaseURL = ts.URL
+	got, err := c.GetCurrentUserGuilds(context.Background(), ListGuildsParams{})
+	if err != nil || len(got) != 1 || got[0].Permissions == nil || uint64(*got[0].Permissions) != 1<<60 {
+		t.Fatalf("guilds = %+v, error = %v", got, err)
+	}
+}
+
 func TestGetCurrentUser(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/users/@me" {

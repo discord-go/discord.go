@@ -20,6 +20,10 @@ The REST client marshals request bodies once and reuses the bytes for retries.
 Response bodies are read fully into memory before unmarshaling to support error
 parsing and 429 retry logic.
 
+For a repeatable local measurement of string-form snowflake-list decoding,
+run `go test ./snowflake -run '^$' -bench '^BenchmarkIDsDecode$' -benchmem`.
+The benchmark does not measure network latency or full model decoding.
+
 ### Byte Buffer Reuse
 
 The `bytes.NewReader` used for request bodies is lightweight. For high-throughput
@@ -110,6 +114,49 @@ go test ./ratelimit -run '^$' -bench 'BenchmarkLimiter_(Wait_Overhead|Acquire_)'
 These benchmarks disable the global wait only within the benchmark process.
 They measure local coordination overhead; they do not measure Discord network
 latency or the throughput of the default global rate limit.
+
+## Local benchmark examples
+
+The following microbenchmarks exercise cache reads, generic event lookups, and
+REST processing of an empty 204 response. The REST benchmark uses a mock
+transport and limiter, so it does not measure network I/O or Discord limits.
+
+```sh
+go test ./cache -run '^$' -bench 'BenchmarkMemoryCache_(GetParallel|MixedParallel)$' -benchmem -count=3
+go test ./bot -run '^$' -bench 'Benchmark(DispatchEventUnsubscribed|MessageCreateDispatch)$' -benchmem -count=3
+go test ./rest -run '^$' -bench '^BenchmarkRequestNoContent$' -benchmem -count=3
+go test ./ratelimit -run '^$' -bench '^BenchmarkLimiter_UpdateRoute$' -benchmem -count=3
+```
+
+In separate 2026-11-27 runs on an AMD Ryzen 7 7445HS with Go 1.22.0 and
+`GOMAXPROCS=12`, median results for the parallel cache-hit, mixed cache
+(95% reads, TTL enabled), and unsubscribed generic-event lookup benchmarks
+decreased from roughly 71 to 32 ns/op, 153 to 114 ns/op, and 90 to 26 ns/op,
+respectively. The mocked empty REST response went from roughly 1,548 ns and
+1,584 bytes per operation to 1,362 ns and 1,072 bytes. These are synthetic
+throughput measurements from separate short runs, not network latency or a
+guarantee for a particular bot. Full single-threaded message dispatch did not
+show a clear improvement in the measured runs. A separate route-update
+benchmark on the same machine fell from a median of 615 ns and 304 bytes
+(10 allocations) to 466 ns and 208 bytes (8 allocations) after removing
+temporary path-parsing allocations. It measures local limiter bookkeeping,
+not the throughput permitted by Discord's rate limits.
+
+### Live REST samples
+
+On 2026-11-27, one test bot made read-only requests to Discord over a reused
+connection. After a warm-up round, five sequential samples per operation gave
+the following median end-to-end times: current user 465 ms, guild 483 ms,
+guild channels 471 ms, guild roles 466 ms, guild member permissions 568 ms,
+and current application 672 ms. Sample ranges included occasional requests
+above one second. Calls used the default limiter, with 250 ms between calls.
+
+A separate test rotated the order of discord.go (local checkout), DiscordGo
+v0.29.0, DisGo v0.20.0, and Arikawa v3.6.0 for the same read-only user lookup.
+With one warm-up round, seven samples per library, and 300 ms between calls,
+their respective medians were 491, 504, 519, and 519 ms. These samples include
+network and Discord latency and use each library's own limiter; they do not
+establish a reliable performance ranking. The test was run with Go 1.26.4.
 
 ## Compression
 

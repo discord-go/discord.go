@@ -20,6 +20,9 @@ type UserConnection struct {
 	Visibility   int      `json:"visibility"`
 }
 
+// GetCurrentUserGuildMember returns the OAuth2 user's membership in a guild.
+// It requires a bearer token with the guilds.members.read scope; bot tokens
+// should use GetGuildMember with the bot's user ID instead.
 func (c *Client) GetCurrentUserGuildMember(ctx context.Context, guildID snowflake.ID) (*users.Member, error) {
 	var result users.Member
 	err := c.Request(ctx, "GET", "/users/@me/guilds/"+guildID.String()+"/member", nil, &result)

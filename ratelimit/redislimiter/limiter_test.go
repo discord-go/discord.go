@@ -29,6 +29,30 @@ func requestContext(t *testing.T) context.Context {
 	return ctx
 }
 
+func FuzzMajorResourceCompatibility(f *testing.F) {
+	for _, seed := range []string{"", "/channels/1/messages/2", "/guilds/2/roles/3", "/webhooks/1/token/messages/2", "/webhooks/1/", "//guilds/1", "/other/1"} {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, path string) {
+		parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+		want := ""
+		if len(parts) >= 2 {
+			switch parts[0] {
+			case "channels", "guilds":
+				want = parts[0] + "/" + parts[1]
+			case "webhooks":
+				want = parts[0] + "/" + parts[1]
+				if len(parts) > 2 {
+					want += "/" + parts[2]
+				}
+			}
+		}
+		if got := majorResource(path); got != want {
+			t.Fatalf("majorResource(%q) = %q, want %q", path, got, want)
+		}
+	})
+}
+
 // These integration tests use an isolated local Redis when the executables are
 // installed. They never connect to or change a user's existing Redis server.
 func testRedis(t *testing.T) EvalFunc {
@@ -190,6 +214,49 @@ func TestBackendErrorsFailClosed(t *testing.T) {
 	}
 	if !errors.Is(l.LastError(), backendErr) {
 		t.Fatalf("last error = %v", l.LastError())
+	}
+}
+
+func TestBackendOutagePreservesKnownCooldownAfterRecovery(t *testing.T) {
+	redisEval := testRedis(t)
+	var unavailable atomic.Bool
+	backendErr := errors.New("Redis temporarily unavailable")
+	eval := func(ctx context.Context, script string, keys []string, args ...any) (any, error) {
+		if unavailable.Load() {
+			return nil, backendErr
+		}
+		return redisEval(ctx, script, keys, args...)
+	}
+	first, err := New(eval, Options{Namespace: "outage"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := New(eval, Options{Namespace: "outage"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const path = "/channels/1/messages"
+	if err := first.UpdateRouteContext(context.Background(), "GET", path, ratelimit.Info{
+		Bucket: "shared", Remaining: 0, ResetAfter: 3 * time.Second,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	unavailable.Store(true)
+	if _, err := second.AcquireRoute(requestContext(t), "GET", path); !errors.Is(err, backendErr) {
+		t.Fatalf("admission during outage: %v", err)
+	}
+	if err := first.UpdateRouteContext(context.Background(), "GET", path, ratelimit.Info{}); !errors.Is(err, backendErr) {
+		t.Fatalf("update during outage: %v", err)
+	}
+	unavailable.Store(false)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if release, err := second.AcquireRoute(ctx, "GET", path); !errors.Is(err, context.DeadlineExceeded) {
+		if release != nil {
+			release()
+		}
+		t.Fatalf("known cooldown was lost after recovery: %v", err)
 	}
 }
 

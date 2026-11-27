@@ -3,9 +3,80 @@ package ratelimit
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
+
+func FuzzMajorResourceCompatibility(f *testing.F) {
+	for _, seed := range []string{"", "/channels/1/messages/2", "GET /guilds/2/roles/3", "/webhooks/1/token/messages/2", "/webhooks/1/", "//guilds/1", "/other/1"} {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, path string) {
+		original := path
+		if i := strings.IndexByte(path, ' '); i >= 0 {
+			path = path[i+1:]
+		}
+		parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+		want := ""
+		if len(parts) >= 2 {
+			switch parts[0] {
+			case "channels", "guilds":
+				want = parts[0] + "/" + parts[1]
+			case "webhooks":
+				want = parts[0] + "/" + parts[1]
+				if len(parts) > 2 {
+					want += "/" + parts[2]
+				}
+			}
+		}
+		if got := majorResource(original); got != want {
+			t.Fatalf("majorResource(%q) = %q, want %q", original, got, want)
+		}
+	})
+}
+
+func TestCollidingRouteLocksKeepDiscoveryReservationsIndependent(t *testing.T) {
+	l := NewLimiter(nil).(*limiter)
+	seen := make(map[*sync.Mutex]string)
+	var first, second string
+	for i := 0; i <= len(l.bucketLocks); i++ {
+		path := fmt.Sprintf("/channels/%d/messages", i)
+		lock := l.getBucketLock("GET " + path)
+		if other, ok := seen[lock]; ok {
+			first, second = other, path
+			break
+		}
+		seen[lock] = path
+	}
+	if first == "" {
+		t.Fatal("failed to find two routes using the same lock")
+	}
+
+	firstRelease, err := l.AcquireRoute(context.Background(), "GET", first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer firstRelease()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	secondRelease, err := l.AcquireRoute(ctx, "GET", second)
+	if err != nil {
+		t.Fatalf("unrelated route blocked by an in-flight discovery: %v", err)
+	}
+	secondRelease()
+
+	blocked, stop := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer stop()
+	if release, err := l.AcquireRoute(blocked, "GET", first); !errors.Is(err, context.DeadlineExceeded) {
+		if release != nil {
+			release()
+		}
+		t.Fatalf("first route lost its discovery reservation: %v", err)
+	}
+}
 
 func TestRouteBucketsRespectMajorResourcesAndMethods(t *testing.T) {
 	l := NewLimiter(nil).(RouteLimiter)

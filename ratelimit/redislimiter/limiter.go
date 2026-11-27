@@ -90,18 +90,25 @@ func digest(s string) string {
 func routeID(method, path string) string { return digest(strings.ToUpper(method) + " " + path) }
 
 func majorResource(path string) string {
-	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
-	if len(parts) < 2 {
+	path = strings.TrimPrefix(path, "/")
+	kind, rest, ok := strings.Cut(path, "/")
+	if !ok {
 		return ""
 	}
-	switch parts[0] {
+	switch kind {
 	case "channels", "guilds":
-		return parts[0] + "/" + parts[1]
-	case "webhooks":
-		if len(parts) > 2 {
-			return parts[0] + "/" + parts[1] + "/" + parts[2]
+		if end := strings.IndexByte(rest, '/'); end >= 0 {
+			return path[:len(kind)+1+end]
 		}
-		return parts[0] + "/" + parts[1]
+		return path
+	case "webhooks":
+		if token := strings.IndexByte(rest, '/'); token >= 0 {
+			tail := rest[token+1:]
+			if end := strings.IndexByte(tail, '/'); end >= 0 {
+				return path[:len(kind)+1+token+1+end]
+			}
+		}
+		return path
 	default:
 		return ""
 	}

@@ -5,6 +5,41 @@ import (
 	"testing"
 )
 
+func TestGuildPermissionsStringAndNull(t *testing.T) {
+	for _, tt := range []struct {
+		payload string
+		wantNil bool
+		want    uint64
+	}{
+		{`{"id":"42","permissions":"1152921504606846976"}`, false, 1 << 60},
+		{`{"id":"42","permissions":1152921504606846976}`, false, 1 << 60},
+		{`{"id":"42","permissions":"0"}`, false, 0},
+		{`{"id":"42","permissions":null}`, true, 0},
+		{`{"id":"42"}`, true, 0},
+	} {
+		var g Guild
+		if err := json.Unmarshal([]byte(tt.payload), &g); err != nil {
+			t.Fatalf("decode %s: %v", tt.payload, err)
+		}
+		if (g.Permissions == nil) != tt.wantNil || (g.Permissions != nil && uint64(*g.Permissions) != tt.want) {
+			t.Fatalf("decode %s: permissions = %v", tt.payload, g.Permissions)
+		}
+		if g.Permissions != nil && tt.want == 1<<60 {
+			encoded, err := json.Marshal(g)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(encoded, &fields); err != nil {
+				t.Fatal(err)
+			}
+			if string(fields["permissions"]) != `"1152921504606846976"` {
+				t.Fatalf("encoded permissions = %s", fields["permissions"])
+			}
+		}
+	}
+}
+
 func TestGuildUnmarshalJSON(t *testing.T) {
 	data := []byte(`{
 		"id": "123456789012345678",

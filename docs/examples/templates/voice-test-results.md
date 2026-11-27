@@ -1,5 +1,21 @@
 # Live voice test results
 
+## 2026-11-27: isolated synthetic audio and receiver rejoin
+
+- **Build:** Go 1.22 workspace with unreleased local DAVE and MLS changes.
+  This did not test the published nested module versions.
+- **Setup:** two bots in a temporary voice channel hidden from `@everyone`.
+  The sender used a synthetic encoded tone; the receiver compared decrypted
+  Opus packets with that generated frame. No human audio was recorded and no
+  messages were sent. The channel was removed and its removal verified.
+- **Result:** both voice connections negotiated DAVE version 1. At the first
+  success check, 24 matching packets had arrived after 29 successful sends.
+  After the receiver left and rejoined, 20 further matching packets arrived;
+  no received packet differed from the generated frame.
+- **Limit:** these counters were sampled at different times and do not measure
+  packet-loss rate or continuity. No human listener or long-duration recording
+  was included. The packet gaps from the earlier test remain unresolved.
+
 ## 2026-11-25: listener and recorder rejoin
 
 - **Build:** Go 1.22, repository workspace based on commit `cf45f2f` with

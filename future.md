@@ -2,43 +2,39 @@
 
 These are priorities for future development, not completed features.
 
-## Distributed rate limiting
+## REST coordination and distributed rate limits
 
-The opt-in Redis-backed limiter coordinates bots running across multiple
-processes or servers. Test Redis Cluster, failover, outages, and real
-multi-host deployments; the current integration checks use an isolated local
-Redis server. The existing `ratelimit.Store` alone does not provide atomic
-reservations or cross-process global coordination.
+- Continue testing concurrent requests, out-of-order responses, and changing
+  server limits. Verify whether interaction endpoints can safely bypass the
+  bot global token bucket.
+- Test the opt-in Redis limiter with failover, lost writes, outages, different
+  clients, and multi-host deployments. Local tests cover a three-node cluster
+  and a temporary outage; `ratelimit.Store` alone does not provide atomic
+  reservations or cross-process global coordination.
+- Bound route and bucket state growth without discarding active cooldowns or
+  in-flight reservations.
 
-## Better benchmarks
+## Voice and MLS
 
-Create repeatable benchmarks for representative bot workloads and compare
-libraries using equivalent inputs and rate-limit settings. Record the hardware,
-Go version, allocations, and multiple runs; separate local CPU and request
-overhead from network latency and live Discord limits.
+- Investigate recording packet gaps observed during live voice playback and
+  compare networks and voice regions. Repeat sustained listener and recorder
+  rejoin tests; see `docs/examples/templates/voice-test-results.md`.
+- Continue MLS protocol and security review, including interoperability and
+  commit validation. The fixes and remaining review areas are described in
+  `dave-go/PORTING.md`.
 
 ## Discord API coverage
 
-Review Discord API changes and the existing coverage inventory, then add
-missing endpoints, models, and behavior where useful. Keep the coverage record,
-documentation, and regression tests up to date as support is added.
+Review API changes and the coverage inventory, and add useful endpoints,
+models, and tests. `Application.FlagsNew` remains an `int` for source
+compatibility, so 32-bit builds cannot decode values above the signed `int`
+range. Design a compatible full-width representation or address it in a
+breaking release.
 
-## Next session: follow-up work
+## Benchmarks
 
-These are candidates for investigation, not completed fixes.
-
-1. Continue testing high-concurrency REST coordination, out-of-order responses,
-   and changing server limits. Review whether interaction endpoints can safely
-   bypass the bot global token bucket.
-2. Exercise the opt-in distributed rate limiter across deployments and failure
-   modes. Review memory growth for long-running clients with many routes.
-3. Investigate packet gaps observed during the 2026-11-25 live voice test and
-   repeat the comparison on another network or voice region. Listener and
-   recorder rejoins succeeded, but recording continuity did not; see
-   `docs/examples/templates/voice-test-results.md`.
-4. Continue the MLS security review listed in `dave-go/PORTING.md`. Initial
-   epoch entropy and repeated proposal handling are fixed in `mls-go v0.2.2`;
-   further protocol and interoperability review remains.
-5. Revisit model decoding performance with repeatable equivalent workloads.
-   The exploratory comparison benchmarks are kept locally under the ignored
-   `benchmarks/` directory; they are not included in the release.
+Use repeatable equivalent workloads, including complete model decoding and
+representative bot traffic. Record hardware, Go version, allocations, and
+multiple runs; separate CPU and request overhead from live network latency and
+Discord rate limits. Exploratory comparisons are kept locally under the
+ignored `benchmarks/` directory and are not part of the release.

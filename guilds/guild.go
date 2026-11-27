@@ -2,6 +2,7 @@ package guilds
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"github.com/discord-go/discord.go/channels"
 	"github.com/discord-go/discord.go/emojis"
@@ -22,7 +23,7 @@ type Guild struct {
 	DiscoverySplash             *string                 `json:"discovery_splash"`
 	Owner                       *bool                   `json:"owner,omitempty"`
 	OwnerID                     snowflake.ID            `json:"owner_id,string"`
-	Permissions                 *permissions.Permission `json:"permissions,omitempty"`
+	Permissions                 *permissions.Permission `json:"permissions,string,omitempty"`
 	Region                      *string                 `json:"region,omitempty"` // Deprecated
 	AFKChannelID                *snowflake.ID           `json:"afk_channel_id,string"`
 	AFKTimeout                  int                     `json:"afk_timeout"`
@@ -56,6 +57,7 @@ type Guild struct {
 	NSFWLevel                   int                     `json:"nsfw_level"`
 	PremiumProgressBarEnabled   bool                    `json:"premium_progress_bar_enabled"`
 	SafetyAlertsChannelID       *snowflake.ID           `json:"safety_alerts_channel_id,string"`
+	IncidentsData               *IncidentsData          `json:"incidents_data,omitempty"`
 	Unavailable                 bool                    `json:"unavailable"`
 
 	// GuildCreatePayload captures the extra arrays Discord sends only in
@@ -93,21 +95,45 @@ type Activity struct {
 func (g *Guild) UnmarshalJSON(data []byte) error {
 	type Alias Guild
 	aux := &struct {
-		ID                     string  `json:"id"`
-		OwnerID                string  `json:"owner_id"`
-		AFKChannelID           *string `json:"afk_channel_id"`
-		WidgetChannelID        *string `json:"widget_channel_id"`
-		ApplicationID          *string `json:"application_id"`
-		SystemChannelID        *string `json:"system_channel_id"`
-		RulesChannelID         *string `json:"rules_channel_id"`
-		PublicUpdatesChannelID *string `json:"public_updates_channel_id"`
-		SafetyAlertsChannelID  *string `json:"safety_alerts_channel_id"`
+		Permissions            json.RawMessage `json:"permissions"`
+		ID                     string          `json:"id"`
+		OwnerID                string          `json:"owner_id"`
+		AFKChannelID           *string         `json:"afk_channel_id"`
+		WidgetChannelID        *string         `json:"widget_channel_id"`
+		ApplicationID          *string         `json:"application_id"`
+		SystemChannelID        *string         `json:"system_channel_id"`
+		RulesChannelID         *string         `json:"rules_channel_id"`
+		PublicUpdatesChannelID *string         `json:"public_updates_channel_id"`
+		SafetyAlertsChannelID  *string         `json:"safety_alerts_channel_id"`
 		*Alias
 	}{
 		Alias: (*Alias)(g),
 	}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
+	}
+	// Discord sends a stringified bitfield in partial guilds. Continue to
+	// accept numeric permissions from callers that used the previous model.
+	if len(aux.Permissions) > 0 {
+		if string(aux.Permissions) == "null" {
+			g.Permissions = nil
+		} else {
+			var value permissions.Permission
+			if aux.Permissions[0] == '"' {
+				var encoded string
+				if err := json.Unmarshal(aux.Permissions, &encoded); err != nil {
+					return err
+				}
+				bits, err := strconv.ParseUint(encoded, 10, 64)
+				if err != nil {
+					return err
+				}
+				value = permissions.Permission(bits)
+			} else if err := json.Unmarshal(aux.Permissions, &value); err != nil {
+				return err
+			}
+			g.Permissions = &value
+		}
 	}
 
 	if aux.ID != "" {

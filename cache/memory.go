@@ -34,18 +34,33 @@ func NewMemoryCache(opts ...Option) *MemoryCache {
 
 // Get retrieves a value from the cache.
 func (c *MemoryCache) Get(key string) (any, bool) {
+	c.mu.RLock()
+	i, found := c.items[key]
+	if !found {
+		c.mu.RUnlock()
+		return nil, false
+	}
+	if i.expiration == 0 || time.Now().UnixNano() <= i.expiration {
+		c.mu.RUnlock()
+		return i.value, true
+	}
+	c.mu.RUnlock()
+	return c.getAfterExpiration(key)
+}
+
+func (c *MemoryCache) getAfterExpiration(key string) (any, bool) {
+	// A writer can replace the expired entry between locks. Re-read it so a
+	// concurrent Set is never deleted or hidden by an earlier cache lookup.
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	i, found := c.items[key]
 	if !found {
 		return nil, false
 	}
-
 	if i.expiration > 0 && time.Now().UnixNano() > i.expiration {
 		delete(c.items, key)
 		return nil, false
 	}
-
 	return i.value, true
 }
 

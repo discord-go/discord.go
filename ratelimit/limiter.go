@@ -58,7 +58,9 @@ type limiter struct {
 	// concurrent goroutines can reserve tokens in parallel.
 	globalLimiter *rate.Limiter
 
-	bucketLocks sync.Map // map[string]*sync.Mutex
+	// Fixed lock stripes avoid retaining a mutex for every route ever seen.
+	// Collisions serialize state operations, not in-flight HTTP requests.
+	bucketLocks [256]sync.Mutex
 	routeToHash sync.Map // map[string]string
 	lastRoute   sync.Map // map[path]route, for the legacy State method
 	probes      sync.Map // map[bucket]chan struct{}; only live while a probe is in flight
@@ -76,8 +78,13 @@ func NewLimiter(store Store) Limiter {
 }
 
 func (l *limiter) getBucketLock(bucket string) *sync.Mutex {
-	v, _ := l.bucketLocks.LoadOrStore(bucket, &sync.Mutex{})
-	return v.(*sync.Mutex)
+	// FNV-1a hashes without allocation and maps the same key to the same lock.
+	var hash uint64 = 14695981039346656037
+	for i := 0; i < len(bucket); i++ {
+		hash ^= uint64(bucket[i])
+		hash *= 1099511628211
+	}
+	return &l.bucketLocks[hash%uint64(len(l.bucketLocks))]
 }
 
 func (l *limiter) Wait(ctx context.Context, bucket string) error {
@@ -337,18 +344,25 @@ func majorResource(path string) string {
 	if i := strings.IndexByte(path, ' '); i >= 0 {
 		path = path[i+1:]
 	}
-	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
-	if len(parts) < 2 {
+	path = strings.TrimPrefix(path, "/")
+	kind, rest, ok := strings.Cut(path, "/")
+	if !ok {
 		return ""
 	}
-	switch parts[0] {
+	switch kind {
 	case "channels", "guilds":
-		return parts[0] + "/" + parts[1]
-	case "webhooks":
-		if len(parts) > 2 {
-			return parts[0] + "/" + parts[1] + "/" + parts[2]
+		if end := strings.IndexByte(rest, '/'); end >= 0 {
+			return path[:len(kind)+1+end]
 		}
-		return parts[0] + "/" + parts[1]
+		return path
+	case "webhooks":
+		if token := strings.IndexByte(rest, '/'); token >= 0 {
+			tail := rest[token+1:]
+			if end := strings.IndexByte(tail, '/'); end >= 0 {
+				return path[:len(kind)+1+token+1+end]
+			}
+		}
+		return path
 	}
 	return ""
 }

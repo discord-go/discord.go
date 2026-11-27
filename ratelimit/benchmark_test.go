@@ -71,6 +71,17 @@ func BenchmarkLimiter_Update(b *testing.B) {
 	}
 }
 
+func BenchmarkLimiter_UpdateRoute(b *testing.B) {
+	l := NewLimiter(NewMemoryStore()).(RouteLimiter)
+	info := Info{Bucket: "bucket-id", Remaining: 100, ResetAfter: time.Hour}
+	const path = "/channels/123456789012345678/messages/987654321012345678"
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		l.UpdateRoute("GET", path, info)
+	}
+}
+
 func BenchmarkMemoryStore_Get(b *testing.B) {
 	store := NewMemoryStore()
 	store.Put("key", BucketState{Remaining: 5})
@@ -86,5 +97,18 @@ func BenchmarkMemoryStore_Put(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		store.Put("key", state)
+	}
+}
+
+var benchmarkMajorResource string
+
+func BenchmarkMajorResource(b *testing.B) {
+	for _, route := range []string{"/channels/123456789012345678/messages/987654321012345678", "/webhooks/123456789012345678/secret-token/messages/987654321012345678"} {
+		b.Run(route, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				benchmarkMajorResource = majorResource(route)
+			}
+		})
 	}
 }

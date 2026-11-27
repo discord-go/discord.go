@@ -47,3 +47,26 @@ jobs:
       - run: go vet ./...
         working-directory: dave-go/godave
       - run: go vet ./...
+
+  test-32bit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.22.0'
+      - name: Install Redis for distributed limiter tests
+        run: |
+          if ! command -v redis-server >/dev/null || ! command -v redis-cli >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y redis-server
+          fi
+      - name: Test 32-bit root and nested modules
+        env:
+          GOARCH: '386'
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          for module in . dave-go dave-go/mls-go dave-go/godave; do
+            (cd "$module" && go test ./...)
+          done
