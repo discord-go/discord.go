@@ -25,6 +25,11 @@ func DecodeULEB128(data []byte) (value uint32, n int, err error) {
 	var shift uint
 	for i := 0; i < len(data) && i < 5; i++ {
 		b := data[i]
+		// A uint32 has only four payload bits left in the fifth byte.
+		// Check before shifting so overflowing bits cannot be discarded.
+		if i == 4 && b&0xf0 != 0 {
+			return 0, 0, fmt.Errorf("uleb128 overflow: %w", ErrInvalidULEB128)
+		}
 		value |= uint32(b&0x7F) << shift
 		n = i + 1
 		if b < 0x80 {

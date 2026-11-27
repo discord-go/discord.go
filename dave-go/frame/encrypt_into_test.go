@@ -145,6 +145,12 @@ func TestEncryptIntoNoRangesAllocs(t *testing.T) {
 	}
 	plaintext := bytes.Repeat([]byte("x"), 160)
 	dst := make([]byte, len(plaintext)+64)
+	nonce := make([]byte, gcm.NonceSize())
+	// Software AES-GCM may allocate internally on some architectures. Check
+	// allocations added by the frame code relative to the same cipher.
+	cipherAllocs := testing.AllocsPerRun(100, func() {
+		_ = gcm.Seal(dst[:0], nonce, plaintext, nil)
+	})
 
 	allocs := testing.AllocsPerRun(100, func() {
 		if _, err := EncryptWithCipherInto(dst, EncryptWithCipherParams{
@@ -155,8 +161,8 @@ func TestEncryptIntoNoRangesAllocs(t *testing.T) {
 			t.Fatalf("EncryptWithCipherInto: %v", err)
 		}
 	})
-	if allocs > 1 {
-		t.Errorf("EncryptWithCipherInto: got %v allocs/op, want <= 1", allocs)
+	if allocs > cipherAllocs+1 {
+		t.Errorf("EncryptWithCipherInto: got %v allocs/op, cipher alone %v", allocs, cipherAllocs)
 	}
 }
 

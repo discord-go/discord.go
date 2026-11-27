@@ -2,7 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v0.2.4] - 2026-11-27
+
+### Security
+
+- Reject overflowing DAVE variable-length integers, incomplete range metadata,
+  and unencrypted ranges that overflow the frame bounds.
+
+### Changed
+
+- Require `mls-go v0.2.3` for malformed ratchet-tree and Welcome input fixes.
+- Exercise malformed frames and encryption round trips with fuzz tests; make
+  the allocation check account for platform-specific AES implementations.
 
 ## [v0.2.3] - 2026-11-25
 

@@ -83,6 +83,41 @@ func TestDecodeULEB128Errors(t *testing.T) {
 	}
 }
 
+func TestDecodeULEB128RejectsUint32Overflow(t *testing.T) {
+	for _, data := range [][]byte{
+		{0x80, 0x80, 0x80, 0x80, 0x10},
+		{0xff, 0xff, 0xff, 0xff, 0x1f},
+		{0xff, 0xff, 0xff, 0xff, 0x8f, 0x00},
+	} {
+		if value, _, err := DecodeULEB128(data); !errors.Is(err, ErrInvalidULEB128) {
+			t.Errorf("DecodeULEB128(%x) = %d, %v; want overflow error", data, value, err)
+		}
+	}
+}
+
+func TestValidateRangesRejectsIntegerOverflow(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	if err := ValidateRanges([]Range{{Offset: maxInt - 1, Length: 10}}, 8); !errors.Is(err, ErrInvalidRanges) {
+		t.Fatalf("overflowing range was accepted: %v", err)
+	}
+}
+
+func TestParseRejectsIncompleteOrOverflowingRanges(t *testing.T) {
+	for _, ranges := range [][]byte{
+		{0x80},
+		{0x01},
+		{0x01, 0x80},
+		{0x80, 0x80, 0x80, 0x80, 0x10, 0x00},
+	} {
+		packet := append(make([]byte, 8), 0x00) // tag and valid zero nonce
+		packet = append(packet, ranges...)
+		packet = append(packet, byte(len(packet)+3), 0xfa, 0xfa)
+		if _, err := Parse(packet); !errors.Is(err, ErrInvalidULEB128) {
+			t.Errorf("Parse with range bytes %x: %v; want invalid ULEB128", ranges, err)
+		}
+	}
+}
+
 func TestValidateRanges(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -93,6 +93,18 @@ baseline.
 
 ### Security and protocol review log
 
+`mls-go v0.2.3` rejects impossible serialized ratchet-tree sizes and
+unsupported or inconsistent Welcome inputs. `dave-go v0.2.4` rejects
+overflowing DAVE varints and incomplete or overflowing unencrypted ranges.
+These fixes are included in `discord.go v0.19.0-fuzz`.
+
+On 2026-11-27, short fuzz runs covered MLS framing, ratchet-tree and Welcome
+parsing, commit handling, AEAD, HKDF, DAVE frame parsing and encryption, and
+RTP headers. The runs found a ratchet-tree allocation failure and an invalid
+Welcome cipher-suite panic; their inputs are kept as regression seeds. Frame
+boundary tests separately found integer overflow and truncated range handling.
+These checks are not a complete security audit.
+
 | Upstream change | Area | Status |
 | --- | --- | --- |
 | DAVE `e2341dc0` | Retained receive epoch expiry | Ported: retained epochs are pruned during decrypt. |

@@ -35,8 +35,8 @@ func EncryptWithCipher(params EncryptWithCipherParams) ([]byte, error) {
 //
 // When params.UnencryptedRanges is empty (e.g. OPUS) and
 // cap(dst) >= len(params.Plaintext)+16, the AES-GCM seal writes directly into
-// dst's backing array and this call performs zero heap allocations. dst and
-// params.Plaintext must not overlap.
+// dst's backing array. Allocations within the cipher depend on the platform.
+// dst and params.Plaintext must not overlap.
 func EncryptWithCipherInto(dst []byte, params EncryptWithCipherParams) (int, error) {
 	if params.Cipher == nil {
 		return 0, fmt.Errorf("cipher nil: %w", ErrInvalidKeyLength)
@@ -83,8 +83,8 @@ func Encrypt(params EncryptParams) ([]byte, error) {
 //
 // When params.UnencryptedRanges is empty (e.g. OPUS) and
 // cap(dst) >= len(params.Plaintext)+16, the AES-GCM seal writes directly into
-// dst's backing array and this call performs zero heap allocations. dst and
-// params.Plaintext must not overlap.
+// dst's backing array. Allocations within the cipher depend on the platform.
+// dst and params.Plaintext must not overlap.
 func EncryptInto(dst []byte, params EncryptParams) (int, error) {
 	if len(params.Key) != 16 {
 		return 0, ErrInvalidKeyLength
@@ -336,12 +336,12 @@ func Parse(packet []byte) (*ParsedFrame, error) {
 	for len(rangesData) > 0 {
 		offset, n1, err := DecodeULEB128(rangesData)
 		if err != nil {
-			break
+			return nil, fmt.Errorf("invalid unencrypted range offset: %w", err)
 		}
 		rangesData = rangesData[n1:]
 		length, n2, err := DecodeULEB128(rangesData)
 		if err != nil {
-			break
+			return nil, fmt.Errorf("invalid unencrypted range length: %w", err)
 		}
 		rangesData = rangesData[n2:]
 		ranges = append(ranges, Range{

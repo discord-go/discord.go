@@ -14,12 +14,17 @@ package frame
 // "Must be distinct and not overlapping"
 // "Must not overflow the total size of the interleaved media frame".
 func ValidateRanges(ranges []Range, size int) error {
+	if size < 0 {
+		return ErrInvalidRanges
+	}
 	prevEnd := 0
 	for i, r := range ranges {
 		if r.Offset < 0 || r.Length < 0 {
 			return ErrInvalidRanges
 		}
-		if r.Offset+r.Length > size {
+		// Check by subtraction so malicious offsets cannot wrap an int before
+		// the bounds check, including on 32-bit systems.
+		if r.Offset > size || r.Length > size-r.Offset {
 			return ErrInvalidRanges
 		}
 		if i > 0 && r.Offset < prevEnd {
