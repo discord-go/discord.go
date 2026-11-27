@@ -2,7 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v0.2.3] - 2026-11-27
+
+### Security
+
+- Reject impossible ratchet-tree leaf counts before allocating nodes. A small
+  malformed input previously could request an extremely large allocation.
+- Reject unsupported Welcome cipher suites and invalid key package inputs
+  rather than panicking, and reject truncated encrypted-secret references.
+
+### Changed
+
+- Add fuzz regressions and make the framing boundary test compile on 32-bit Go.
 
 ## [v0.2.2] - 2026-11-25
 

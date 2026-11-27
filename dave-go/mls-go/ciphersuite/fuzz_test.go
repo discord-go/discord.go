@@ -92,6 +92,7 @@ func FuzzSecret(f *testing.F) {
 	f.Add([]byte("secret value"))
 	f.Add([]byte(""))
 	f.Add([]byte("long secret value for testing"))
+	f.Add([]byte("different"))
 
 	f.Fuzz(func(t *testing.T, value []byte) {
 		// Create secret
@@ -119,8 +120,9 @@ func FuzzSecret(f *testing.F) {
 			t.Errorf("Secret.Equal() should return true for same value")
 		}
 
-		// Verify not equal to different value
-		if secret.Equal(NewSecret([]byte("different"))) {
+		// Appending a byte guarantees a different value for every fuzz input.
+		different := append(append([]byte(nil), value...), 0)
+		if secret.Equal(NewSecret(different)) {
 			t.Errorf("Secret.Equal() should return false for different value")
 		}
 	})

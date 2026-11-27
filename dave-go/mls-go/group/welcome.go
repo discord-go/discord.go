@@ -340,7 +340,7 @@ func UnmarshalWelcome(data []byte) (*Welcome, error) {
 	for secretsReader.Remaining() > 0 {
 		newMember, err := secretsReader.ReadVLBytes()
 		if err != nil {
-			break
+			return nil, fmt.Errorf("reading welcome key package reference: %w", err)
 		}
 
 		kemOutput, err := secretsReader.ReadVLBytes()
@@ -651,10 +651,28 @@ func JoinFromWelcomeWithContext(
 	myPrivateKeys *keypackages.KeyPackagePrivateKeys,
 	externalPsks map[string][]byte,
 ) (*Group, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
+	}
+	if welcome == nil {
+		return nil, fmt.Errorf("welcome is nil")
+	}
+	if !welcome.CipherSuite.IsSupported() {
+		return nil, fmt.Errorf("unsupported welcome cipher suite: %s", welcome.CipherSuite)
+	}
+	if myKeyPackage == nil {
+		return nil, fmt.Errorf("key package is nil")
+	}
+	if myKeyPackage.CipherSuite != welcome.CipherSuite {
+		return nil, fmt.Errorf("welcome cipher suite does not match key package")
+	}
+	if myPrivateKeys == nil || myPrivateKeys.InitKey == nil {
+		return nil, fmt.Errorf("key package private init key is nil")
 	}
 
 	// Compute my key_package_ref

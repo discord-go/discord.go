@@ -144,7 +144,14 @@ func UnmarshalTree(data []byte, cs ciphersuite.CipherSuite) (*RatchetTree, error
 		return nil, fmt.Errorf("num_leaves must be > 0")
 	}
 
-	expectedNodes := int(numLeaves*2 - 1)
+	// Every serialized node needs at least one byte. Check the untrusted leaf
+	// count against the remaining input before allocating, and perform the
+	// arithmetic in uint64 so it cannot wrap on 32-bit or 64-bit systems.
+	expectedNodes64 := uint64(numLeaves)*2 - 1
+	if expectedNodes64 > uint64(r.Remaining()) {
+		return nil, fmt.Errorf("ratchet tree needs %d node bytes, only %d remain", expectedNodes64, r.Remaining())
+	}
+	expectedNodes := int(expectedNodes64)
 	nodes := make([]Node, expectedNodes)
 
 	for i := 0; i < expectedNodes; i++ {

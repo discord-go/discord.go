@@ -150,10 +150,10 @@ func TestMLSSenderData_MaxValues(t *testing.T) {
 	}
 
 	if sd2.LeafIndex != 0xFFFFFFFF {
-		t.Errorf("Max LeafIndex mismatch: got %d, want %d", sd2.LeafIndex, 0xFFFFFFFF)
+		t.Errorf("Max LeafIndex mismatch: got %d, want %d", sd2.LeafIndex, uint32(0xFFFFFFFF))
 	}
 	if sd2.Generation != 0xFFFFFFFF {
-		t.Errorf("Max Generation mismatch: got %d, want %d", sd2.Generation, 0xFFFFFFFF)
+		t.Errorf("Max Generation mismatch: got %d, want %d", sd2.Generation, uint32(0xFFFFFFFF))
 	}
 	if sd2.ReuseGuard != [4]byte{0xFF, 0xFF, 0xFF, 0xFF} {
 		t.Error("Max ReuseGuard mismatch")
