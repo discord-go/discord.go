@@ -3,7 +3,7 @@ module musicbot
 go 1.22.0
 
 require (
-	github.com/discord-go/discord.go v0.18.1-walk
+	github.com/discord-go/discord.go v0.19.0-fuzz
 	github.com/gorilla/websocket v1.5.3
 	layeh.com/gopus v0.0.0-20210501142526-1ee02d434e32
 )

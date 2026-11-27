@@ -2,7 +2,7 @@ module auditbot
 
 go 1.22.0
 
-require github.com/discord-go/discord.go v0.18.1-walk
+require github.com/discord-go/discord.go v0.19.0-fuzz
 
 require (
 	github.com/discord-go/discord.go/dave-go v0.2.4 // indirect
