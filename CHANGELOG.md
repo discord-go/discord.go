@@ -3,6 +3,17 @@
 All notable changes to discord.go are documented here. The format follows
 Keep a Changelog, and versions use the repository's `vX.Y.Z-<codename>` tags.
 
+## [v0.19.1-fuzz] - 2026-11-27
+
+[v0.19.1-fuzz]: https://github.com/discord-go/discord.go/compare/v0.19.0-fuzz...v0.19.1-fuzz
+
+### Changed
+
+- Update the standalone example modules to use `discord.go v0.19.0-fuzz` and
+  its published DAVE and MLS dependencies.
+- Update the library version string. Library behavior and dependencies are
+  otherwise unchanged from `v0.19.0-fuzz`.
+
 ## [v0.19.0-fuzz] - 2026-11-27
 
 [v0.19.0-fuzz]: https://github.com/discord-go/discord.go/compare/v0.18.1-walk...v0.19.0-fuzz
