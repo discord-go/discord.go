@@ -111,7 +111,8 @@ The `interactions.Server` is an `http.Handler` that receives Discord
 interaction webhooks, verifies their Ed25519 signature and timestamp
 freshness, and dispatches them to a handler. It auto-responds to pings
 (type 1) with a pong and defaults to a deferred response if the handler
-returns nil.
+returns nil. It accepts request bodies up to 1 MiB and responds with HTTP 413
+when that limit is exceeded.
 
 ```go
 package main

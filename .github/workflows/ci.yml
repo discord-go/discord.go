@@ -48,6 +48,27 @@ jobs:
         working-directory: dave-go/godave
       - run: go vet ./...
 
+  test-desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.26.x'
+      - name: Test core modules and audit bot
+        shell: bash
+        run: |
+          set -euo pipefail
+          for module in . dave-go dave-go/mls-go dave-go/godave docs/examples/templates/auditbot; do
+            go -C "$module" test ./...
+          done
+
   test-32bit:
     runs-on: ubuntu-latest
     steps:

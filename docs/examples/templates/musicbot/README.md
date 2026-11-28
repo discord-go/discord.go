@@ -20,13 +20,14 @@ The queue is per guild. The FFmpeg source in `internal/player` accepts a local
 file path or a media URL, converts it to 48 kHz stereo PCM, encodes 20 ms Opus
 frames, and supplies them to `voiceplayer` for pacing. It requires FFmpeg
 and the example's C-backed Opus dependency. `!play` uses yt-dlp to resolve a
-search or URL; YouTube extraction may require an up-to-date yt-dlp version.
-An existing local file is passed straight to FFmpeg, which makes offline voice
-tests reproducible.
+YouTube search or URL. YouTube extraction may require an up-to-date yt-dlp
+version. See the [voice template setup](../index.md#voice-template-setup) for
+the native dependencies on Windows and macOS.
 
 For a controlled test, the two-bot runner also accepts
-`VOICE_TEST_MEDIA_INPUT` with a local file path, URL, or search term. The
-recorder announces that music and other channel participants may be recorded.
+`VOICE_TEST_MEDIA_INPUT` with an operator-selected local file path, URL, or
+search term. The recorder announces that music and other channel participants
+may be recorded.
 With that variable unset, the runner sends a synthetic tone instead. For a
 longer tone, set `VOICE_TEST_TONE_DURATION` (for example `10m`).
 Set `VOICE_TEST_MEDIA_LOOP=1` to replay the selected media until the bot stops.

@@ -20,18 +20,22 @@ const MaxTimestampSkew = 5 * time.Minute
 // replay attacks. Prefer VerifyRequest for incoming HTTP requests, which
 // enforces both the signature and a timestamp freshness check.
 func VerifySignature(publicKeyHex string, timestamp string, signatureHex string, body []byte) bool {
-	publicKey, err := hex.DecodeString(publicKeyHex)
-	if err != nil || len(publicKey) != ed25519.PublicKeySize {
+	var publicKey [ed25519.PublicKeySize]byte
+	var signature [ed25519.SignatureSize]byte
+	if len(publicKeyHex) != 2*len(publicKey) || len(signatureHex) != 2*len(signature) {
+		return false
+	}
+	if _, err := hex.Decode(publicKey[:], []byte(publicKeyHex)); err != nil {
+		return false
+	}
+	if _, err := hex.Decode(signature[:], []byte(signatureHex)); err != nil {
 		return false
 	}
 
-	signature, err := hex.DecodeString(signatureHex)
-	if err != nil || len(signature) != ed25519.SignatureSize {
-		return false
-	}
-
-	message := append([]byte(timestamp), body...)
-	return ed25519.Verify(publicKey, message, signature)
+	message := make([]byte, len(timestamp)+len(body))
+	copy(message, timestamp)
+	copy(message[len(timestamp):], body)
+	return ed25519.Verify(publicKey[:], message, signature[:])
 }
 
 // VerifyRequest verifies an incoming Discord interaction request, checking
@@ -43,18 +47,15 @@ func VerifySignature(publicKeyHex string, timestamp string, signatureHex string,
 // Requests whose timestamp differs from now by more than MaxTimestampSkew in
 // either direction are rejected.
 func VerifyRequest(publicKeyHex string, timestamp string, signatureHex string, body []byte, now time.Time) bool {
+	return freshTimestamp(timestamp, now) && VerifySignature(publicKeyHex, timestamp, signatureHex, body)
+}
+
+func freshTimestamp(timestamp string, now time.Time) bool {
 	ts, err := strconv.ParseInt(timestamp, 10, 64)
 	if err != nil {
 		return false
 	}
 
 	skew := now.Sub(time.Unix(ts, 0))
-	if skew < 0 {
-		skew = -skew
-	}
-	if skew > MaxTimestampSkew {
-		return false
-	}
-
-	return VerifySignature(publicKeyHex, timestamp, signatureHex, body)
+	return skew >= -MaxTimestampSkew && skew <= MaxTimestampSkew
 }

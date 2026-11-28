@@ -286,7 +286,7 @@ func handleVoiceServerUpdate(
 
 	if voiceTest {
 		if input := os.Getenv("VOICE_TEST_MEDIA_INPUT"); input != "" {
-			streamURL, title, err := ytdlp.ExtractAudioInfo(input)
+			streamURL, title, err := ytdlp.ExtractAudioInfo(context.Background(), input)
 			if err != nil {
 				log.Printf("voice test media lookup: %v", err)
 				return

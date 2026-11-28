@@ -47,7 +47,9 @@ occurrences with `[REDACTED]`.
 ## Interaction Signature Verification
 
 Discord signs interaction webhook requests with Ed25519. Always verify the
-signature before processing the request body.
+signature before processing the request body. Use `interactions.NewServer`
+for a built-in handler with a 1 MiB request body limit. Apply a body limit
+before reading the request when implementing your own handler.
 
 Use `interactions.VerifyRequest` (not `VerifySignature`) to prevent replay
 attacks. `VerifyRequest` checks both the cryptographic signature and the
@@ -68,7 +70,7 @@ import (
 var publicKey = "your-app-public-key-hex"
 
 func interactionHandler(w http.ResponseWriter, r *http.Request) {
-    body, err := io.ReadAll(r.Body)
+    body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
     if err != nil {
         http.Error(w, "bad request", http.StatusBadRequest)
         return

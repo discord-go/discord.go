@@ -2,6 +2,7 @@ package compression
 
 import (
 	"bytes"
+	"compress/flate"
 	"compress/zlib"
 	"fmt"
 	"io"
@@ -45,11 +46,15 @@ func Decompress(r io.Reader) ([]byte, error) {
 	return data, nil
 }
 
-// Stream handles stateful zlib decompression for Discord's stream compression.
-// It buffers compressed chunks and inflates them when the Z_SYNC_FLUSH suffix is received.
+// A DEFLATE back-reference can reach at most 32 KiB into the decoded stream.
+const historySize = 32 * 1024
+
+// Stream handles stateful zlib decompression for one Discord connection.
+// It buffers compressed chunks until the Z_SYNC_FLUSH suffix arrives.
 type Stream struct {
-	buf        bytes.Buffer
-	readOffset int64
+	pending  bytes.Buffer
+	history  []byte
+	inflater io.ReadCloser
 }
 
 // NewStream creates a new stateful Stream.
@@ -61,28 +66,46 @@ func NewStream() *Stream {
 // If the chunk ends with the sync flush suffix (00 00 ff ff), it decompresses
 // the available data and returns the newly decompressed payload.
 func (s *Stream) Write(chunk []byte) ([]byte, error) {
-	s.buf.Write(chunk)
+	s.pending.Write(chunk)
 
-	if len(chunk) < 4 || !bytes.HasSuffix(chunk, []byte{0x00, 0x00, 0xff, 0xff}) {
-		return nil, nil // Need more data
+	if !bytes.HasSuffix(s.pending.Bytes(), []byte{0x00, 0x00, 0xff, 0xff}) {
+		return nil, nil
 	}
 
-	zr, err := zlib.NewReader(bytes.NewReader(s.buf.Bytes()))
+	reader, err := s.payloadReader()
 	if err != nil {
-		return nil, fmt.Errorf("compression: failed to create stream zlib reader: %w", err)
+		return nil, fmt.Errorf("compression: failed to start stream payload: %w", err)
 	}
-	defer zr.Close()
 
-	all, err := io.ReadAll(zr)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+	payload, err := io.ReadAll(reader)
+	_ = reader.Close()
+	s.pending.Reset()
+	// A sync flush ends the block, while the DEFLATE stream is still open.
+	if err != nil && err != io.ErrUnexpectedEOF {
 		return nil, fmt.Errorf("compression: stream read error: %w", err)
 	}
 
-	if int64(len(all)) < s.readOffset {
-		return nil, fmt.Errorf("compression: stream invalid read offset")
+	if s.history == nil {
+		s.history = make([]byte, 0, historySize)
 	}
+	recent := payload[max(0, len(payload)-historySize):]
+	if drop := len(s.history) + len(recent) - historySize; drop > 0 {
+		copy(s.history, s.history[drop:])
+		s.history = s.history[:len(s.history)-drop]
+	}
+	s.history = append(s.history, recent...)
+	return payload, nil
+}
 
-	ret := all[s.readOffset:]
-	s.readOffset = int64(len(all))
-	return ret, nil
+func (s *Stream) payloadReader() (io.ReadCloser, error) {
+	if s.history == nil {
+		return zlib.NewReader(&s.pending)
+	}
+	// The first payload consumed the zlib header. Each sync flush ends on a
+	// byte boundary, so later blocks can resume from the saved dictionary.
+	if s.inflater == nil {
+		s.inflater = flate.NewReaderDict(&s.pending, s.history)
+		return s.inflater, nil
+	}
+	return s.inflater, s.inflater.(flate.Resetter).Reset(&s.pending, s.history)
 }

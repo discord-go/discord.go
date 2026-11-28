@@ -1,11 +1,15 @@
 package interactions
 
 import (
+	"crypto/ed25519"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"time"
 )
+
+const maxInteractionBodyBytes = 1 << 20
 
 // InteractionHandler is called for each verified interaction. The handler
 // receives the parsed interaction and must return an InteractionResponse
@@ -16,7 +20,7 @@ type InteractionHandler func(interaction *Interaction) *InteractionResponse
 
 // Server is an http.Handler that receives Discord interaction webhooks,
 // verifies their Ed25519 signature and timestamp freshness, and dispatches
-// them to a user-provided handler.
+// them to a user-provided handler. It accepts request bodies up to 1 MiB.
 //
 // Create one with NewServer and register it on your http.ServeMux:
 //
@@ -55,10 +59,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing signature headers", http.StatusUnauthorized)
 		return
 	}
+	if len(signature) != 2*ed25519.SignatureSize || !freshTimestamp(timestamp, s.now()) {
+		http.Error(w, "invalid request signature", http.StatusUnauthorized)
+		return
+	}
 
-	body, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxInteractionBodyBytes))
 	if err != nil {
-		http.Error(w, "failed to read body", http.StatusBadRequest)
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			http.Error(w, "interaction body too large", http.StatusRequestEntityTooLarge)
+		} else {
+			http.Error(w, "failed to read body", http.StatusBadRequest)
+		}
 		return
 	}
 

@@ -11,6 +11,9 @@ a server and voice channel where recording is expected and permitted.
 
 ## Run
 
+See the [voice template setup](../index.md#voice-template-setup) for the
+native Opus build dependencies on Windows and macOS.
+
 Enable the Guild Voice States and Message Content intents needed
 by the bot in the Discord developer settings, invite it with View Channels,
 Connect, Speak, and Send Messages permissions, then run:

@@ -31,7 +31,7 @@ func HandlePlay(ctx context.Context, bot *client.Client, e *events.MessageCreate
 
 	reply(ctx, bot, e, fmt.Sprintf("🔍 Searching for %s...", videoURL))
 
-	streamURL, title, err := ytdlp.ExtractAudioInfo(videoURL)
+	streamURL, title, err := ytdlp.ExtractRequestedAudioInfo(ctx, videoURL)
 	if err != nil {
 		reply(ctx, bot, e, fmt.Sprintf("❌ Error extracting audio: %v", err))
 		return

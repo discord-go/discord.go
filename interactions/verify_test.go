@@ -97,6 +97,14 @@ func TestVerifyRequest(t *testing.T) {
 		}
 	})
 
+	t.Run("Far Future Timestamp Rejected", func(t *testing.T) {
+		const later = "60000000000"
+		signature := ed25519.Sign(privateKey, append([]byte(later), body...))
+		if VerifyRequest(publicKeyHex, later, hex.EncodeToString(signature), body, now) {
+			t.Fatal("expected timestamp outside the duration range to be rejected")
+		}
+	})
+
 	t.Run("Invalid Timestamp Format", func(t *testing.T) {
 		if VerifyRequest(publicKeyHex, "not-a-number", signatureHex, body, now) {
 			t.Errorf("Expected invalid timestamp format to be rejected")

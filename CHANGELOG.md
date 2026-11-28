@@ -3,6 +3,45 @@
 All notable changes to discord.go are documented here. The format follows
 Keep a Changelog, and versions use the repository's `vX.Y.Z-<codename>` tags.
 
+## [v0.19.2-fuzz] - 2026-11-28
+
+[v0.19.2-fuzz]: https://github.com/discord-go/discord.go/compare/v0.19.1-fuzz...v0.19.2-fuzz
+
+### Fixed
+
+- Complete MLS file-backed saves and deletes on Windows. The store flushes
+  files before replacement and can reopen the updated group state.
+
+### Security
+
+- Update Gorilla WebSocket to the revision that fixes [GO-2026-6278].
+- Cap interaction webhook request bodies at 1 MiB and reject stale or invalid
+  timestamps before reading the body. Check freshness again during signature
+  verification.
+- Restrict the music bot's `!play` command to YouTube URLs and searches.
+  Operators can select local media through `VOICE_TEST_MEDIA_INPUT`.
+- Update documentation build dependencies within their supported versions.
+
+[GO-2026-6278]: https://pkg.go.dev/vuln/GO-2026-6278
+
+### Changed
+
+- Decompress each gateway zlib payload with a bounded 32 KiB history. Handle
+  sync-flush markers split across chunks. A Windows benchmark of 128 payloads
+  measured 19 ms before the change and 0.48 ms after it.
+- Add native Windows and macOS CI jobs for the Go core modules and audit bot.
+  Document the native Opus requirements for the voice templates.
+
+### Compatibility and verification
+
+- Go 1.22 remains the minimum. This release uses `dave-go v0.2.4`,
+  `dave-go/mls-go v0.2.4`, and `dave-go/godave v0.2.1`.
+- At the release tag, standalone templates use the prior parent release,
+  `v0.19.1-fuzz`. The in-repository workspace uses the current checkout.
+- Windows core tests passed on Go 1.22 and 1.26, including a root race run on
+  Go 1.26. Local FFmpeg playback and WAV recorder tests passed. Core packages
+  cross-compiled for Apple Silicon and Intel macOS.
+
 ## [v0.19.1-fuzz] - 2026-11-27
 
 [v0.19.1-fuzz]: https://github.com/discord-go/discord.go/compare/v0.19.0-fuzz...v0.19.1-fuzz

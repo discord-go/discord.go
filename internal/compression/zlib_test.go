@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"io"
+	"math/rand"
 	"strings"
 	"testing"
 )
@@ -134,5 +135,69 @@ func TestDecompress_InvalidData(t *testing.T) {
 	_, err := Decompress(bytes.NewReader([]byte("garbage")))
 	if err == nil {
 		t.Fatal("Decompress with invalid data should return an error")
+	}
+}
+
+func streamChunks(t testing.TB, payloads [][]byte) [][]byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w := zlib.NewWriter(&buf)
+	defer w.Close()
+	chunks := make([][]byte, len(payloads))
+	for i, payload := range payloads {
+		if _, err := w.Write(payload); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Flush(); err != nil {
+			t.Fatal(err)
+		}
+		chunks[i] = bytes.Clone(buf.Bytes())
+		buf.Reset()
+	}
+	return chunks
+}
+
+func TestStreamRetainsDictionaryAcrossSplitFlush(t *testing.T) {
+	large := make([]byte, historySize+1024)
+	_, _ = rand.New(rand.NewSource(1)).Read(large)
+	repeat := bytes.Clone(large[len(large)-16*1024:])
+	payloads := [][]byte{large, repeat, nil, repeat, []byte("final payload")}
+	chunks := streamChunks(t, payloads)
+	if len(chunks[1]) >= len(repeat)/2 {
+		t.Fatal("second payload did not use the preceding payload as a dictionary")
+	}
+	s := NewStream()
+	for i, chunk := range chunks {
+		split := len(chunk) - 2
+		if data, err := s.Write(chunk[:split]); data != nil || err != nil {
+			t.Fatalf("chunk %d before flush: %d bytes, error %v", i, len(data), err)
+		}
+		data, err := s.Write(chunk[split:])
+		if err != nil || !bytes.Equal(data, payloads[i]) {
+			t.Fatalf("chunk %d after flush: %d bytes, error %v", i, len(data), err)
+		}
+		// The returned slice belongs to the caller.
+		clear(data)
+	}
+}
+
+func BenchmarkStream(b *testing.B) {
+	payload := make([]byte, 1024)
+	_, _ = rand.New(rand.NewSource(1)).Read(payload)
+	payloads := make([][]byte, 128)
+	for i := range payloads {
+		payloads[i] = payload
+	}
+	chunks := streamChunks(b, payloads)
+	b.SetBytes(int64(len(payload) * len(chunks)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s := NewStream()
+		for _, chunk := range chunks {
+			if data, err := s.Write(chunk); err != nil || len(data) != len(payload) {
+				b.Fatalf("got %d bytes, error %v", len(data), err)
+			}
+		}
 	}
 }

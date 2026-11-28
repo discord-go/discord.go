@@ -47,6 +47,24 @@ func TestServerRejectsInvalidSignature(t *testing.T) {
 	}
 }
 
+func TestServerRejectsOversizedBody(t *testing.T) {
+	srv := NewServer("", func(i *Interaction) *InteractionResponse {
+		t.Fatal("handler was called for an oversized body")
+		return nil
+	})
+	srv.now = func() time.Time { return time.Unix(1700000000, 0) }
+	// Hide the length from httptest to exercise the streaming body limit.
+	body := io.NopCloser(strings.NewReader(strings.Repeat(" ", maxInteractionBodyBytes+1)))
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set("X-Signature-Timestamp", "1700000000")
+	req.Header.Set("X-Signature-Ed25519", strings.Repeat("0", 2*ed25519.SignatureSize))
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413, got %d", w.Code)
+	}
+}
+
 func TestServerHandlesPing(t *testing.T) {
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -194,9 +212,4 @@ func TestServerRejectsReplay(t *testing.T) {
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for replay, got %d", w.Code)
 	}
-
-	// Ensure the body was fully consumed so the connection can be reused.
-	resp := w.Result()
-	_, _ = io.ReadAll(resp.Body)
-	_ = resp.Body.Close()
 }
