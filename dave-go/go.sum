@@ -2,7 +2,7 @@ github.com/discord-go/discord.go/dave-go/godave v0.2.1 h1:qE2exgjDEgPrfPnIcDdOyu
 github.com/discord-go/discord.go/dave-go/godave v0.2.1/go.mod h1:x0zcDORmOnrvcNSyvPt5AvQ5jDqflqhocnFI+5QtCwE=
 github.com/discord-go/discord.go/dave-go/mls-go v0.2.3 h1:WLLiZgvLm2Nb2wPg7kLzFf6kBnqNA9lfXApQa3Urs30=
 github.com/discord-go/discord.go/dave-go/mls-go v0.2.3/go.mod h1:kkMKXzmD+JBCXwheyvjvV9QzOcWuQSI8YlL4h0WvaJc=
-golang.org/x/crypto v0.31.0 h1:ihbySMvVjLAeSH1IbfcRTkD/iNscyz8rGzjF/E5hV6U=
-golang.org/x/crypto v0.31.0/go.mod h1:kDsLvtWBEx7MV9tJOj9bnXsPbxwJQ6csT/x4KIN4Ssk=
-golang.org/x/sys v0.28.0 h1:Fksou7UEQUWlKvIdsqzJmUmCX3cZuD2+P3XyyzwMhlA=
-golang.org/x/sys v0.28.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+golang.org/x/crypto v0.59.0 h1:xS2jhqYbzNrpvkWP2YTDf4TJwBy3ykR03i8vFDxEc7c=
+golang.org/x/crypto v0.59.0/go.mod h1:veDyUwATGs3c+vN3VfTbzViMGXeTBk3WyhBOkn+F/4U=
+golang.org/x/sys v0.50.0 h1:dkKZEFTEKaLr1sjhs0WiKqoi8Jj5nHbS3Njmx1UoMJs=
+golang.org/x/sys v0.50.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=

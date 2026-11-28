@@ -5,4 +5,6 @@ github.com/discord-go/discord.go/dave-go/godave v0.2.0/go.mod h1:x0zcDORmOnrvcNS
 github.com/discord-go/discord.go/dave-go/mls-go v0.2.0/go.mod h1:kkMKXzmD+JBCXwheyvjvV9QzOcWuQSI8YlL4h0WvaJc=
 golang.org/x/net v0.21.0/go.mod h1:bIjVDfnllIU7BJ2DNgfnXvpSvtn8VRwhlsaeUTyUS44=
 golang.org/x/term v0.27.0/go.mod h1:iMsnZpn0cago0GOrHO2+Y7u7JPn5AylBrcoWkElMTSM=
+golang.org/x/term v0.48.0/go.mod h1:BRDLHCZr2SUjIeBHHpRyQeC9xzSAVbzY2rvKgafnHf4=
 golang.org/x/text v0.21.0/go.mod h1:4IBbMaMmOPCJ8SecivzSH54+73PCFmPWxNTLm+vZkEQ=
+golang.org/x/text v0.44.0/go.mod h1:S4FR1waQ9LbjQTls97SyRjDaUUVkaM+cXwwuG/G+MwY=
