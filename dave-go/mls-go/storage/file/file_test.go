@@ -208,6 +208,29 @@ func TestStoreDeleteGroupState(t *testing.T) {
 	}
 }
 
+func TestStoreReplacesGroupStateOnDisk(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+	ctx := context.Background()
+	groupID, err := group.NewGroupIDRandom()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []string{"original state", "updated"} {
+		if err := store.SaveGroupState(ctx, groupID, []byte(state)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reopened, err := NewStore(store.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := reopened.LoadGroupState(ctx, groupID)
+	if err != nil || string(state) != "updated" {
+		t.Fatalf("reopened state = %q, error = %v", state, err)
+	}
+}
+
 func TestStoreHonorsCanceledContext(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t)

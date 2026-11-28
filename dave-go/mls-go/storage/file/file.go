@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	"github.com/discord-go/discord.go/dave-go/mls-go/ciphersuite"
@@ -33,6 +34,8 @@ var (
 // Group state and leaf encryption keys are stored as files and synced to disk.
 // Signature private keys remain in memory because the ciphersuite package does
 // not expose a public marshal/unmarshal API for them yet.
+// On Windows, the files inherit access permissions from the store directory.
+// Choose a directory whose ACL limits access to trusted accounts.
 type Store struct {
 	mu      sync.RWMutex
 	dir     string
@@ -238,6 +241,11 @@ func writeFileAtomic(path string, data []byte) error {
 }
 
 func syncDir(dir string) error {
+	// Windows does not support flushing a directory handle. The temporary
+	// file itself is flushed before replacement on every platform.
+	if runtime.GOOS == "windows" {
+		return nil
+	}
 	f, err := os.Open(dir) //nolint:gosec // dir is constructed from the library's own base directory, not user input
 	if err != nil {
 		return fmt.Errorf("opening directory for sync: %w", err)

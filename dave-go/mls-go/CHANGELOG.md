@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.4] - 2026-11-28
+
+### Fixed
+
+- Complete file-backed group state and leaf key writes on Windows after
+  flushing and replacing the files. Add a regression test for reopening a
+  store after replacing group state.
+
 ## [v0.2.3] - 2026-11-27
 
 ### Security
